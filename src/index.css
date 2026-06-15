@@ -1,12 +1,53 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-}
+@import "tailwindcss";
 
-* {
-  box-sizing: border-box;
+@theme {
+  --color-main-100: #edf2fb;
+  --color-main-200: #e2eafc;
+  --color-main-300: #d7e3fc;
+  --color-main-400: #ccdbfd;
+  --color-main-500: #c1d3fe;
+  --color-main-600: #b6ccfe;
+  --color-main-700: #abc4ff;
+
+  --color-detail-100: #fffff0;
+  --color-detail-200: #fffdd0;
+  --color-detail-300: #f3e5ab;
+  --color-detail-400: #faf9f6;
+  --color-detail-500: #f5f5dc;
 }
 
 body {
   margin: 0;
+}
+
+@keyframes bookmark-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  width: max-content;
+  animation: bookmark-marquee 6s linear infinite;
+}
+
+.bookmark-tab {
+  clip-path: polygon(
+    48px 0%,
+    100% 0%,
+    100% 100%,
+    48px 100%,
+    40.59px 98.23%,
+    34.34px 92.93%,
+    5.66px 57.07%,
+    3.54px 53.53%,
+    2.83px 50%,
+    3.54px 46.47%,
+    5.66px 42.93%,
+    34.34px 7.07%,
+    40.59px 1.77%
+  );
 }

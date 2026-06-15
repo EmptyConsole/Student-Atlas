@@ -1,0 +1,40 @@
+---
+description: Internal project context for developers and AI (design tokens, decisions, notes)
+alwaysApply: true
+---
+
+# Project Context
+
+Internal notes for developers and AI. Not part of the user-facing app.
+
+## Color Palette
+
+### Main (blue scale, light to saturated)
+
+| Token    | Hex       |
+| -------- | --------- |
+| main-100 | `#edf2fb` |
+| main-200 | `#e2eafc` |
+| main-300 | `#d7e3fc` |
+| main-400 | `#ccdbfd` |
+| main-500 | `#c1d3fe` |
+| main-600 | `#b6ccfe` |
+| main-700 | `#abc4ff` |
+
+### Other / Sub Detail (warm neutrals and creams)
+
+| Token      | Hex       |
+| ---------- | --------- |
+| detail-100 | `#fffff0` |
+| detail-200 | `#fffdd0` |
+| detail-300 | `#f3e5ab` |
+| detail-400 | `#faf9f6` |
+| detail-500 | `#f5f5dc` |
+
+## Typography
+
+The site's main font is `font-sans` (Tailwind utility class).
+
+## Project Notes
+
+_Add internal notes here as they come up._
