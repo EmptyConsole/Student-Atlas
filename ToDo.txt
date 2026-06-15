@@ -1,0 +1,59 @@
+Tab System
+    Courses
+    Sign Up
+
+Header
+    school logo
+    courses/signup toggle
+    profile/sign in
+
+Courses page(main page)
+    Sidebar
+        subject autoscroll bookmark
+        bookmarked classes per subject
+    Main
+        searchbar at top
+        filter popup to the right
+            grade yes or no
+            prereq/coreq yes or no
+            year long yes
+            fall yes
+            spring yes
+        class cards minimized
+            name
+            <50 word description
+            grade requirement
+            prereq requirement
+            coreq requirement
+            bookmarked
+        class card maximized
+            name
+            <300 word description
+            teacher
+            grade requirement
+            prereq requirement
+            coreq requirement
+            bookmarked
+
+Class Sign Up page
+    middle
+        bookmarked classes are shown
+        user can drag classes into preferred order
+        user can click submit button
+            user is emailed final decision
+
+Profile pop up
+    name
+    email
+    grade taking
+    prereqs taken
+    coreqs taking
+
+
+
+QUESTIONS
+
+What happens when a class is filtered out?
+    grayed out
+    light up what requirement u have
+    bottom of the subject
