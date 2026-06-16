@@ -86,12 +86,12 @@ function SubjectBookmark({
       >
         <MarqueeText
           text={label}
-          active={isActive}
+          active={isActive || hovered}
           className="text-lg leading-tight font-bold"
         />
         <MarqueeText
           text={description}
-          active={isActive}
+          active={isActive || hovered}
           className="text-xs leading-snug font-medium opacity-70"
         />
       </span>

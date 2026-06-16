@@ -2,25 +2,31 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGroup } from "motion/react";
 import { Search } from "lucide-react";
 import { SUBJECTS } from "../data/subjects";
-import { COURSES, matchesSearch, type Filters } from "../data/courses";
+import { COURSES, DEFAULT_FILTERS, matchesSearch, type Filters } from "../data/courses";
+import type { UserProfile } from "../hooks/useProfile";
 import FilterPanel from "./FilterPanel";
 import SubjectSection from "./SubjectSection";
 
 type CourseBrowserProps = {
+  profile: UserProfile;
   bookmarks: Set<string>;
   onToggleBookmark: (id: string) => void;
+  onUpdateCourseNote: (courseId: string, note: string) => void;
   activeSubject: string;
   onActiveSubjectChange: (name: string) => void;
 };
 
 function CourseBrowser({
+  profile,
   bookmarks,
   onToggleBookmark,
+  onUpdateCourseNote,
   activeSubject,
   onActiveSubjectChange,
 }: CourseBrowserProps) {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Filters>({
+    ...DEFAULT_FILTERS,
     grades: new Set(),
     terms: new Set(),
   });
@@ -100,10 +106,13 @@ function CourseBrowser({
                 subject={subject}
                 courses={coursesBySubject.get(subject.name) ?? []}
                 filters={filters}
+                completedCourses={profile.completedCourses}
                 expandedId={expandedId}
                 bookmarks={bookmarks}
+                courseNotes={profile.courseNotes}
                 onToggleExpand={toggleExpand}
                 onToggleBookmark={onToggleBookmark}
+                onUpdateCourseNote={onUpdateCourseNote}
               />
             ))}
 

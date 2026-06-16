@@ -1,30 +1,41 @@
 import { AnimatePresence } from "motion/react";
 import type { Subject } from "../data/subjects";
-import { matchesFilters, type Course, type Filters } from "../data/courses";
+import type { CourseCompletion } from "../hooks/useProfile";
+import {
+  matchesFilters,
+  type Course,
+  type Filters,
+} from "../data/courses";
 import CourseCard from "./CourseCard";
 
 type SubjectSectionProps = {
   subject: Subject;
   courses: Course[];
   filters: Filters;
+  completedCourses: Record<string, CourseCompletion | null>;
   expandedId: string | null;
   bookmarks: Set<string>;
+  courseNotes: Record<string, string>;
   onToggleExpand: (id: string) => void;
   onToggleBookmark: (id: string) => void;
+  onUpdateCourseNote: (courseId: string, note: string) => void;
 };
 
 function SubjectSection({
   subject,
   courses,
   filters,
+  completedCourses,
   expandedId,
   bookmarks,
+  courseNotes,
   onToggleExpand,
   onToggleBookmark,
+  onUpdateCourseNote,
 }: SubjectSectionProps) {
   const decorated = courses.map((course) => ({
     course,
-    passes: matchesFilters(course, filters),
+    passes: matchesFilters(course, filters, completedCourses),
   }));
 
   // Matching courses keep their order on top; filtered-out ones sink to the bottom.
@@ -65,8 +76,10 @@ function SubjectSection({
               dimmed={!passes}
               expanded={expandedId === course.id}
               bookmarked={bookmarks.has(course.id)}
+              note={courseNotes[course.id] ?? ""}
               onToggleExpand={() => onToggleExpand(course.id)}
               onToggleBookmark={() => onToggleBookmark(course.id)}
+              onNoteChange={(note) => onUpdateCourseNote(course.id, note)}
             />
           ))}
         </AnimatePresence>

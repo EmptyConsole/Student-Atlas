@@ -6,6 +6,7 @@ STILL DOING
 
     Header
         courses/signup toggle
+        Profile Use
 
     Class Sign Up page
         middle
@@ -13,6 +14,7 @@ STILL DOING
             user can drag classes into preferred order
             user can click submit button
                 user is emailed final decision
+            class filter prereq
 
     Profile pop up
         name
@@ -60,3 +62,6 @@ DONE
                 grayed out
                 light up what requirement u have
                 bottom of the subject
+
+Profile Creation steps
+    

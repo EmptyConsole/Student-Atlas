@@ -2,11 +2,17 @@ import { useState } from "react";
 import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import CourseBrowser from "./components/CourseBrowser";
+import ProfilePage from "./components/ProfilePage";
+import RegisterPage from "./components/RegisterPage";
+import { useProfile } from "./hooks/useProfile";
 import { SUBJECTS } from "./data/subjects";
+import type { AppView } from "./types/app";
 
 function App() {
+  const [activeView, setActiveView] = useState<AppView>("courses");
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
   const [activeSubject, setActiveSubject] = useState<string>(SUBJECTS[0].name);
+  const { profile, updateProfile, updateCourseNote, signOut } = useProfile();
 
   const toggleBookmark = (id: string) => {
     setBookmarks((prev) => {
@@ -19,21 +25,38 @@ function App() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden font-sans">
-      <Header />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar
-          bookmarks={bookmarks}
-          onToggleBookmark={toggleBookmark}
-          activeSubject={activeSubject}
-          onSelectSubject={setActiveSubject}
+      <Header activeView={activeView} onNavigate={setActiveView} />
+      {activeView === "courses" && (
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar
+            bookmarks={bookmarks}
+            onToggleBookmark={toggleBookmark}
+            activeSubject={activeSubject}
+            onSelectSubject={setActiveSubject}
+          />
+          <CourseBrowser
+            profile={profile}
+            bookmarks={bookmarks}
+            onToggleBookmark={toggleBookmark}
+            onUpdateCourseNote={updateCourseNote}
+            activeSubject={activeSubject}
+            onActiveSubjectChange={setActiveSubject}
+          />
+        </div>
+      )}
+      {activeView === "profile" && (
+        <ProfilePage
+          profile={profile}
+          onChange={updateProfile}
+          onSignOut={() => {
+            signOut();
+            setActiveView("courses");
+          }}
         />
-        <CourseBrowser
-          bookmarks={bookmarks}
-          onToggleBookmark={toggleBookmark}
-          activeSubject={activeSubject}
-          onActiveSubjectChange={setActiveSubject}
-        />
-      </div>
+      )}
+      {activeView === "register" && (
+        <RegisterPage profile={profile} bookmarks={bookmarks} />
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
 import {
+  DEFAULT_FILTERS,
   GRADE_COLORS,
   GRADES,
   TERM_COLORS,
@@ -21,23 +22,29 @@ function Chip({
   bg,
   fg,
   onClick,
+  boldOutlineWhenActive = false,
 }: {
   label: string;
   active: boolean;
   bg: string;
   fg: string;
   onClick: () => void;
+  boldOutlineWhenActive?: boolean;
 }) {
+  const showBoldOutline = active && boldOutlineWhenActive;
+
   return (
     <button
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className="cursor-pointer rounded-full border-2 px-3 py-1 text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2"
+      className={`cursor-pointer rounded-full px-3 py-1 text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 ${
+        showBoldOutline ? "border-4" : "border-2"
+      }`}
       style={{
         backgroundColor: active ? bg : "transparent",
         color: active ? fg : "#6b7280",
-        borderColor: bg,
+        borderColor: showBoldOutline ? fg : bg,
       }}
     >
       {label}
@@ -45,11 +52,18 @@ function Chip({
   );
 }
 
+const YES_CHIP = { bg: "#c5ecc0", fg: "#357a3a" };
+const NO_CHIP = { bg: "#f7c8d2", fg: "#a83f57" };
+
 function FilterPanel({ filters, onChange }: FilterPanelProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const activeCount = filters.grades.size + filters.terms.size;
+  const activeCount =
+    filters.grades.size +
+    filters.terms.size +
+    (filters.sortByPrerequisites ? 1 : 0) +
+    (filters.sortByCorequisites ? 1 : 0);
 
   useEffect(() => {
     if (!open) return;
@@ -79,7 +93,7 @@ function FilterPanel({ filters, onChange }: FilterPanelProps) {
     onChange({ ...filters, terms });
   };
 
-  const clearAll = () => onChange({ grades: new Set(), terms: new Set() });
+  const clearAll = () => onChange({ ...DEFAULT_FILTERS, grades: new Set(), terms: new Set() });
 
   return (
     <div ref={containerRef} className="relative shrink-0">
@@ -137,6 +151,56 @@ function FilterPanel({ filters, onChange }: FilterPanelProps) {
                 onClick={() => toggleTerm(term)}
               />
             ))}
+          </div>
+
+          <h4 className="mt-4 mb-3 text-sm font-bold text-gray-700">
+            Prerequisites
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            <Chip
+              label="Yes"
+              active={filters.sortByPrerequisites}
+              bg={YES_CHIP.bg}
+              fg={YES_CHIP.fg}
+              boldOutlineWhenActive
+              onClick={() =>
+                onChange({ ...filters, sortByPrerequisites: true })
+              }
+            />
+            <Chip
+              label="No"
+              active={!filters.sortByPrerequisites}
+              bg={NO_CHIP.bg}
+              fg={NO_CHIP.fg}
+              boldOutlineWhenActive
+              onClick={() =>
+                onChange({ ...filters, sortByPrerequisites: false })
+              }
+            />
+          </div>
+
+          <h4 className="mt-4 mb-3 text-sm font-bold text-gray-700">
+            Corequisites
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            <Chip
+              label="Yes"
+              active={filters.sortByCorequisites}
+              bg={YES_CHIP.bg}
+              fg={YES_CHIP.fg}
+              boldOutlineWhenActive
+              onClick={() => onChange({ ...filters, sortByCorequisites: true })}
+            />
+            <Chip
+              label="No"
+              active={!filters.sortByCorequisites}
+              bg={NO_CHIP.bg}
+              fg={NO_CHIP.fg}
+              boldOutlineWhenActive
+              onClick={() =>
+                onChange({ ...filters, sortByCorequisites: false })
+              }
+            />
           </div>
         </div>
       )}

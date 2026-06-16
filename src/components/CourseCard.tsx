@@ -14,8 +14,10 @@ type CourseCardProps = {
   dimmed: boolean;
   expanded: boolean;
   bookmarked: boolean;
+  note: string;
   onToggleExpand: () => void;
   onToggleBookmark: () => void;
+  onNoteChange: (note: string) => void;
 };
 
 function MetaBadge({
@@ -43,16 +45,20 @@ function CourseCard({
   dimmed,
   expanded,
   bookmarked,
+  note,
   onToggleExpand,
   onToggleBookmark,
+  onNoteChange,
 }: CourseCardProps) {
   const term = TERM_COLORS[course.term];
+  const hasNote = note.trim().length > 0;
 
   return (
     <motion.div
+      id={`course-${course.id}`}
       layout
       transition={{ type: "spring", stiffness: 350, damping: 32 }}
-      className={`overflow-hidden rounded-2xl border shadow-sm transition-opacity duration-300 ${
+      className={`scroll-mt-4 overflow-hidden rounded-2xl border shadow-sm transition-opacity duration-300 ${
         dimmed ? "opacity-45" : "opacity-100"
       }`}
       style={{
@@ -137,6 +143,15 @@ function CourseCard({
           {course.shortDescription}
         </p>
 
+        {!expanded && hasNote && (
+          <p className="mt-2 pl-7 text-sm leading-snug text-gray-700 italic">
+            <span className="font-semibold not-italic" style={{ color: subject.accent }}>
+              Note:{" "}
+            </span>
+            {note}
+          </p>
+        )}
+
         <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-7 sm:hidden">
           <MetaBadge
             label={formatGrades(course.grades)}
@@ -162,17 +177,17 @@ function CourseCard({
               {course.longDescription}
             </p>
 
-            {course.prerequisites.length > 0 && (
-              <p className="mt-3 text-sm text-gray-700">
-                <span
-                  className="font-semibold"
-                  style={{ color: subject.accent }}
-                >
-                  Prerequisites:{" "}
-                </span>
-                {course.prerequisites.join(", ")}
-              </p>
-            )}
+            <p className="mt-3 text-sm text-gray-700">
+              <span
+                className="font-semibold"
+                style={{ color: subject.accent }}
+              >
+                Prerequisites:{" "}
+              </span>
+              {course.prerequisites.length > 0
+                ? course.prerequisites.join(", ")
+                : "None"}
+            </p>
 
             <p className="mt-1 text-sm text-gray-700">
               <span className="font-semibold" style={{ color: subject.accent }}>
@@ -182,6 +197,44 @@ function CourseCard({
                 ? course.corequisites.join(", ")
                 : "None"}
             </p>
+
+            {course.teacher && (
+              <p className="mt-1 text-sm text-gray-700">
+                <span
+                  className="font-semibold"
+                  style={{ color: subject.accent }}
+                >
+                  Teacher:{" "}
+                </span>
+                {course.teacher}
+              </p>
+            )}
+
+            <div
+              className="mt-4"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              <label
+                htmlFor={`note-${course.id}`}
+                className="text-sm font-semibold"
+                style={{ color: subject.accent }}
+              >
+                Your note
+              </label>
+              <textarea
+                id={`note-${course.id}`}
+                value={note}
+                onChange={(e) => onNoteChange(e.target.value)}
+                placeholder="Add a personal note about this course..."
+                rows={3}
+                className="mt-1.5 w-full resize-y rounded-lg border bg-white/70 px-3 py-2 text-sm leading-relaxed text-gray-700 placeholder:text-gray-400 focus:outline-none focus-visible:ring-2"
+                style={{
+                  borderColor: subject.color,
+                  outlineColor: subject.accent,
+                }}
+              />
+            </div>
           </motion.div>
         )}
       </div>
