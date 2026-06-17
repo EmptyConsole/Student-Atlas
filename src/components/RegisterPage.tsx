@@ -3,10 +3,12 @@ import { COURSES } from "../data/courses";
 import { SUBJECTS } from "../data/subjects";
 import type { UserProfile } from "../hooks/useProfile";
 import {
-  applyColumnReorder,
-  buildInitialOrders,
-  isYearLong,
-  mergeOrderWithBookmarks,
+  applyReorder,
+  buildInitialModel,
+  courseIds,
+  deriveColumns,
+  isLinked,
+  mergeModelWithBookmarks,
   MIN_RANKED_COURSES,
   validateRanking,
 } from "../utils/courseRanking";
@@ -21,12 +23,7 @@ type RegisterPageProps = {
 
 function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
   const grade = profile.grade ?? 9;
-  const [initialOrders] = useState(() =>
-    buildInitialOrders(grade, bookmarks),
-  );
-
-  const [orders, setOrders] = useState(initialOrders);
-  const { fallOrder, springOrder } = orders;
+  const [model, setModel] = useState(() => buildInitialModel(grade, bookmarks));
 
   // Reconcile the ranked lists when bookmarks or grade change, preserving the
   // user's existing order for courses that remain valid.
@@ -35,10 +32,10 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
   if (bookmarks !== prevBookmarks || grade !== prevGrade) {
     setPrevBookmarks(bookmarks);
     setPrevGrade(grade);
-    setOrders((prev) =>
-      mergeOrderWithBookmarks(grade, bookmarks, prev.fallOrder, prev.springOrder),
-    );
+    setModel((prev) => mergeModelWithBookmarks(grade, bookmarks, prev));
   }
+
+  const { fallRows, springRows } = useMemo(() => deriveColumns(model), [model]);
   const [appealsNotes, setAppealsNotes] = useState("");
   const [hoveredYearLongId, setHoveredYearLongId] = useState<string | null>(
     null,
@@ -61,23 +58,15 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
   );
 
   const { valid, fallCount, springCount } = validateRanking(
-    fallOrder,
-    springOrder,
+    fallRows,
+    springRows,
   );
 
   const handleReorder = useCallback(
     (column: "fall" | "spring", newOrder: string[]) => {
-      setOrders((prev) =>
-        applyColumnReorder(
-          prev.fallOrder,
-          prev.springOrder,
-          column,
-          newOrder,
-          courseById,
-        ),
-      );
+      setModel((prev) => applyReorder(prev, column, newOrder));
     },
-    [courseById],
+    [],
   );
 
   const registerRowRef = useCallback(
@@ -108,8 +97,8 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
   const handleConfirmSubmit = () => {
     const payload = {
       grade,
-      fallOrder,
-      springOrder,
+      fallOrder: courseIds(fallRows),
+      springOrder: courseIds(springRows),
       appealsNotes,
       profile,
     };
@@ -148,7 +137,7 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
           <RankingColumn
             termLabel="Fall"
             column="fall"
-            order={fallOrder}
+            rows={fallRows}
             courseById={courseById}
             subjectByName={subjectByName}
             bookmarks={bookmarks}
@@ -159,7 +148,7 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
           <RankingColumn
             termLabel="Spring"
             column="spring"
-            order={springOrder}
+            rows={springRows}
             courseById={courseById}
             subjectByName={subjectByName}
             bookmarks={bookmarks}
@@ -170,7 +159,7 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
 
           {hoveredYearLongId &&
             hoveredCourse &&
-            isYearLong(hoveredCourse.term) && (
+            isLinked(hoveredCourse.term) && (
               <YearLongConnector
                 hoveredCourseId={hoveredYearLongId}
                 fallRowRef={hoveredRefs?.fall ?? null}

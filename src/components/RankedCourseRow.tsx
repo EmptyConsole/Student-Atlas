@@ -9,7 +9,7 @@ type RankedCourseRowProps = {
   subject: Subject;
   rank: number;
   bookmarked: boolean;
-  isYearLong: boolean;
+  linked: boolean;
   dragControls: DragControls;
   onHoverStart: () => void;
   onHoverEnd: () => void;
@@ -22,14 +22,14 @@ const RankedCourseRow = forwardRef<HTMLDivElement, RankedCourseRowProps>(
       subject,
       rank,
       bookmarked,
-      isYearLong,
+      linked,
       dragControls,
       onHoverStart,
       onHoverEnd,
     },
     ref,
   ) {
-    const termBadge = isYearLong ? TERM_COLORS["all-year"] : TERM_COLORS[course.term];
+    const termBadge = linked ? TERM_COLORS["all-year"] : TERM_COLORS[course.term];
 
     return (
       <motion.div
@@ -68,7 +68,7 @@ const RankedCourseRow = forwardRef<HTMLDivElement, RankedCourseRowProps>(
           >
             {course.title}
           </p>
-          {isYearLong && (
+          {linked && (
             <span
               className="mt-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
               style={{
