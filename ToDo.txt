@@ -1,5 +1,11 @@
 STILL DOING
 
+    Core Concepts
+        security - sell it that its not a problem
+        public opinion - do ppl dislike the old system
+        is the new system more effective?
+        can it be easily integrated?
+
     Tab System
         Courses
         Sign Up
@@ -24,6 +30,9 @@ STILL DOING
         prereqs taken
         coreqs taking
 
+
+BEFORE PUBLICATION
+    Tighten security on supabase api keys and things right now it allows all
 
 DONE
 
