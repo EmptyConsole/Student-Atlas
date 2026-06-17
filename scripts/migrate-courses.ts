@@ -1,9 +1,15 @@
+import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-import { COURSES, SUBJECTS } from "../src/data/courses.ts";
+
+import { COURSES } from "../src/data/courses.ts";
 import type { Database } from "../src/types/database.ts";
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+dotenv.config({
+  path: ".env.local",
+});
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY!;
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error("Missing Supabase environment variables");
