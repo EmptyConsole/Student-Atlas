@@ -39,8 +39,8 @@ export function isSpringEligible(term: Term): boolean {
   return term === "spring" || term === "both" || term === "all-year";
 }
 
-export function coursesForGrade(grade: number): Course[] {
-  return COURSES.filter((course) => course.grades.includes(grade));
+export function bookmarkedCourses(bookmarks: Set<string>): Course[] {
+  return COURSES.filter((course) => bookmarks.has(course.id));
 }
 
 function sortByTitle(courses: Course[]): Course[] {
@@ -90,13 +90,8 @@ function buildModelFromColumns(
   };
 }
 
-export function buildInitialModel(
-  grade: number,
-  bookmarks: Set<string>,
-): RankingModel {
-  const eligible = coursesForGrade(grade).filter((course) =>
-    bookmarks.has(course.id),
-  );
+export function buildInitialModel(bookmarks: Set<string>): RankingModel {
+  const eligible = bookmarkedCourses(bookmarks);
   const anchorSet = new Set(
     eligible.filter((course) => isLinked(course.term)).map((course) => course.id),
   );
@@ -112,18 +107,15 @@ export function buildInitialModel(
 }
 
 /**
- * Reconcile an existing model with the current bookmarks/grade: keep the
- * relative order of still-valid courses, drop ones no longer bookmarked or
- * eligible, and append newly bookmarked courses alphabetically.
+ * Reconcile an existing model with the current bookmarks: keep the relative
+ * order of still-bookmarked courses, drop unbookmarked ones, and append newly
+ * bookmarked courses alphabetically.
  */
 export function mergeModelWithBookmarks(
-  grade: number,
   bookmarks: Set<string>,
   prevModel: RankingModel,
 ): RankingModel {
-  const eligible = coursesForGrade(grade).filter((course) =>
-    bookmarks.has(course.id),
-  );
+  const eligible = bookmarkedCourses(bookmarks);
   const anchorSet = new Set(
     eligible.filter((course) => isLinked(course.term)).map((course) => course.id),
   );

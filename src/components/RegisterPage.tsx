@@ -23,16 +23,14 @@ type RegisterPageProps = {
 
 function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
   const grade = profile.grade ?? 9;
-  const [model, setModel] = useState(() => buildInitialModel(grade, bookmarks));
+  const [model, setModel] = useState(() => buildInitialModel(bookmarks));
 
-  // Reconcile the ranked lists when bookmarks or grade change, preserving the
-  // user's existing order for courses that remain valid.
+  // Reconcile the ranked lists when bookmarks change, preserving the user's
+  // existing order for courses that remain bookmarked.
   const [prevBookmarks, setPrevBookmarks] = useState(bookmarks);
-  const [prevGrade, setPrevGrade] = useState(grade);
-  if (bookmarks !== prevBookmarks || grade !== prevGrade) {
+  if (bookmarks !== prevBookmarks) {
     setPrevBookmarks(bookmarks);
-    setPrevGrade(grade);
-    setModel((prev) => mergeModelWithBookmarks(grade, bookmarks, prev));
+    setModel((prev) => mergeModelWithBookmarks(bookmarks, prev));
   }
 
   const { fallRows, springRows } = useMemo(() => deriveColumns(model), [model]);
