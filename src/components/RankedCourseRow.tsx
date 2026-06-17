@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
-import { motion } from "motion/react";
-import { Bookmark, ChevronDown, ChevronUp } from "lucide-react";
+import { motion, type DragControls } from "motion/react";
+import { Bookmark, GripVertical, Link2 } from "lucide-react";
 import type { Subject } from "../data/subjects";
 import { TERM_COLORS, TERM_LABELS, type Course } from "../data/courses";
 
@@ -10,11 +10,7 @@ type RankedCourseRowProps = {
   rank: number;
   bookmarked: boolean;
   isYearLong: boolean;
-  layoutId: string;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
+  dragControls: DragControls;
   onHoverStart: () => void;
   onHoverEnd: () => void;
 };
@@ -27,11 +23,7 @@ const RankedCourseRow = forwardRef<HTMLDivElement, RankedCourseRowProps>(
       rank,
       bookmarked,
       isYearLong,
-      layoutId,
-      canMoveUp,
-      canMoveDown,
-      onMoveUp,
-      onMoveDown,
+      dragControls,
       onHoverStart,
       onHoverEnd,
     },
@@ -42,12 +34,8 @@ const RankedCourseRow = forwardRef<HTMLDivElement, RankedCourseRowProps>(
     return (
       <motion.div
         ref={ref}
-        layout
-        layoutId={layoutId}
         data-course-id={course.id}
-        transition={{ type: "spring", stiffness: 350, damping: 32 }}
         whileHover={{ scale: 1.015, y: -1 }}
-        whileTap={{ scale: 0.98 }}
         onMouseEnter={onHoverStart}
         onMouseLeave={onHoverEnd}
         className="flex items-center gap-2 rounded-xl border px-3 py-2.5 shadow-sm"
@@ -82,37 +70,26 @@ const RankedCourseRow = forwardRef<HTMLDivElement, RankedCourseRowProps>(
           </p>
           {isYearLong && (
             <span
-              className="mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              className="mt-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
               style={{
                 backgroundColor: termBadge.bg,
                 color: termBadge.fg,
               }}
             >
+              <Link2 className="h-3 w-3" aria-hidden="true" />
               {TERM_LABELS[course.term]}
             </span>
           )}
         </div>
 
-        <div className="flex shrink-0 flex-col gap-0.5">
-          <button
-            type="button"
-            aria-label={`Move ${course.title} up`}
-            disabled={!canMoveUp}
-            onClick={onMoveUp}
-            className="cursor-pointer rounded-md p-0.5 text-gray-500 transition-all duration-150 hover:scale-110 hover:bg-white/60 hover:text-gray-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            <ChevronUp className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label={`Move ${course.title} down`}
-            disabled={!canMoveDown}
-            onClick={onMoveDown}
-            className="cursor-pointer rounded-md p-0.5 text-gray-500 transition-all duration-150 hover:scale-110 hover:bg-white/60 hover:text-gray-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            <ChevronDown className="h-4 w-4" />
-          </button>
-        </div>
+        <button
+          type="button"
+          aria-label={`Drag to reorder ${course.title}`}
+          onPointerDown={(e) => dragControls.start(e)}
+          className="shrink-0 cursor-grab touch-none rounded-md p-1 text-gray-400 transition-colors duration-150 hover:bg-white/60 hover:text-gray-700 active:cursor-grabbing"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
       </motion.div>
     );
   },

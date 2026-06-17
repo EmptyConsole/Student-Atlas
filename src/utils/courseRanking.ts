@@ -22,35 +22,42 @@ function sortByTitle(courses: Course[]): Course[] {
   return [...courses].sort((a, b) => a.title.localeCompare(b.title));
 }
 
-/** Align spring indices so year-long courses share the same rank as in fall. */
-function syncSpringToFallRanks(
-  fallOrder: string[],
-  springOrder: string[],
+/**
+ * Align the secondary column so year-long courses share the same rank as in
+ * the primary column. Used to keep Fall and Spring linked in either direction.
+ */
+export function syncLinkedColumn(
+  primaryOrder: string[],
+  secondaryOrder: string[],
   courseById: Map<string, Course>,
 ): string[] {
-  const spring = [...springOrder];
+  const secondary = [...secondaryOrder];
 
-  for (const id of fallOrder) {
+  primaryOrder.forEach((id, primaryIdx) => {
     const course = courseById.get(id);
-    if (!course || !isYearLong(course.term)) continue;
+    if (!course || !isYearLong(course.term)) return;
 
-    const fallIdx = fallOrder.indexOf(id);
-    const springIdx = spring.indexOf(id);
-    if (springIdx === -1 || springIdx === fallIdx) continue;
+    const secondaryIdx = secondary.indexOf(id);
+    if (secondaryIdx === -1 || secondaryIdx === primaryIdx) return;
 
-    spring.splice(springIdx, 1);
-    spring.splice(fallIdx, 0, id);
-  }
+    secondary.splice(secondaryIdx, 1);
+    secondary.splice(primaryIdx, 0, id);
+  });
 
-  return spring;
+  return secondary;
 }
 
-export function buildInitialOrders(grade: number): {
+export function buildInitialOrders(
+  grade: number,
+  bookmarks: Set<string>,
+): {
   fallOrder: string[];
   springOrder: string[];
 } {
   const courseById = new Map(COURSES.map((course) => [course.id, course]));
-  const eligible = coursesForGrade(grade);
+  const eligible = coursesForGrade(grade).filter((course) =>
+    bookmarks.has(course.id),
+  );
 
   const fallOrder = sortByTitle(
     eligible.filter((course) => isFallEligible(course.term)),
@@ -62,56 +69,76 @@ export function buildInitialOrders(grade: number): {
 
   return {
     fallOrder,
-    springOrder: syncSpringToFallRanks(fallOrder, springOrder, courseById),
+    springOrder: syncLinkedColumn(fallOrder, springOrder, courseById),
   };
 }
 
-export function moveInOrder(
-  order: string[],
-  index: number,
-  dir: -1 | 1,
-): string[] {
-  const newIndex = index + dir;
-  if (newIndex < 0 || newIndex >= order.length) return order;
+/**
+ * Reconcile an existing ranked order with the current bookmarks/grade:
+ * keep the relative order of still-valid courses, drop ones no longer
+ * bookmarked or eligible, and append newly bookmarked courses alphabetically.
+ */
+export function mergeOrderWithBookmarks(
+  grade: number,
+  bookmarks: Set<string>,
+  prevFallOrder: string[],
+  prevSpringOrder: string[],
+): { fallOrder: string[]; springOrder: string[] } {
+  const courseById = new Map(COURSES.map((course) => [course.id, course]));
+  const eligible = coursesForGrade(grade).filter((course) =>
+    bookmarks.has(course.id),
+  );
 
-  const next = [...order];
-  [next[index], next[newIndex]] = [next[newIndex], next[index]];
-  return next;
+  const mergeColumn = (
+    prevOrder: string[],
+    columnCourses: Course[],
+  ): string[] => {
+    const eligibleIds = new Set(columnCourses.map((course) => course.id));
+    const kept = prevOrder.filter((id) => eligibleIds.has(id));
+    const keptSet = new Set(kept);
+    const added = sortByTitle(
+      columnCourses.filter((course) => !keptSet.has(course.id)),
+    ).map((course) => course.id);
+    return [...kept, ...added];
+  };
+
+  const fallOrder = mergeColumn(
+    prevFallOrder,
+    eligible.filter((course) => isFallEligible(course.term)),
+  );
+  const springOrder = mergeColumn(
+    prevSpringOrder,
+    eligible.filter((course) => isSpringEligible(course.term)),
+  );
+
+  return {
+    fallOrder,
+    springOrder: syncLinkedColumn(fallOrder, springOrder, courseById),
+  };
 }
 
-export function moveCourseLinked(
+/**
+ * Apply a drag reorder to one column and re-sync the other so year-long
+ * courses stay locked at the same rank in both columns.
+ */
+export function applyColumnReorder(
   fallOrder: string[],
   springOrder: string[],
   column: "fall" | "spring",
-  index: number,
-  dir: -1 | 1,
+  newOrder: string[],
   courseById: Map<string, Course>,
 ): { fallOrder: string[]; springOrder: string[] } {
-  const activeOrder = column === "fall" ? fallOrder : springOrder;
-  const courseId = activeOrder[index];
-  const course = courseById.get(courseId);
-  if (!course) return { fallOrder, springOrder };
-
-  const nextFall =
-    column === "fall" ? moveInOrder(fallOrder, index, dir) : fallOrder;
-  const nextSpring =
-    column === "spring" ? moveInOrder(springOrder, index, dir) : springOrder;
-
-  if (!isYearLong(course.term)) {
-    return { fallOrder: nextFall, springOrder: nextSpring };
+  if (column === "fall") {
+    return {
+      fallOrder: newOrder,
+      springOrder: syncLinkedColumn(newOrder, springOrder, courseById),
+    };
   }
 
-  const otherColumn = column === "fall" ? "spring" : "fall";
-  const otherOrder = otherColumn === "fall" ? nextFall : nextSpring;
-  const otherIndex = otherOrder.indexOf(courseId);
-  if (otherIndex === -1) {
-    return { fallOrder: nextFall, springOrder: nextSpring };
-  }
-
-  const syncedOther = moveInOrder(otherOrder, otherIndex, dir);
-  return otherColumn === "fall"
-    ? { fallOrder: syncedOther, springOrder: nextSpring }
-    : { fallOrder: nextFall, springOrder: syncedOther };
+  return {
+    fallOrder: syncLinkedColumn(newOrder, fallOrder, courseById),
+    springOrder: newOrder,
+  };
 }
 
 export function validateRanking(

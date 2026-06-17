@@ -1,8 +1,8 @@
 import { useRef } from "react";
-import { LayoutGroup } from "motion/react";
+import { Reorder, useDragControls } from "motion/react";
 import type { Subject } from "../data/subjects";
 import type { Course } from "../data/courses";
-import { isYearLong } from "../utils/courseRanking";
+import { isYearLong, MIN_RANKED_COURSES } from "../utils/courseRanking";
 import RankedCourseRow from "./RankedCourseRow";
 
 type RankingColumnProps = {
@@ -12,7 +12,7 @@ type RankingColumnProps = {
   courseById: Map<string, Course>;
   subjectByName: Map<string, Subject>;
   bookmarks: Set<string>;
-  onMove: (column: "fall" | "spring", index: number, dir: -1 | 1) => void;
+  onReorder: (column: "fall" | "spring", newOrder: string[]) => void;
   onHoverCourse: (courseId: string | null) => void;
   onRegisterRowRef: (
     courseId: string,
@@ -21,6 +21,55 @@ type RankingColumnProps = {
   ) => void;
 };
 
+type RankedItemProps = {
+  courseId: string;
+  index: number;
+  course: Course;
+  subject: Subject;
+  bookmarked: boolean;
+  yearLong: boolean;
+  column: "fall" | "spring";
+  onHoverCourse: (courseId: string | null) => void;
+  onRegisterRowRef: RankingColumnProps["onRegisterRowRef"];
+};
+
+function RankedItem({
+  courseId,
+  index,
+  course,
+  subject,
+  bookmarked,
+  yearLong,
+  column,
+  onHoverCourse,
+  onRegisterRowRef,
+}: RankedItemProps) {
+  const dragControls = useDragControls();
+
+  return (
+    <Reorder.Item
+      value={courseId}
+      as="div"
+      dragListener={false}
+      dragControls={dragControls}
+    >
+      <RankedCourseRow
+        ref={(el) => onRegisterRowRef(courseId, column, el)}
+        course={course}
+        subject={subject}
+        rank={index + 1}
+        bookmarked={bookmarked}
+        isYearLong={yearLong}
+        dragControls={dragControls}
+        onHoverStart={() => {
+          if (yearLong) onHoverCourse(courseId);
+        }}
+        onHoverEnd={() => onHoverCourse(null)}
+      />
+    </Reorder.Item>
+  );
+}
+
 function RankingColumn({
   termLabel,
   column,
@@ -28,7 +77,7 @@ function RankingColumn({
   courseById,
   subjectByName,
   bookmarks,
-  onMove,
+  onReorder,
   onHoverCourse,
   onRegisterRowRef,
 }: RankingColumnProps) {
@@ -43,12 +92,22 @@ function RankingColumn({
       <div className="mb-4 flex items-center justify-between gap-2">
         <h2 className="text-xl font-bold text-gray-800">{termLabel}</h2>
         <span className="rounded-full bg-main-100 px-3 py-1 text-xs font-semibold text-gray-600">
-          {order.length} courses · 8 minimum
+          {order.length} bookmarked · {MIN_RANKED_COURSES} minimum
         </span>
       </div>
 
-      <LayoutGroup id={`ranking-${column}`}>
-        <div className="flex flex-1 flex-col gap-2 overflow-y-auto pr-1">
+      {order.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-main-300 px-4 py-8 text-center text-sm text-gray-500">
+          Bookmark courses on the Courses page to rank them here.
+        </div>
+      ) : (
+        <Reorder.Group
+          axis="y"
+          values={order}
+          onReorder={(newOrder) => onReorder(column, newOrder)}
+          as="div"
+          className="flex flex-1 flex-col gap-2 overflow-y-auto pr-1"
+        >
           {order.map((courseId, index) => {
             const course = courseById.get(courseId);
             if (!course) return null;
@@ -56,31 +115,23 @@ function RankingColumn({
             const subject = subjectByName.get(course.subject);
             if (!subject) return null;
 
-            const yearLong = isYearLong(course.term);
-
             return (
-              <RankedCourseRow
+              <RankedItem
                 key={courseId}
-                ref={(el) => onRegisterRowRef(courseId, column, el)}
-                layoutId={`ranked-${column}-${courseId}`}
+                courseId={courseId}
+                index={index}
                 course={course}
                 subject={subject}
-                rank={index + 1}
                 bookmarked={bookmarks.has(courseId)}
-                isYearLong={yearLong}
-                canMoveUp={index > 0}
-                canMoveDown={index < order.length - 1}
-                onMoveUp={() => onMove(column, index, -1)}
-                onMoveDown={() => onMove(column, index, 1)}
-                onHoverStart={() => {
-                  if (yearLong) onHoverCourse(courseId);
-                }}
-                onHoverEnd={() => onHoverCourse(null)}
+                yearLong={isYearLong(course.term)}
+                column={column}
+                onHoverCourse={onHoverCourse}
+                onRegisterRowRef={onRegisterRowRef}
               />
             );
           })}
-        </div>
-      </LayoutGroup>
+        </Reorder.Group>
+      )}
     </div>
   );
 }

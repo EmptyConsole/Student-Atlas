@@ -1,12 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { COURSES, GRADE_COLORS, GRADES } from "../data/courses";
+import { COURSES } from "../data/courses";
 import { SUBJECTS } from "../data/subjects";
 import type { UserProfile } from "../hooks/useProfile";
 import {
+  applyColumnReorder,
   buildInitialOrders,
   isYearLong,
+  mergeOrderWithBookmarks,
   MIN_RANKED_COURSES,
-  moveCourseLinked,
   validateRanking,
 } from "../utils/courseRanking";
 import RankingColumn from "./RankingColumn";
@@ -18,40 +19,26 @@ type RegisterPageProps = {
   bookmarks: Set<string>;
 };
 
-function GradeChip({
-  grade,
-  active,
-  onClick,
-}: {
-  grade: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  const { bg, fg } = GRADE_COLORS[grade];
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className="cursor-pointer rounded-full border-2 px-3 py-1 text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2"
-      style={{
-        backgroundColor: active ? bg : "transparent",
-        color: active ? fg : "#6b7280",
-        borderColor: bg,
-      }}
-    >
-      {grade}
-    </button>
-  );
-}
-
 function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
-  const defaultGrade = profile.grade ?? 9;
-  const initialOrders = buildInitialOrders(defaultGrade);
+  const grade = profile.grade ?? 9;
+  const [initialOrders] = useState(() =>
+    buildInitialOrders(grade, bookmarks),
+  );
 
-  const [grade, setGrade] = useState(defaultGrade);
-  const [fallOrder, setFallOrder] = useState(initialOrders.fallOrder);
-  const [springOrder, setSpringOrder] = useState(initialOrders.springOrder);
+  const [orders, setOrders] = useState(initialOrders);
+  const { fallOrder, springOrder } = orders;
+
+  // Reconcile the ranked lists when bookmarks or grade change, preserving the
+  // user's existing order for courses that remain valid.
+  const [prevBookmarks, setPrevBookmarks] = useState(bookmarks);
+  const [prevGrade, setPrevGrade] = useState(grade);
+  if (bookmarks !== prevBookmarks || grade !== prevGrade) {
+    setPrevBookmarks(bookmarks);
+    setPrevGrade(grade);
+    setOrders((prev) =>
+      mergeOrderWithBookmarks(grade, bookmarks, prev.fallOrder, prev.springOrder),
+    );
+  }
   const [appealsNotes, setAppealsNotes] = useState("");
   const [hoveredYearLongId, setHoveredYearLongId] = useState<string | null>(
     null,
@@ -78,29 +65,19 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
     springOrder,
   );
 
-  const handleGradeChange = (nextGrade: number) => {
-    setGrade(nextGrade);
-    const orders = buildInitialOrders(nextGrade);
-    setFallOrder(orders.fallOrder);
-    setSpringOrder(orders.springOrder);
-    setHoveredYearLongId(null);
-    setSubmitted(false);
-  };
-
-  const handleMove = useCallback(
-    (column: "fall" | "spring", index: number, dir: -1 | 1) => {
-      const next = moveCourseLinked(
-        fallOrder,
-        springOrder,
-        column,
-        index,
-        dir,
-        courseById,
+  const handleReorder = useCallback(
+    (column: "fall" | "spring", newOrder: string[]) => {
+      setOrders((prev) =>
+        applyColumnReorder(
+          prev.fallOrder,
+          prev.springOrder,
+          column,
+          newOrder,
+          courseById,
+        ),
       );
-      setFallOrder(next.fallOrder);
-      setSpringOrder(next.springOrder);
     },
-    [fallOrder, springOrder, courseById],
+    [courseById],
   );
 
   const registerRowRef = useCallback(
@@ -156,27 +133,12 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
           </p>
         </div>
 
-        <div className="mb-6">
-          <span className="mb-2 block text-sm font-semibold text-gray-700">
-            Grade (testing)
-          </span>
-          <div className="flex flex-wrap gap-2">
-            {GRADES.map((g) => (
-              <GradeChip
-                key={g}
-                grade={g}
-                active={grade === g}
-                onClick={() => handleGradeChange(g)}
-              />
-            ))}
-          </div>
-        </div>
-
         <div className="mb-6 rounded-xl border border-main-300 bg-main-100 px-4 py-3 text-sm leading-relaxed text-gray-700">
           <p>
-            Rank at least <strong>{MIN_RANKED_COURSES} courses</strong> for{" "}
-            <strong>Fall</strong> and <strong>Spring</strong>. Use the arrows to
-            move courses up or down in each column. Some courses run{" "}
+            Only your <strong>bookmarked courses</strong> appear here. Bookmark
+            at least <strong>{MIN_RANKED_COURSES} courses</strong> for{" "}
+            <strong>Fall</strong> and <strong>Spring</strong>, then drag them by
+            the handle to rank them in each column. Some courses run{" "}
             <strong>all year long</strong> — those stay linked at the same rank
             in both columns.
           </p>
@@ -190,7 +152,7 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
             courseById={courseById}
             subjectByName={subjectByName}
             bookmarks={bookmarks}
-            onMove={handleMove}
+            onReorder={handleReorder}
             onHoverCourse={handleHoverCourse}
             onRegisterRowRef={registerRowRef}
           />
@@ -201,7 +163,7 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
             courseById={courseById}
             subjectByName={subjectByName}
             bookmarks={bookmarks}
-            onMove={handleMove}
+            onReorder={handleReorder}
             onHoverCourse={handleHoverCourse}
             onRegisterRowRef={registerRowRef}
           />
@@ -239,8 +201,9 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
         <div className="mt-8 flex flex-col items-start gap-3">
           {!valid && (
             <p className="text-sm text-gray-500">
-              You need at least {MIN_RANKED_COURSES} courses in each column.
-              Currently: Fall {fallCount}, Spring {springCount}.
+              Bookmark at least {MIN_RANKED_COURSES} fall-eligible and{" "}
+              {MIN_RANKED_COURSES} spring-eligible courses to submit. Currently:
+              Fall {fallCount}, Spring {springCount}.
             </p>
           )}
           {submitted && (
