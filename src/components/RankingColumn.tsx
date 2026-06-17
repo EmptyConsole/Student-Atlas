@@ -1,9 +1,10 @@
 import { useRef } from "react";
-import { Reorder, useDragControls } from "motion/react";
+import { Reorder } from "motion/react";
+import { GripVertical } from "lucide-react";
 import type { Subject } from "../data/subjects";
 import type { Course } from "../data/courses";
 import { courseIds, isLinked, MIN_RANKED_COURSES, type RankingRow } from "../utils/courseRanking";
-import RankedCourseRow from "./RankedCourseRow";
+import RankedCourseRow, { RANKING_ROW_SHELL } from "./RankedCourseRow";
 
 type RankingColumnProps = {
   termLabel: string;
@@ -13,24 +14,17 @@ type RankingColumnProps = {
   subjectByName: Map<string, Subject>;
   bookmarks: Set<string>;
   onReorder: (column: "fall" | "spring", newOrder: string[]) => void;
-  onHoverCourse: (courseId: string | null) => void;
-  onRegisterRowRef: (
-    courseId: string,
-    column: "fall" | "spring",
-    el: HTMLDivElement | null,
-  ) => void;
+  onDragStateChange: (active: boolean) => void;
 };
 
 type RankedItemProps = {
   courseId: string;
-  rank: number;
+  rank: number | null;
   course: Course;
   subject: Subject;
   bookmarked: boolean;
   linked: boolean;
-  column: "fall" | "spring";
-  onHoverCourse: (courseId: string | null) => void;
-  onRegisterRowRef: RankingColumnProps["onRegisterRowRef"];
+  onDragStateChange: (active: boolean) => void;
 };
 
 function RankedItem({
@@ -40,49 +34,61 @@ function RankedItem({
   subject,
   bookmarked,
   linked,
-  column,
-  onHoverCourse,
-  onRegisterRowRef,
+  onDragStateChange,
 }: RankedItemProps) {
-  const dragControls = useDragControls();
-
   return (
     <Reorder.Item
       value={courseId}
       as="div"
-      dragListener={false}
-      dragControls={dragControls}
+      onDragStart={() => onDragStateChange(true)}
+      onDragEnd={() => onDragStateChange(false)}
     >
       <RankedCourseRow
-        ref={(el) => onRegisterRowRef(courseId, column, el)}
         course={course}
         subject={subject}
         rank={rank}
         bookmarked={bookmarked}
         linked={linked}
-        dragControls={dragControls}
-        onHoverStart={() => {
-          if (linked) onHoverCourse(courseId);
-        }}
-        onHoverEnd={() => onHoverCourse(null)}
       />
     </Reorder.Item>
   );
 }
 
 /**
- * Inert reorder item used to keep linked courses aligned across columns. It is
- * a Reorder.Item (so the group only ever contains items, which motion requires)
- * but is not draggable.
+ * Empty slot used to keep linked courses aligned across columns. It is a full
+ * drag target like any other row (so a course can be dropped into it) and reads
+ * as a "None" card so empty ranks are explicit rather than invisible.
  */
-function PlaceholderRow({ value }: { value: string }) {
+function PlaceholderRow({
+  value,
+  rank,
+  onDragStateChange,
+}: {
+  value: string;
+  rank: number | null;
+  onDragStateChange: (active: boolean) => void;
+}) {
   return (
-    <Reorder.Item value={value} as="div" dragListener={false} drag={false}>
+    <Reorder.Item
+      value={value}
+      as="div"
+      onDragStart={() => onDragStateChange(true)}
+      onDragEnd={() => onDragStateChange(false)}
+    >
       <div
-        aria-hidden="true"
-        className="flex items-center rounded-xl border border-dashed border-main-300 bg-main-100/40 px-3 py-2.5"
+        aria-label="Empty rank slot"
+        className={`${RANKING_ROW_SHELL} cursor-grab touch-none select-none border-dashed border-main-300 bg-main-100/40 transition-colors duration-150 hover:border-main-500 hover:bg-main-100/70 active:cursor-grabbing`}
       >
-        <span className="text-sm leading-tight">&nbsp;</span>
+        <span className="w-6 shrink-0 text-center text-sm font-semibold text-gray-300">
+          {rank ?? ""}
+        </span>
+        <span className="w-5 shrink-0" />
+        <span className="min-w-0 flex-1 truncate text-sm font-medium italic leading-tight text-gray-400">
+          None
+        </span>
+        <span className="shrink-0 p-1 text-gray-300" aria-hidden="true">
+          <GripVertical className="h-4 w-4" />
+        </span>
       </div>
     </Reorder.Item>
   );
@@ -96,21 +102,22 @@ function RankingColumn({
   subjectByName,
   bookmarks,
   onReorder,
-  onHoverCourse,
-  onRegisterRowRef,
+  onDragStateChange,
 }: RankingColumnProps) {
   const columnRef = useRef<HTMLDivElement>(null);
   // Every row (course + placeholder) participates in the reorder values so the
-  // group's children stay homogeneous; placeholders are stripped on reorder.
+  // group's children stay homogeneous. Placeholder ids are kept in the order
+  // passed up so applyReorder can tell how far an anchor moved through blank
+  // slots; they are stripped there before regrouping real courses.
   const values = rows.map((row) => row.id);
   const courseCount = courseIds(rows).length;
 
   const handleReorder = (newOrder: string[]) => {
-    onReorder(
-      column,
-      newOrder.filter((id) => courseById.has(id)),
-    );
+    onReorder(column, newOrder);
   };
+
+  const displayRank = (index: number): number | null =>
+    index + 1 <= MIN_RANKED_COURSES ? index + 1 : null;
 
   return (
     <div
@@ -139,7 +146,14 @@ function RankingColumn({
         >
           {rows.map((row, index) => {
             if (row.kind === "placeholder") {
-              return <PlaceholderRow key={row.id} value={row.id} />;
+              return (
+                <PlaceholderRow
+                  key={row.id}
+                  value={row.id}
+                  rank={displayRank(index)}
+                  onDragStateChange={onDragStateChange}
+                />
+              );
             }
 
             const course = courseById.get(row.id);
@@ -152,14 +166,12 @@ function RankingColumn({
               <RankedItem
                 key={row.id}
                 courseId={row.id}
-                rank={index + 1}
+                rank={displayRank(index)}
                 course={course}
                 subject={subject}
                 bookmarked={bookmarks.has(row.id)}
                 linked={isLinked(course.term)}
-                column={column}
-                onHoverCourse={onHoverCourse}
-                onRegisterRowRef={onRegisterRowRef}
+                onDragStateChange={onDragStateChange}
               />
             );
           })}

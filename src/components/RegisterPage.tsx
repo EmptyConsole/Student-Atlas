@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { COURSES } from "../data/courses";
 import { SUBJECTS } from "../data/subjects";
 import type { UserProfile } from "../hooks/useProfile";
@@ -7,7 +7,6 @@ import {
   buildInitialModel,
   courseIds,
   deriveColumns,
-  isLinked,
   mergeModelWithBookmarks,
   MIN_RANKED_COURSES,
   validateRanking,
@@ -34,17 +33,16 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
   }
 
   const { fallRows, springRows } = useMemo(() => deriveColumns(model), [model]);
-  const [appealsNotes, setAppealsNotes] = useState("");
-  const [hoveredYearLongId, setHoveredYearLongId] = useState<string | null>(
-    null,
+  const rowOrderKey = useMemo(
+    () =>
+      [...fallRows, ...springRows].map((row) => row.id).join(","),
+    [fallRows, springRows],
   );
+  const [appealsNotes, setAppealsNotes] = useState("");
+  const [columnsEl, setColumnsEl] = useState<HTMLDivElement | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-
-  const columnsRef = useRef<HTMLDivElement>(null);
-  const rowRefs = useRef(
-    new Map<string, { fall: HTMLDivElement | null; spring: HTMLDivElement | null }>(),
-  );
 
   const courseById = useMemo(
     () => new Map(COURSES.map((course) => [course.id, course])),
@@ -67,30 +65,9 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
     [],
   );
 
-  const registerRowRef = useCallback(
-    (courseId: string, column: "fall" | "spring", el: HTMLDivElement | null) => {
-      const existing = rowRefs.current.get(courseId) ?? {
-        fall: null,
-        spring: null,
-      };
-      rowRefs.current.set(courseId, { ...existing, [column]: el });
-    },
-    [],
-  );
-
-  const handleHoverCourse = useCallback((courseId: string | null) => {
-    setHoveredYearLongId(courseId);
+  const handleDragStateChange = useCallback((active: boolean) => {
+    setIsDragging(active);
   }, []);
-
-  const hoveredCourse = hoveredYearLongId
-    ? courseById.get(hoveredYearLongId)
-    : null;
-  const hoveredSubject = hoveredCourse
-    ? subjectByName.get(hoveredCourse.subject) ?? null
-    : null;
-  const hoveredRefs = hoveredYearLongId
-    ? rowRefs.current.get(hoveredYearLongId)
-    : null;
 
   const handleConfirmSubmit = () => {
     const payload = {
@@ -124,14 +101,17 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
           <p>
             Only your <strong>bookmarked courses</strong> appear here. Bookmark
             at least <strong>{MIN_RANKED_COURSES} courses</strong> for{" "}
-            <strong>Fall</strong> and <strong>Spring</strong>, then drag them by
-            the handle to rank them in each column. Some courses run{" "}
-            <strong>all year long</strong> — those stay linked at the same rank
-            in both columns.
+            <strong>Fall</strong> and <strong>Spring</strong>, then drag any row
+            to rank them in each column. Some courses run{" "}
+            <strong>all year long</strong> — those move together and stay linked
+            at the same rank in both columns.
           </p>
         </div>
 
-        <div ref={columnsRef} className="relative grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div
+          ref={setColumnsEl}
+          className="relative grid grid-cols-1 gap-6 lg:grid-cols-2"
+        >
           <RankingColumn
             termLabel="Fall"
             column="fall"
@@ -140,8 +120,7 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
             subjectByName={subjectByName}
             bookmarks={bookmarks}
             onReorder={handleReorder}
-            onHoverCourse={handleHoverCourse}
-            onRegisterRowRef={registerRowRef}
+            onDragStateChange={handleDragStateChange}
           />
           <RankingColumn
             termLabel="Spring"
@@ -151,21 +130,27 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
             subjectByName={subjectByName}
             bookmarks={bookmarks}
             onReorder={handleReorder}
-            onHoverCourse={handleHoverCourse}
-            onRegisterRowRef={registerRowRef}
+            onDragStateChange={handleDragStateChange}
           />
 
-          {hoveredYearLongId &&
-            hoveredCourse &&
-            isLinked(hoveredCourse.term) && (
+          {model.anchors.map((anchorId) => {
+            const course = courseById.get(anchorId);
+            const subject = course
+              ? subjectByName.get(course.subject)
+              : undefined;
+            if (!course || !subject) return null;
+
+            return (
               <YearLongConnector
-                hoveredCourseId={hoveredYearLongId}
-                fallRowRef={hoveredRefs?.fall ?? null}
-                springRowRef={hoveredRefs?.spring ?? null}
-                containerRef={columnsRef.current}
-                subject={hoveredSubject}
+                key={anchorId}
+                courseId={anchorId}
+                containerEl={columnsEl}
+                subject={subject}
+                layoutKey={rowOrderKey}
+                isDragging={isDragging}
               />
-            )}
+            );
+          })}
         </div>
 
         <section className="mt-8">

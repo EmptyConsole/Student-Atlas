@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { motion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
 import type { Subject } from "../data/subjects";
 
 type ConnectorPoint = {
@@ -10,32 +9,50 @@ type ConnectorPoint = {
 };
 
 type YearLongConnectorProps = {
-  hoveredCourseId: string | null;
-  fallRowRef: HTMLDivElement | null;
-  springRowRef: HTMLDivElement | null;
-  containerRef: HTMLDivElement | null;
-  subject: Subject | null;
+  courseId: string;
+  containerEl: HTMLDivElement | null;
+  subject: Subject;
+  layoutKey: string;
+  isDragging: boolean;
 };
 
+function findRowEl(
+  containerEl: HTMLDivElement,
+  column: "fall" | "spring",
+  courseId: string,
+): HTMLElement | null {
+  return containerEl.querySelector(
+    `[data-ranking-column="${column}"] [data-course-id="${courseId}"]`,
+  );
+}
+
 function YearLongConnector({
-  hoveredCourseId,
-  fallRowRef,
-  springRowRef,
-  containerRef,
+  courseId,
+  containerEl,
   subject,
+  layoutKey,
+  isDragging,
 }: YearLongConnectorProps) {
   const [point, setPoint] = useState<ConnectorPoint | null>(null);
+  const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!hoveredCourseId || !fallRowRef || !springRowRef || !containerRef) {
+    if (!containerEl) {
       setPoint(null);
       return;
     }
 
-    const update = () => {
-      const containerRect = containerRef.getBoundingClientRect();
-      const fallRect = fallRowRef.getBoundingClientRect();
-      const springRect = springRowRef.getBoundingClientRect();
+    const measure = () => {
+      const fallRow = findRowEl(containerEl, "fall", courseId);
+      const springRow = findRowEl(containerEl, "spring", courseId);
+      if (!fallRow || !springRow) {
+        setPoint(null);
+        return;
+      }
+
+      const containerRect = containerEl.getBoundingClientRect();
+      const fallRect = fallRow.getBoundingClientRect();
+      const springRect = springRow.getBoundingClientRect();
 
       setPoint({
         x1: fallRect.right - containerRect.left,
@@ -45,55 +62,54 @@ function YearLongConnector({
       });
     };
 
-    update();
-    window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
+    measure();
+
+    // While dragging, rows carry live transforms that only a per-frame read can
+    // track, so poll until the drag ends.
+    if (isDragging) {
+      const loop = () => {
+        measure();
+        frameRef.current = requestAnimationFrame(loop);
+      };
+      frameRef.current = requestAnimationFrame(loop);
+      return () => {
+        if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+      };
+    }
+
+    const resizeObserver = new ResizeObserver(measure);
+    resizeObserver.observe(containerEl);
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
 
     return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
     };
-  }, [hoveredCourseId, fallRowRef, springRowRef, containerRef]);
+  }, [courseId, containerEl, layoutKey, isDragging]);
 
-  if (!point || !subject) return null;
+  if (!point) return null;
 
-  const midX = (point.x1 + point.x2) / 2;
-  const path = `M ${point.x1} ${point.y1} C ${midX} ${point.y1}, ${midX} ${point.y2}, ${point.x2} ${point.y2}`;
+  // Connect the real row centers so the line stays attached to both rows even
+  // mid-transition; once the linked rows settle on the same row it is flat.
+  const path = `M ${point.x1} ${point.y1} L ${point.x2} ${point.y2}`;
 
   return (
     <svg
       className="pointer-events-none absolute inset-0 z-10 overflow-visible"
       aria-hidden="true"
     >
-      <motion.path
+      <path
         d={path}
         fill="none"
         stroke={subject.accent}
         strokeWidth={2}
         strokeDasharray="6 4"
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 0.7 }}
-        exit={{ pathLength: 0, opacity: 0 }}
-        transition={{ duration: 0.35, ease: "easeOut" }}
+        opacity={0.7}
       />
-      <motion.circle
-        cx={point.x1}
-        cy={point.y1}
-        r={4}
-        fill={subject.accent}
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.2 }}
-      />
-      <motion.circle
-        cx={point.x2}
-        cy={point.y2}
-        r={4}
-        fill={subject.accent}
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.2, delay: 0.1 }}
-      />
+      <circle cx={point.x1} cy={point.y1} r={4} fill={subject.accent} />
+      <circle cx={point.x2} cy={point.y2} r={4} fill={subject.accent} />
     </svg>
   );
 }
