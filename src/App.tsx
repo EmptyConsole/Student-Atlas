@@ -55,7 +55,11 @@ function App() {
         />
       )}
       {activeView === "register" && (
-        <RegisterPage profile={profile} bookmarks={bookmarks} />
+        <RegisterPage
+          profile={profile}
+          bookmarks={bookmarks}
+          onNavigateToProfile={() => setActiveView("profile")}
+        />
       )}
     </div>
   );

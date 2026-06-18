@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { COURSES } from "../data/courses";
 import { SUBJECTS } from "../data/subjects";
-import type { UserProfile } from "../hooks/useProfile";
+import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
 import {
   applyReorder,
   buildInitialModel,
@@ -10,17 +10,24 @@ import {
   mergeModelWithBookmarks,
   MIN_RANKED_COURSES,
   validateRanking,
+  yearLongCourseIds,
+  yearLongIdSet,
 } from "../utils/courseRanking";
-import RankingColumn from "./RankingColumn";
+import RankingAlignedGrid from "./RankingAlignedGrid";
 import SubmitConfirmDialog from "./SubmitConfirmDialog";
-import YearLongConnector from "./YearLongConnector";
 
 type RegisterPageProps = {
   profile: UserProfile;
   bookmarks: Set<string>;
+  onNavigateToProfile?: () => void;
 };
 
-function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
+function RegisterPage({
+  profile,
+  bookmarks,
+  onNavigateToProfile,
+}: RegisterPageProps) {
+  const profileComplete = isProfileComplete(profile);
   const grade = profile.grade ?? 9;
   const [model, setModel] = useState(() => buildInitialModel(bookmarks));
 
@@ -33,14 +40,7 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
   }
 
   const { fallRows, springRows } = useMemo(() => deriveColumns(model), [model]);
-  const rowOrderKey = useMemo(
-    () =>
-      [...fallRows, ...springRows].map((row) => row.id).join(","),
-    [fallRows, springRows],
-  );
   const [appealsNotes, setAppealsNotes] = useState("");
-  const [columnsEl, setColumnsEl] = useState<HTMLDivElement | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -58,15 +58,22 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
     springRows,
   );
 
-  const handleReorder = useCallback(
-    (column: "fall" | "spring", newOrder: string[]) => {
-      setModel((prev) => applyReorder(prev, column, newOrder));
-    },
-    [],
+  const yearLongIds = useMemo(
+    () => yearLongCourseIds(bookmarks, model.fallOrder, model.springOrder),
+    [bookmarks, model.fallOrder, model.springOrder],
   );
 
-  const handleDragStateChange = useCallback((active: boolean) => {
-    setIsDragging(active);
+  const yearLongSet = useMemo(() => yearLongIdSet(bookmarks), [bookmarks]);
+
+  const handleReorder = useCallback(
+    (column: "fall" | "spring", newOrder: string[]) => {
+      setModel((prev) => applyReorder(prev, column, newOrder, yearLongSet));
+    },
+    [yearLongSet],
+  );
+
+  const handleDragStateChange = useCallback((_active: boolean) => {
+    // Drag state is tracked inside RankingAlignedGrid for connector updates.
   }, []);
 
   const handleConfirmSubmit = () => {
@@ -99,59 +106,49 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
 
         <div className="mb-6 rounded-xl border border-main-300 bg-main-100 px-4 py-3 text-sm leading-relaxed text-gray-700">
           <p>
-            Only your <strong>bookmarked courses</strong> appear here. Bookmark
-            at least <strong>{MIN_RANKED_COURSES} courses</strong> for{" "}
-            <strong>Fall</strong> and <strong>Spring</strong>, then drag any row
-            to rank them in each column. Some courses run{" "}
-            <strong>all year long</strong> — those move together and stay linked
-            at the same rank in both columns.
+            Only your <strong>bookmarked courses</strong> appear here. Drag to
+            rank — your <strong>top {MIN_RANKED_COURSES}</strong> in each column
+            (numbered <strong>1–{MIN_RANKED_COURSES}</strong>) are what gets
+            submitted. Courses below the line are alternates only. All-year
+            courses stay on the same row in both columns.
           </p>
         </div>
 
+        {!profileComplete && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p>
+              You must sign in with details to register for electives.
+            </p>
+            {onNavigateToProfile && (
+              <button
+                type="button"
+                onClick={onNavigateToProfile}
+                className="shrink-0 cursor-pointer rounded-lg border border-amber-400 bg-white px-4 py-1.5 text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-100"
+              >
+                Go to Profile
+              </button>
+            )}
+          </div>
+        )}
+
         <div
-          ref={setColumnsEl}
-          className="relative grid grid-cols-1 gap-6 lg:grid-cols-2"
+          className={
+            profileComplete
+              ? undefined
+              : "pointer-events-none select-none opacity-50"
+          }
+          aria-disabled={!profileComplete}
         >
-          <RankingColumn
-            termLabel="Fall"
-            column="fall"
-            rows={fallRows}
+          <RankingAlignedGrid
+            model={model}
             courseById={courseById}
             subjectByName={subjectByName}
             bookmarks={bookmarks}
+            yearLongIds={yearLongIds}
+            courseNotes={profile.courseNotes}
             onReorder={handleReorder}
             onDragStateChange={handleDragStateChange}
           />
-          <RankingColumn
-            termLabel="Spring"
-            column="spring"
-            rows={springRows}
-            courseById={courseById}
-            subjectByName={subjectByName}
-            bookmarks={bookmarks}
-            onReorder={handleReorder}
-            onDragStateChange={handleDragStateChange}
-          />
-
-          {model.anchors.map((anchorId) => {
-            const course = courseById.get(anchorId);
-            const subject = course
-              ? subjectByName.get(course.subject)
-              : undefined;
-            if (!course || !subject) return null;
-
-            return (
-              <YearLongConnector
-                key={anchorId}
-                courseId={anchorId}
-                containerEl={columnsEl}
-                subject={subject}
-                layoutKey={rowOrderKey}
-                isDragging={isDragging}
-              />
-            );
-          })}
-        </div>
 
         <section className="mt-8">
           <label
@@ -166,6 +163,7 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
             value={appealsNotes}
             onChange={(e) => setAppealsNotes(e.target.value)}
             placeholder="Optional notes for your teachers..."
+            disabled={!profileComplete}
             className={inputClass}
           />
         </section>
@@ -185,12 +183,15 @@ function RegisterPage({ profile, bookmarks }: RegisterPageProps) {
           )}
           <button
             type="button"
-            disabled={!valid}
-            onClick={() => setConfirmOpen(true)}
+            disabled={!valid || !profileComplete}
+            onClick={() => {
+              if (profileComplete) setConfirmOpen(true);
+            }}
             className="cursor-pointer rounded-xl border-0 bg-[#4169e1] px-6 py-3 text-base font-semibold text-white transition-all duration-150 hover:scale-105 hover:bg-[#3557c7] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
           >
             Submit rankings
           </button>
+        </div>
         </div>
       </div>
 

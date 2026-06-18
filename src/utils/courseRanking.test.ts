@@ -1,24 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   applyReorder,
+  buildInitialModel,
   courseIds,
+  deriveAlignedRows,
   deriveColumns,
+  mergeModelWithBookmarks,
+  syncYearLongPositions,
+  yearLongCourseIds,
   type RankingModel,
 } from "./courseRanking";
 
-const HEAD = "__head__";
+const YEAR_LONG = new Set(["A1", "A2"]);
 
-/** Move `id` up by `by` positions in a derived row order, mimicking a drag. */
-function moveItemUp(order: string[], id: string, by: number): string[] {
-  const idx = order.indexOf(id);
-  const target = Math.max(0, idx - by);
-  const next = [...order];
-  next.splice(idx, 1);
-  next.splice(target, 0, id);
-  return next;
-}
-
-/** Move `id` to an absolute row index, mimicking a drag to a specific slot. */
 function moveItemTo(order: string[], id: string, target: number): string[] {
   const idx = order.indexOf(id);
   const next = [...order];
@@ -27,142 +21,140 @@ function moveItemTo(order: string[], id: string, target: number): string[] {
   return next;
 }
 
-function rowIds(rows: { id: string }[]): string[] {
-  return rows.map((row) => row.id);
-}
-
-describe("applyReorder anchor move-up", () => {
-  it("moves a Spring anchor up through placeholder rows, pulling Fall courses down", () => {
-    const model: RankingModel = {
-      anchors: ["A"],
-      fallGroups: { [HEAD]: ["f1", "f2", "f3"], A: [] },
-      springGroups: { [HEAD]: ["s1"], A: [] },
-    };
-
-    const springOrder = rowIds(deriveColumns(model).springRows);
-    const dragged = moveItemUp(springOrder, "A", 2);
-    const next = applyReorder(model, "spring", dragged);
-
-    const { fallRows, springRows } = deriveColumns(next);
-    expect(rowIds(fallRows).indexOf("A")).toBe(1);
-    expect(rowIds(springRows).indexOf("A")).toBe(1);
-    expect(next.fallGroups[HEAD]).toEqual(["f1"]);
-    expect(next.fallGroups.A).toEqual(["f2", "f3"]);
+describe("syncYearLongPositions", () => {
+  it("places year-long courses at the same indices as the edited column", () => {
+    const synced = syncYearLongPositions(
+      ["f1", "f2", "A1", "f3"],
+      ["s1", "A1", "s2"],
+      YEAR_LONG,
+    );
+    expect(synced.indexOf("A1")).toBe(2);
+    expect(synced).toEqual(["s1", "s2", "A1"]);
   });
 
-  it("reorders within a column via regroup without band redistribution on the taller side", () => {
-    const model: RankingModel = {
-      anchors: ["A"],
-      fallGroups: { [HEAD]: ["f1", "f2", "f3"], A: [] },
-      springGroups: { [HEAD]: ["s1"], A: [] },
-    };
-
-    const fallOrder = rowIds(deriveColumns(model).fallRows);
-    const dragged = moveItemUp(fallOrder, "A", 2);
-    const next = applyReorder(model, "fall", dragged);
-
-    const { fallRows } = deriveColumns(next);
-    expect(rowIds(fallRows).indexOf("A")).toBe(1);
-    expect(next.fallGroups[HEAD]).toEqual(["f1"]);
-    expect(next.fallGroups.A).toEqual(["f2", "f3"]);
-    // The taller column was not dragged, so its groups are untouched.
-    expect(next.springGroups).toEqual(model.springGroups);
-  });
-
-  it("stops the anchor at the highest shared row when dragged to the top", () => {
-    const model: RankingModel = {
-      anchors: ["A"],
-      fallGroups: { [HEAD]: ["f1", "f2", "f3"], A: [] },
-      springGroups: { [HEAD]: ["s1"], A: [] },
-    };
-
-    const springOrder = rowIds(deriveColumns(model).springRows);
-    const dragged = moveItemUp(springOrder, "A", springOrder.length);
-    const next = applyReorder(model, "spring", dragged);
-
-    const { fallRows, springRows } = deriveColumns(next);
-    // f1 and s1 still sit above the anchor, so the highest shared row is rank 2.
-    expect(rowIds(fallRows).indexOf("A")).toBe(1);
-    expect(rowIds(springRows).indexOf("A")).toBe(1);
-    expect(next.springGroups.A).toEqual(["s1"]);
-  });
-
-  it("redistributes within the band above a second anchor (keyed by the first anchor)", () => {
-    const model: RankingModel = {
-      anchors: ["A1", "A2"],
-      fallGroups: { [HEAD]: ["f0"], A1: ["f1", "f2", "f3"], A2: [] },
-      springGroups: { [HEAD]: ["s0"], A1: ["s1"], A2: [] },
-    };
-
-    const springOrder = rowIds(deriveColumns(model).springRows);
-    const dragged = moveItemUp(springOrder, "A2", 2);
-    const next = applyReorder(model, "spring", dragged);
-
-    const { fallRows, springRows } = deriveColumns(next);
-    expect(rowIds(fallRows).indexOf("A2")).toBe(3);
-    expect(rowIds(springRows).indexOf("A2")).toBe(3);
-    expect(next.fallGroups.A1).toEqual(["f1"]);
-    expect(next.fallGroups.A2).toEqual(["f2", "f3"]);
+  it("moves the matching year-long course when the edited column repositions it", () => {
+    const synced = syncYearLongPositions(
+      ["A1", "f1", "f2", "f3"],
+      ["s1", "s2", "A1"],
+      YEAR_LONG,
+    );
+    expect(synced.indexOf("A1")).toBe(0);
+    expect(synced).toEqual(["A1", "s1", "s2"]);
   });
 });
 
-describe("applyReorder anchor move-down", () => {
-  it("moves an anchor down through placeholder rows, pulling the taller column's lower courses up", () => {
+describe("applyReorder", () => {
+  it("reorders freely in the edited column and syncs year-long in the other", () => {
     const model: RankingModel = {
-      anchors: ["A"],
-      fallGroups: { [HEAD]: ["f1"], A: [] },
-      springGroups: { [HEAD]: ["s1"], A: ["s2", "s3"] },
+      fallOrder: ["f1", "f2", "A1", "f3"],
+      springOrder: ["s1", "s2", "A1"],
     };
 
-    // Fall is shorter below the anchor, so its band renders as two None slots.
-    const fallOrder = rowIds(deriveColumns(model).fallRows);
-    const dragged = moveItemTo(fallOrder, "A", fallOrder.length - 1);
-    const next = applyReorder(model, "fall", dragged);
+    const dragged = moveItemTo(model.fallOrder, "f3", 0);
+    const next = applyReorder(model, "fall", dragged, YEAR_LONG);
 
-    const { fallRows, springRows } = deriveColumns(next);
-    // The anchor now sits below every course in both columns, on the same row.
-    expect(rowIds(fallRows).indexOf("A")).toBe(3);
-    expect(rowIds(springRows).indexOf("A")).toBe(3);
-    expect(next.springGroups[HEAD]).toEqual(["s1", "s2", "s3"]);
-    expect(next.springGroups.A).toEqual([]);
+    expect(next.fallOrder).toEqual(["f3", "f1", "f2", "A1"]);
+    expect(next.springOrder.indexOf("A1")).toBe(next.fallOrder.indexOf("A1"));
   });
 
-  it("does not redistribute when an anchor is dragged down in the taller column", () => {
+  it("syncs when a year-long course is dragged in the edited column", () => {
     const model: RankingModel = {
-      anchors: ["A"],
-      fallGroups: { [HEAD]: ["f1"], A: ["f2", "f3"] },
-      springGroups: { [HEAD]: ["s1"], A: [] },
+      fallOrder: ["f1", "A1", "f2", "A2"],
+      springOrder: ["s1", "A1", "s2", "A2"],
     };
 
-    const fallOrder = rowIds(deriveColumns(model).fallRows);
-    const dragged = moveItemTo(fallOrder, "A", fallOrder.length - 1);
-    const next = applyReorder(model, "fall", dragged);
+    const dragged = moveItemTo(model.fallOrder, "A2", 0);
+    const next = applyReorder(model, "fall", dragged, YEAR_LONG);
 
-    const { fallRows, springRows } = deriveColumns(next);
-    expect(rowIds(fallRows).indexOf("A")).toBe(rowIds(springRows).indexOf("A"));
-    // The shorter column has no lower courses to pull up, so it is untouched.
-    expect(next.springGroups).toEqual(model.springGroups);
+    expect(next.fallOrder).toEqual(["A2", "f1", "A1", "f2"]);
+    expect(next.springOrder.indexOf("A2")).toBe(0);
+    expect(next.springOrder.indexOf("A1")).toBe(2);
+  });
+
+  it("moves a regular course past multiple year-long courses", () => {
+    const model: RankingModel = {
+      fallOrder: ["f1", "A1", "f2", "A2", "f3"],
+      springOrder: ["s1", "A1", "A2"],
+    };
+
+    const dragged = moveItemTo(model.fallOrder, "f3", 0);
+    const next = applyReorder(model, "fall", dragged, YEAR_LONG);
+
+    expect(next.fallOrder[0]).toBe("f3");
+    expect(next.springOrder.indexOf("A1")).toBe(next.fallOrder.indexOf("A1"));
+    expect(next.springOrder.indexOf("A2")).toBe(next.fallOrder.indexOf("A2"));
   });
 });
 
-describe("dragging a None placeholder", () => {
-  it("leaves the real course order unchanged in both columns", () => {
+describe("deriveAlignedRows", () => {
+  it("pads the shorter column with spacers so rows line up", () => {
+    const rows = deriveAlignedRows({
+      fallOrder: ["f1", "f2", "A1", "f3"],
+      springOrder: ["s1", "s2", "A1"],
+    });
+
+    expect(rows[2].fall).toEqual({ kind: "course", id: "A1" });
+    expect(rows[2].spring).toEqual({ kind: "course", id: "A1" });
+    expect(rows[3].fall).toEqual({ kind: "course", id: "f3" });
+    expect(rows[3].spring).toEqual({ kind: "spacer" });
+  });
+});
+
+describe("deriveColumns", () => {
+  it("returns flat course rows with no placeholders", () => {
     const model: RankingModel = {
-      anchors: ["A"],
-      fallGroups: { [HEAD]: ["f1", "f2"], A: [] },
-      springGroups: { [HEAD]: ["s1"], A: [] },
+      fallOrder: ["f1", "f2", "A1"],
+      springOrder: ["s1", "A1"],
     };
 
-    // Spring's HEAD band has a trailing None slot since Fall is taller.
-    const springOrder = rowIds(deriveColumns(model).springRows);
-    const placeholderId = springOrder.find((id) => id.startsWith("ph-"));
-    expect(placeholderId).toBeDefined();
+    const { fallRows, springRows } = deriveColumns(model);
+    expect(courseIds(fallRows)).toEqual(["f1", "f2", "A1"]);
+    expect(courseIds(springRows)).toEqual(["s1", "A1"]);
+  });
+});
 
-    const dragged = moveItemTo(springOrder, placeholderId as string, 0);
-    const next = applyReorder(model, "spring", dragged);
+describe("yearLongCourseIds", () => {
+  it("lists bookmarked all-year courses in column order", () => {
+    const bookmarks = new Set([
+      "art-foundations",
+      "art-portfolio",
+      "pa-music-ensemble",
+      "pa-acting",
+    ]);
+    expect(
+      yearLongCourseIds(
+        bookmarks,
+        ["art-foundations", "art-portfolio", "pa-acting"],
+        ["pa-acting", "pa-music-ensemble", "art-portfolio"],
+      ),
+    ).toEqual(["art-portfolio", "pa-music-ensemble"]);
+  });
+});
 
-    const { fallRows, springRows } = deriveColumns(next);
-    expect(courseIds(fallRows)).toEqual(["f1", "f2", "A"]);
-    expect(courseIds(springRows)).toEqual(["s1", "A"]);
+describe("mergeModelWithBookmarks", () => {
+  it("preserves order for kept courses and appends new ones", () => {
+    const bookmarks = new Set([
+      "pa-acting",
+      "cs-intro",
+      "pa-dance",
+      "art-printmaking",
+    ]);
+    const prev: RankingModel = {
+      fallOrder: ["cs-intro", "pa-acting"],
+      springOrder: ["pa-dance"],
+    };
+    const next = mergeModelWithBookmarks(bookmarks, prev);
+
+    expect(next.fallOrder).toEqual(["cs-intro", "pa-acting"]);
+    expect(next.springOrder).toEqual(["pa-dance", "art-printmaking"]);
+  });
+});
+
+describe("buildInitialModel", () => {
+  it("sorts eligible courses alphabetically per column", () => {
+    const bookmarks = new Set(["pa-acting", "pa-dance", "art-printmaking"]);
+    const model = buildInitialModel(bookmarks);
+    expect(model.fallOrder).toEqual(["pa-acting"]);
+    expect(model.springOrder).toEqual(["pa-dance", "art-printmaking"]);
   });
 });

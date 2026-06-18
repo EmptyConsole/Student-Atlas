@@ -21,6 +21,14 @@ export const DEFAULT_PROFILE: UserProfile = {
   courseNotes: {},
 };
 
+export function isProfileComplete(profile: UserProfile): boolean {
+  return (
+    profile.name.trim().length > 0 &&
+    profile.email.trim().length > 0 &&
+    profile.grade !== null
+  );
+}
+
 function loadProfile(): UserProfile {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
