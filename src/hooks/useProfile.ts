@@ -13,6 +13,7 @@ export type UserProfile = {
 
 const STORAGE_KEY = "student-atlas-profile";
 const ONBOARDED_KEY = "student-atlas-onboarded";
+const STUDENT_ID_KEY = "student-atlas-student-id";
 
 export const DEFAULT_PROFILE: UserProfile = {
   name: "",
@@ -59,9 +60,18 @@ function loadOnboarded(): boolean {
   }
 }
 
+function loadStudentId(): string | null {
+  try {
+    return localStorage.getItem(STUDENT_ID_KEY) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function useProfile() {
   const [profile, setProfile] = useState<UserProfile>(loadProfile);
   const [onboarded, setOnboarded] = useState<boolean>(loadOnboarded);
+  const [studentId, setStudentIdState] = useState<string | null>(loadStudentId);
 
   useEffect(() => {
     saveProfile(profile);
@@ -70,6 +80,11 @@ export function useProfile() {
   const markOnboarded = useCallback(() => {
     localStorage.setItem(ONBOARDED_KEY, "true");
     setOnboarded(true);
+  }, []);
+
+  const setStudentId = useCallback((id: string) => {
+    localStorage.setItem(STUDENT_ID_KEY, id);
+    setStudentIdState(id);
   }, []);
 
   const updateProfile = useCallback((patch: Partial<UserProfile>) => {
@@ -89,14 +104,18 @@ export function useProfile() {
   const signOut = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(ONBOARDED_KEY);
+    localStorage.removeItem(STUDENT_ID_KEY);
     setProfile({ ...DEFAULT_PROFILE });
     setOnboarded(false);
+    setStudentIdState(null);
   }, []);
 
   return {
     profile,
     onboarded,
     markOnboarded,
+    studentId,
+    setStudentId,
     updateProfile,
     updateCourseNote,
     signOut,

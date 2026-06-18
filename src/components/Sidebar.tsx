@@ -2,10 +2,11 @@ import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Bookmark } from "lucide-react";
 import { SUBJECTS } from "../data/subjects";
-import { COURSES } from "../data/courses";
+import type { Course } from "../data/courses";
 import SubjectBookmark from "./SubjectBookmark";
 
 type SidebarProps = {
+  courses: Course[];
   bookmarks: Set<string>;
   onToggleBookmark: (id: string) => void;
   activeSubject: string;
@@ -13,6 +14,7 @@ type SidebarProps = {
 };
 
 function Sidebar({
+  courses,
   bookmarks,
   onToggleBookmark,
   activeSubject,
@@ -48,7 +50,7 @@ function Sidebar({
         <ul className="flex flex-col gap-1.5">
           {SUBJECTS.map((subject) => {
             const isActive = activeSubject === subject.name;
-            const subjectBookmarks = COURSES.filter(
+            const subjectBookmarks = courses.filter(
               (c) => c.subject === subject.name && bookmarks.has(c.id),
             );
 

@@ -1,11 +1,17 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import CourseBrowser from "./components/CourseBrowser";
 import ProfilePage from "./components/ProfilePage";
 import RegisterPage from "./components/RegisterPage";
 import { useProfile } from "./hooks/useProfile";
-import { submitProfile } from "./lib/students";
+import { useCourses } from "./hooks/useCourses";
+import {
+  submitProfile,
+  loadStudentData,
+  syncStudentCourses,
+  syncStudentBookmarks,
+} from "./lib/students";
 import { SUBJECTS } from "./data/subjects";
 import type { AppView } from "./types/app";
 
@@ -13,22 +19,76 @@ function App() {
   const [activeView, setActiveView] = useState<AppView>("courses");
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
   const [activeSubject, setActiveSubject] = useState<string>(SUBJECTS[0].name);
+
   const {
     profile,
     onboarded,
     markOnboarded,
+    studentId,
+    setStudentId,
     updateProfile,
     updateCourseNote,
     signOut,
   } = useProfile();
 
-  const handleSubmitProfile = async () => {
-    const result = await submitProfile(profile);
-    if (!result.error) {
-      markOnboarded();
-      setActiveView("courses");
+  // Courses are lifted here so both CourseBrowser and Sidebar share the same
+  // Supabase data (and therefore the same UUID-based course IDs for bookmarks).
+  const { courses, loading: coursesLoading, error: coursesError } = useCourses();
+
+  // Prevents sync effects from overwriting Supabase with stale localStorage data
+  // before the initial Supabase hydration completes on app open.
+  const syncEnabled = useRef(false);
+
+  // On mount: if already onboarded, reload the student's Supabase data so
+  // bookmarks and prereq/coreq selections are restored across sessions.
+  useEffect(() => {
+    if (!onboarded || !studentId) {
+      // Fresh session — sync is safe to enable immediately (no historical data
+      // to protect yet).
+      syncEnabled.current = true;
+      return;
     }
-    return result;
+
+    loadStudentData(studentId).then(({ completedCourses, bookmarkIds }) => {
+      updateProfile({ completedCourses });
+      setBookmarks(bookmarkIds);
+      syncEnabled.current = true;
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps — intentionally runs once on mount
+
+  // Sync prereq/coreq changes → completed_courses / enrolled_courses
+  useEffect(() => {
+    if (!studentId || !syncEnabled.current) return;
+    syncStudentCourses(studentId, profile.completedCourses);
+  }, [studentId, profile.completedCourses]);
+
+  // Sync bookmark changes → bookmarked_courses
+  useEffect(() => {
+    if (!studentId || !syncEnabled.current) return;
+    syncStudentBookmarks(studentId, bookmarks);
+  }, [studentId, bookmarks]);
+
+  const handleSubmitProfile = async (): Promise<{ error?: string }> => {
+    const result = await submitProfile(profile);
+
+    if (result.error) return { error: result.error };
+
+    if (result.hydratedData) {
+      // Returning user — restore everything from Supabase
+      const { studentId: id, profile: hydratedProfile, bookmarkIds } = result.hydratedData;
+      setStudentId(id);
+      updateProfile(hydratedProfile);
+      setBookmarks(bookmarkIds);
+    } else if (result.studentId) {
+      // New user — just record the ID (courses were synced inside submitProfile)
+      setStudentId(result.studentId);
+    }
+
+    // Enable sync after login so subsequent changes propagate.
+    syncEnabled.current = true;
+    markOnboarded();
+    setActiveView("courses");
+    return {};
   };
 
   const toggleBookmark = (id: string) => {
@@ -61,12 +121,16 @@ function App() {
       {activeView === "courses" && (
         <div className="flex flex-1 overflow-hidden">
           <Sidebar
+            courses={courses}
             bookmarks={bookmarks}
             onToggleBookmark={toggleBookmark}
             activeSubject={activeSubject}
             onSelectSubject={setActiveSubject}
           />
           <CourseBrowser
+            courses={courses}
+            loading={coursesLoading}
+            error={coursesError}
             profile={profile}
             bookmarks={bookmarks}
             onToggleBookmark={toggleBookmark}

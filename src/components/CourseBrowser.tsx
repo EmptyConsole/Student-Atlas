@@ -2,13 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGroup } from "motion/react";
 import { Search } from "lucide-react";
 import { SUBJECTS } from "../data/subjects";
-import { DEFAULT_FILTERS, matchesSearch, type Filters } from "../data/courses";
-import { useCourses } from "../hooks/useCourses";
+import { DEFAULT_FILTERS, matchesSearch, type Course, type Filters } from "../data/courses";
 import type { UserProfile } from "../hooks/useProfile";
 import FilterPanel from "./FilterPanel";
 import SubjectSection from "./SubjectSection";
 
 type CourseBrowserProps = {
+  courses: Course[];
+  loading: boolean;
+  error: string | null;
   profile: UserProfile;
   bookmarks: Set<string>;
   onToggleBookmark: (id: string) => void;
@@ -18,6 +20,9 @@ type CourseBrowserProps = {
 };
 
 function CourseBrowser({
+  courses,
+  loading,
+  error,
   profile,
   bookmarks,
   onToggleBookmark,
@@ -35,9 +40,6 @@ function CourseBrowser({
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef(activeSubject);
   activeRef.current = activeSubject;
-
-  // Fetch courses from supabase
-  const { courses, loading, error } = useCourses();
 
   const coursesBySubject = useMemo(() => {
     const map = new Map<string, typeof courses>();
