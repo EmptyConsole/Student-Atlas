@@ -488,6 +488,35 @@ export type Database = {
           },
         ]
       }
+      submitted_notes: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submitted_notes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teachers: {
         Row: {
           created_at: string
