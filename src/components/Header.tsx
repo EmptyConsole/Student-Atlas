@@ -4,13 +4,16 @@ import type { AppView } from "../types/app";
 type HeaderProps = {
   activeView: AppView;
   onNavigate: (view: AppView) => void;
+  locked?: boolean;
 };
 
-function Header({ activeView, onNavigate }: HeaderProps) {
+function Header({ activeView, onNavigate, locked = false }: HeaderProps) {
   const navButtonClass = (view: AppView) =>
-    `cursor-pointer rounded-lg border-0 bg-transparent px-3 py-2 text-base text-gray-700 transition-all duration-150 ease-out hover:scale-105 hover:text-[#4169e1] active:scale-95 active:text-[#3557c7] focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
-      activeView === view ? "font-bold text-[#4169e1]" : "font-semibold"
-    }`;
+    locked
+      ? "cursor-not-allowed rounded-lg border-0 bg-transparent px-3 py-2 text-base font-semibold text-gray-400 focus:outline-none"
+      : `cursor-pointer rounded-lg border-0 bg-transparent px-3 py-2 text-base text-gray-700 transition-all duration-150 ease-out hover:scale-105 hover:text-[#4169e1] active:scale-95 active:text-[#3557c7] focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
+          activeView === view ? "font-bold text-[#4169e1]" : "font-semibold"
+        }`;
 
   const profileActive = activeView === "profile";
 
@@ -27,6 +30,7 @@ function Header({ activeView, onNavigate }: HeaderProps) {
         <button
           type="button"
           onClick={() => onNavigate("courses")}
+          disabled={locked}
           aria-current={activeView === "courses" ? "page" : undefined}
           className={navButtonClass("courses")}
         >
@@ -36,6 +40,7 @@ function Header({ activeView, onNavigate }: HeaderProps) {
         <button
           type="button"
           onClick={() => onNavigate("register")}
+          disabled={locked}
           aria-current={activeView === "register" ? "page" : undefined}
           className={navButtonClass("register")}
         >
@@ -45,9 +50,14 @@ function Header({ activeView, onNavigate }: HeaderProps) {
         <button
           type="button"
           onClick={() => onNavigate("profile")}
+          disabled={locked}
           aria-label="Profile"
           aria-current={profileActive ? "page" : undefined}
-          className="cursor-pointer rounded-full p-2 text-gray-600 transition-all duration-150 ease-out hover:scale-105 hover:bg-main-300 active:scale-95 active:bg-main-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500"
+          className={
+            locked
+              ? "cursor-not-allowed rounded-full p-2 text-gray-400 focus:outline-none"
+              : "cursor-pointer rounded-full p-2 text-gray-600 transition-all duration-150 ease-out hover:scale-105 hover:bg-main-300 active:scale-95 active:bg-main-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500"
+          }
         >
           <CircleUserRound
             className="h-10 w-10"

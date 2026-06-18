@@ -25,12 +25,14 @@ type ProfileSidebarProps = {
   activeSection: ProfileSection;
   onSelectSection: (id: ProfileSection) => void;
   onSignOut: () => void;
+  showSignOut?: boolean;
 };
 
 function ProfileSidebar({
   activeSection,
   onSelectSection,
   onSignOut,
+  showSignOut = true,
 }: ProfileSidebarProps) {
   const activeItemRef = useRef<HTMLLIElement>(null);
 
@@ -77,15 +79,17 @@ function ProfileSidebar({
           })}
         </ul>
 
-        <div className="mt-auto px-4 pt-4 pb-3">
-          <button
-            type="button"
-            onClick={onSignOut}
-            className="w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-semibold text-gray-600 transition-colors hover:bg-main-200 hover:text-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
-          >
-            Sign Out
-          </button>
-        </div>
+        {showSignOut && (
+          <div className="mt-auto px-4 pt-4 pb-3">
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-semibold text-gray-600 transition-colors hover:bg-main-200 hover:text-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
+            >
+              Sign Out
+            </button>
+          </div>
+        )}
       </nav>
     </aside>
   );

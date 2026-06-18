@@ -5,6 +5,7 @@ import CourseBrowser from "./components/CourseBrowser";
 import ProfilePage from "./components/ProfilePage";
 import RegisterPage from "./components/RegisterPage";
 import { useProfile } from "./hooks/useProfile";
+import { submitProfile } from "./lib/students";
 import { SUBJECTS } from "./data/subjects";
 import type { AppView } from "./types/app";
 
@@ -12,7 +13,23 @@ function App() {
   const [activeView, setActiveView] = useState<AppView>("courses");
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
   const [activeSubject, setActiveSubject] = useState<string>(SUBJECTS[0].name);
-  const { profile, updateProfile, updateCourseNote, signOut } = useProfile();
+  const {
+    profile,
+    onboarded,
+    markOnboarded,
+    updateProfile,
+    updateCourseNote,
+    signOut,
+  } = useProfile();
+
+  const handleSubmitProfile = async () => {
+    const result = await submitProfile(profile);
+    if (!result.error) {
+      markOnboarded();
+      setActiveView("courses");
+    }
+    return result;
+  };
 
   const toggleBookmark = (id: string) => {
     setBookmarks((prev) => {
@@ -22,6 +39,21 @@ function App() {
       return next;
     });
   };
+
+  if (!onboarded) {
+    return (
+      <div className="flex h-screen flex-col overflow-hidden font-sans">
+        <Header activeView="profile" onNavigate={setActiveView} locked />
+        <ProfilePage
+          profile={profile}
+          onChange={updateProfile}
+          onSignOut={signOut}
+          onboarding
+          onSubmit={handleSubmitProfile}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen flex-col overflow-hidden font-sans">

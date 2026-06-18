@@ -7,9 +7,17 @@ type ProfilePageProps = {
   profile: UserProfile;
   onChange: (patch: Partial<UserProfile>) => void;
   onSignOut: () => void;
+  onboarding?: boolean;
+  onSubmit?: () => Promise<{ error?: string }>;
 };
 
-function ProfilePage({ profile, onChange, onSignOut }: ProfilePageProps) {
+function ProfilePage({
+  profile,
+  onChange,
+  onSignOut,
+  onboarding = false,
+  onSubmit,
+}: ProfilePageProps) {
   const [activeSection, setActiveSection] = useState<ProfileSection>("profile");
 
   return (
@@ -18,6 +26,7 @@ function ProfilePage({ profile, onChange, onSignOut }: ProfilePageProps) {
         activeSection={activeSection}
         onSelectSection={setActiveSection}
         onSignOut={onSignOut}
+        showSignOut={!onboarding}
       />
       <main className="flex flex-1 flex-col overflow-hidden bg-detail-400">
         <ProfileContent
@@ -25,6 +34,8 @@ function ProfilePage({ profile, onChange, onSignOut }: ProfilePageProps) {
           onChange={onChange}
           activeSection={activeSection}
           onSectionChange={setActiveSection}
+          onboarding={onboarding}
+          onSubmit={onSubmit}
         />
       </main>
     </div>

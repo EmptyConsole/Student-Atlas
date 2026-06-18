@@ -12,6 +12,7 @@ export type UserProfile = {
 };
 
 const STORAGE_KEY = "student-atlas-profile";
+const ONBOARDED_KEY = "student-atlas-onboarded";
 
 export const DEFAULT_PROFILE: UserProfile = {
   name: "",
@@ -50,12 +51,26 @@ function saveProfile(profile: UserProfile) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
 }
 
+function loadOnboarded(): boolean {
+  try {
+    return localStorage.getItem(ONBOARDED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
 export function useProfile() {
   const [profile, setProfile] = useState<UserProfile>(loadProfile);
+  const [onboarded, setOnboarded] = useState<boolean>(loadOnboarded);
 
   useEffect(() => {
     saveProfile(profile);
   }, [profile]);
+
+  const markOnboarded = useCallback(() => {
+    localStorage.setItem(ONBOARDED_KEY, "true");
+    setOnboarded(true);
+  }, []);
 
   const updateProfile = useCallback((patch: Partial<UserProfile>) => {
     setProfile((prev) => ({ ...prev, ...patch }));
@@ -73,8 +88,17 @@ export function useProfile() {
 
   const signOut = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(ONBOARDED_KEY);
     setProfile({ ...DEFAULT_PROFILE });
+    setOnboarded(false);
   }, []);
 
-  return { profile, updateProfile, updateCourseNote, signOut };
+  return {
+    profile,
+    onboarded,
+    markOnboarded,
+    updateProfile,
+    updateCourseNote,
+    signOut,
+  };
 }

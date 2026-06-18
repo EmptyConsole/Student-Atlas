@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GRADE_COLORS, GRADES } from "../data/courses";
 import { PREREQUISITE_COURSES } from "../data/prerequisiteCourses";
-import type {
-  CourseCompletion,
-  UserProfile,
+import {
+  isProfileComplete,
+  type CourseCompletion,
+  type UserProfile,
 } from "../hooks/useProfile";
 import type { ProfileSection } from "./ProfileSidebar";
 
@@ -12,6 +13,8 @@ type ProfileContentProps = {
   onChange: (patch: Partial<UserProfile>) => void;
   activeSection: ProfileSection;
   onSectionChange: (id: ProfileSection) => void;
+  onboarding?: boolean;
+  onSubmit?: () => Promise<{ error?: string }>;
 };
 
 function GradeChip({
@@ -99,8 +102,26 @@ function ProfileContent({
   onChange,
   activeSection,
   onSectionChange,
+  onboarding = false,
+  onSubmit,
 }: ProfileContentProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const canSubmit = isProfileComplete(profile);
+
+  const handleSubmit = async () => {
+    if (!onSubmit || !canSubmit || submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    const result = await onSubmit();
+    if (result.error) {
+      setSubmitError(result.error);
+      setSubmitting(false);
+    }
+  };
+
   const activeRef = useRef(activeSection);
   activeRef.current = activeSection;
 
@@ -227,6 +248,28 @@ function ProfileContent({
                 ))}
               </div>
             </div>
+
+            {onboarding && (
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={!canSubmit || submitting}
+                  className={`h-11 w-full rounded-xl text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
+                    canSubmit && !submitting
+                      ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
+                      : "cursor-not-allowed bg-gray-300"
+                  }`}
+                >
+                  {submitting ? "Logging In..." : "Log In"}
+                </button>
+                {submitError && (
+                  <p className="text-sm font-medium text-red-600">
+                    {submitError}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
