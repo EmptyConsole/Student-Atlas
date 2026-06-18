@@ -11,6 +11,8 @@ import {
   loadStudentData,
   syncStudentCourses,
   syncStudentBookmarks,
+  syncStudentProfile,
+  syncCourseNotes,
 } from "./lib/students";
 import { SUBJECTS } from "./data/subjects";
 import type { AppView } from "./types/app";
@@ -49,8 +51,8 @@ function App() {
       return;
     }
 
-    loadStudentData(studentId).then(({ completedCourses, bookmarkIds }) => {
-      updateProfile({ completedCourses });
+    loadStudentData(studentId).then(({ completedCourses, bookmarkIds, courseNotes }) => {
+      updateProfile({ completedCourses, courseNotes });
       setBookmarks(bookmarkIds);
       syncEnabled.current = true;
     });
@@ -67,6 +69,26 @@ function App() {
     if (!studentId || !syncEnabled.current) return;
     syncStudentBookmarks(studentId, bookmarks);
   }, [studentId, bookmarks]);
+
+  // Sync profile field changes (name/email/grade) → students row.
+  // Debounced so rapid typing doesn't fire a request per keystroke.
+  useEffect(() => {
+    if (!studentId || !syncEnabled.current) return;
+    const timer = setTimeout(() => {
+      syncStudentProfile(studentId, profile.name, profile.email, profile.grade);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [studentId, profile.name, profile.email, profile.grade]);
+
+  // Sync course notes → course_notes table.
+  // Debounced for the same reason.
+  useEffect(() => {
+    if (!studentId || !syncEnabled.current) return;
+    const timer = setTimeout(() => {
+      syncCourseNotes(studentId, profile.courseNotes);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [studentId, profile.courseNotes]);
 
   const handleSubmitProfile = async (): Promise<{ error?: string }> => {
     const result = await submitProfile(profile);
@@ -152,6 +174,7 @@ function App() {
       )}
       {activeView === "register" && (
         <RegisterPage
+          courses={courses}
           profile={profile}
           bookmarks={bookmarks}
           onNavigateToProfile={() => setActiveView("profile")}

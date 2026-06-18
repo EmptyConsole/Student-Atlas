@@ -1,4 +1,4 @@
-import { COURSES, type Course, type Term } from "../data/courses";
+import { type Course, type Term } from "../data/courses";
 
 export const MIN_RANKED_COURSES = 8;
 
@@ -35,13 +35,13 @@ export function isSpringEligible(term: Term): boolean {
   return term === "spring" || term === "both" || term === "all-year";
 }
 
-export function bookmarkedCourses(bookmarks: Set<string>): Course[] {
-  return COURSES.filter((course) => bookmarks.has(course.id));
+export function bookmarkedCourses(bookmarks: Set<string>, courses: Course[]): Course[] {
+  return courses.filter((course) => bookmarks.has(course.id));
 }
 
-export function yearLongIdSet(bookmarks: Set<string>): Set<string> {
+export function yearLongIdSet(bookmarks: Set<string>, courses: Course[]): Set<string> {
   return new Set(
-    bookmarkedCourses(bookmarks)
+    bookmarkedCourses(bookmarks, courses)
       .filter((course) => isLinked(course.term))
       .map((course) => course.id),
   );
@@ -133,9 +133,9 @@ function alignModel(
   };
 }
 
-export function buildInitialModel(bookmarks: Set<string>): RankingModel {
-  const eligible = bookmarkedCourses(bookmarks);
-  const yearLongSet = yearLongIdSet(bookmarks);
+export function buildInitialModel(bookmarks: Set<string>, courses: Course[]): RankingModel {
+  const eligible = bookmarkedCourses(bookmarks, courses);
+  const yearLongSet = yearLongIdSet(bookmarks, courses);
   const fallOrder = sortByTitle(
     eligible.filter((course) => isFallEligible(course.term)),
   ).map((course) => course.id);
@@ -148,9 +148,10 @@ export function buildInitialModel(bookmarks: Set<string>): RankingModel {
 export function mergeModelWithBookmarks(
   bookmarks: Set<string>,
   prevModel: RankingModel,
+  courses: Course[],
 ): RankingModel {
-  const eligible = bookmarkedCourses(bookmarks);
-  const yearLongSet = yearLongIdSet(bookmarks);
+  const eligible = bookmarkedCourses(bookmarks, courses);
+  const yearLongSet = yearLongIdSet(bookmarks, courses);
 
   const mergeColumn = (prevOrder: string[], columnCourses: Course[]): string[] => {
     const eligibleIds = new Set(columnCourses.map((course) => course.id));
@@ -236,8 +237,9 @@ export function yearLongCourseIds(
   bookmarks: Set<string>,
   fallOrder: string[],
   springOrder: string[],
+  courses: Course[],
 ): string[] {
-  const linkedSet = yearLongIdSet(bookmarks);
+  const linkedSet = yearLongIdSet(bookmarks, courses);
   const seen = new Set<string>();
   const ids: string[] = [];
   for (const id of [...fallOrder, ...springOrder]) {

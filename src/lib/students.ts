@@ -33,7 +33,7 @@ async function fetchCourseMapByIds(ids: string[]): Promise<Map<string, string>> 
 
 export type HydratedStudentData = {
   studentId: string;
-  profile: Pick<UserProfile, "name" | "email" | "grade" | "completedCourses">;
+  profile: Pick<UserProfile, "name" | "email" | "grade" | "completedCourses" | "courseNotes">;
   bookmarkIds: Set<string>;
 };
 
@@ -50,8 +50,9 @@ export type SubmitResult = {
 export async function loadStudentData(studentId: string): Promise<{
   completedCourses: Record<string, "prereq" | "coreq">;
   bookmarkIds: Set<string>;
+  courseNotes: Record<string, string>;
 }> {
-  const [completedRes, enrolledRes, bookmarkedRes] = await Promise.all([
+  const [completedRes, enrolledRes, bookmarkedRes, notesRes] = await Promise.all([
     supabase
       .from("completed_courses")
       .select("course_id")
@@ -63,6 +64,10 @@ export async function loadStudentData(studentId: string): Promise<{
     supabase
       .from("bookmarked_courses")
       .select("course_id")
+      .eq("student_id", studentId),
+    supabase
+      .from("course_notes")
+      .select("course_id, note")
       .eq("student_id", studentId),
   ]);
 
@@ -83,7 +88,12 @@ export async function loadStudentData(studentId: string): Promise<{
     if (title) completedCourses[title] = "coreq";
   }
 
-  return { completedCourses, bookmarkIds: new Set(bookmarkedIds) };
+  const courseNotes: Record<string, string> = {};
+  for (const row of notesRes.data ?? []) {
+    if (row.note) courseNotes[row.course_id] = row.note;
+  }
+
+  return { completedCourses, bookmarkIds: new Set(bookmarkedIds), courseNotes };
 }
 
 // ---------------------------------------------------------------------------
@@ -122,7 +132,7 @@ export async function submitProfile(profile: UserProfile): Promise<SubmitResult>
     // ---- Returning user: load all Supabase data ----
     if (existing && existing.length > 0) {
       const student = existing[0];
-      const { completedCourses, bookmarkIds } = await loadStudentData(student.id);
+      const { completedCourses, bookmarkIds, courseNotes } = await loadStudentData(student.id);
       return {
         studentId: student.id,
         hydratedData: {
@@ -132,6 +142,7 @@ export async function submitProfile(profile: UserProfile): Promise<SubmitResult>
             email: student.email,
             grade: student.grade,
             completedCourses,
+            courseNotes,
           },
           bookmarkIds,
         },
@@ -198,14 +209,14 @@ export async function syncStudentCourses(
     inserts.push(
       supabase
         .from("completed_courses")
-        .insert(prereqIds.map((course_id) => ({ student_id: studentId, course_id }))),
+        .insert(prereqIds.map((course_id) => ({ student_id: studentId, course_id }))) as unknown as Promise<unknown>,
     );
   }
   if (coreqIds.length > 0) {
     inserts.push(
       supabase
         .from("enrolled_courses")
-        .insert(coreqIds.map((course_id) => ({ student_id: studentId, course_id }))),
+        .insert(coreqIds.map((course_id) => ({ student_id: studentId, course_id }))) as unknown as Promise<unknown>,
     );
   }
 
@@ -227,5 +238,49 @@ export async function syncStudentBookmarks(
     await supabase
       .from("bookmarked_courses")
       .insert(ids.map((course_id) => ({ student_id: studentId, course_id })));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sync profile fields (name, email, grade) → students row
+// ---------------------------------------------------------------------------
+
+export async function syncStudentProfile(
+  studentId: string,
+  name: string,
+  email: string,
+  grade: number | null,
+): Promise<void> {
+  const trimmedName = name.trim();
+  const trimmedEmail = email.trim();
+  if (!trimmedName || !trimmedEmail || grade === null) return;
+
+  await supabase
+    .from("students")
+    .update({ name: trimmedName, email: trimmedEmail, grade })
+    .eq("id", studentId);
+}
+
+// ---------------------------------------------------------------------------
+// Sync course notes → course_notes table
+// ---------------------------------------------------------------------------
+
+export async function syncCourseNotes(
+  studentId: string,
+  courseNotes: Record<string, string>,
+): Promise<void> {
+  await supabase.from("course_notes").delete().eq("student_id", studentId);
+
+  const entries = Object.entries(courseNotes).filter(([, note]) => note.trim());
+  if (entries.length > 0) {
+    await supabase
+      .from("course_notes")
+      .insert(
+        entries.map(([course_id, note]) => ({
+          student_id: studentId,
+          course_id,
+          note: note.trim(),
+        })),
+      );
   }
 }

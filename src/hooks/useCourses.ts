@@ -4,8 +4,6 @@ import type { Course } from "../data/courses";
 import type { Tables } from "../types/database";
 
 type SupabaseCourse = Tables<"courses">;
-type SupabasePrerequisite = Tables<"course_prerequisites">;
-type SupabaseCorequisite = Tables<"course_corequisites">;
 
 const SCHOOL_NAME = "Student Atlas High School";
 

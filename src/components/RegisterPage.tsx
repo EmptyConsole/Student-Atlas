@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { COURSES } from "../data/courses";
+import { type Course } from "../data/courses";
 import { SUBJECTS } from "../data/subjects";
 import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
 import {
@@ -17,26 +17,28 @@ import RankingAlignedGrid from "./RankingAlignedGrid";
 import SubmitConfirmDialog from "./SubmitConfirmDialog";
 
 type RegisterPageProps = {
+  courses: Course[];
   profile: UserProfile;
   bookmarks: Set<string>;
   onNavigateToProfile?: () => void;
 };
 
 function RegisterPage({
+  courses,
   profile,
   bookmarks,
   onNavigateToProfile,
 }: RegisterPageProps) {
   const profileComplete = isProfileComplete(profile);
   const grade = profile.grade ?? 9;
-  const [model, setModel] = useState(() => buildInitialModel(bookmarks));
+  const [model, setModel] = useState(() => buildInitialModel(bookmarks, courses));
 
   // Reconcile the ranked lists when bookmarks change, preserving the user's
   // existing order for courses that remain bookmarked.
   const [prevBookmarks, setPrevBookmarks] = useState(bookmarks);
   if (bookmarks !== prevBookmarks) {
     setPrevBookmarks(bookmarks);
-    setModel((prev) => mergeModelWithBookmarks(bookmarks, prev));
+    setModel((prev) => mergeModelWithBookmarks(bookmarks, prev, courses));
   }
 
   const { fallRows, springRows } = useMemo(() => deriveColumns(model), [model]);
@@ -45,8 +47,8 @@ function RegisterPage({
   const [submitted, setSubmitted] = useState(false);
 
   const courseById = useMemo(
-    () => new Map(COURSES.map((course) => [course.id, course])),
-    [],
+    () => new Map(courses.map((course) => [course.id, course])),
+    [courses],
   );
   const subjectByName = useMemo(
     () => new Map(SUBJECTS.map((subject) => [subject.name, subject])),
@@ -59,11 +61,11 @@ function RegisterPage({
   );
 
   const yearLongIds = useMemo(
-    () => yearLongCourseIds(bookmarks, model.fallOrder, model.springOrder),
-    [bookmarks, model.fallOrder, model.springOrder],
+    () => yearLongCourseIds(bookmarks, model.fallOrder, model.springOrder, courses),
+    [bookmarks, model.fallOrder, model.springOrder, courses],
   );
 
-  const yearLongSet = useMemo(() => yearLongIdSet(bookmarks), [bookmarks]);
+  const yearLongSet = useMemo(() => yearLongIdSet(bookmarks, courses), [bookmarks, courses]);
 
   const handleReorder = useCallback(
     (column: "fall" | "spring", newOrder: string[]) => {

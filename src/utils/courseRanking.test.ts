@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { COURSES } from "../data/courses";
 import {
   applyReorder,
   buildInitialModel,
@@ -126,6 +127,7 @@ describe("yearLongCourseIds", () => {
         bookmarks,
         ["art-foundations", "art-portfolio", "pa-acting"],
         ["pa-acting", "pa-music-ensemble", "art-portfolio"],
+        COURSES,
       ),
     ).toEqual(["art-portfolio", "pa-music-ensemble"]);
   });
@@ -143,7 +145,7 @@ describe("mergeModelWithBookmarks", () => {
       fallOrder: ["cs-intro", "pa-acting"],
       springOrder: ["pa-dance"],
     };
-    const next = mergeModelWithBookmarks(bookmarks, prev);
+    const next = mergeModelWithBookmarks(bookmarks, prev, COURSES);
 
     expect(next.fallOrder).toEqual(["cs-intro", "pa-acting"]);
     expect(next.springOrder).toEqual(["pa-dance", "art-printmaking"]);
@@ -153,7 +155,7 @@ describe("mergeModelWithBookmarks", () => {
 describe("buildInitialModel", () => {
   it("sorts eligible courses alphabetically per column", () => {
     const bookmarks = new Set(["pa-acting", "pa-dance", "art-printmaking"]);
-    const model = buildInitialModel(bookmarks);
+    const model = buildInitialModel(bookmarks, COURSES);
     expect(model.fallOrder).toEqual(["pa-acting"]);
     expect(model.springOrder).toEqual(["pa-dance", "art-printmaking"]);
   });
