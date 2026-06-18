@@ -273,25 +273,6 @@ function ProfileContent({
           </div>
         </section>
 
-        <section
-          id="section-course-info"
-          data-section="course-info"
-          className="scroll-mt-4"
-        >
-          <h2 className="mb-4 text-2xl font-bold text-gray-800">
-            Course Information
-          </h2>
-          <p className="text-gray-500">Coming soon.</p>
-        </section>
-
-        <section
-          id="section-help"
-          data-section="help"
-          className="scroll-mt-4"
-        >
-          <h2 className="mb-4 text-2xl font-bold text-gray-800">Help</h2>
-          <p className="text-gray-500">Coming soon.</p>
-        </section>
       </div>
     </div>
   );

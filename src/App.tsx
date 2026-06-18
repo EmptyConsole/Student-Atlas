@@ -13,6 +13,7 @@ import {
   syncStudentBookmarks,
   syncStudentProfile,
   syncCourseNotes,
+  deleteStudentAccount,
 } from "./lib/students";
 import { SUBJECTS } from "./data/subjects";
 import type { AppView } from "./types/app";
@@ -113,6 +114,13 @@ function App() {
     return {};
   };
 
+  const handleDeleteAccount = async () => {
+    if (!studentId) return;
+    await deleteStudentAccount(studentId);
+    signOut();
+    setActiveView("courses");
+  };
+
   const toggleBookmark = (id: string) => {
     setBookmarks((prev) => {
       const next = new Set(prev);
@@ -170,6 +178,7 @@ function App() {
             signOut();
             setActiveView("courses");
           }}
+          onDeleteAccount={handleDeleteAccount}
         />
       )}
       {activeView === "register" && (
@@ -177,6 +186,7 @@ function App() {
           courses={courses}
           profile={profile}
           bookmarks={bookmarks}
+          studentId={studentId}
           onNavigateToProfile={() => setActiveView("profile")}
         />
       )}

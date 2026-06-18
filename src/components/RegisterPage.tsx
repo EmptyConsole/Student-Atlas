@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { type Course } from "../data/courses";
 import { SUBJECTS } from "../data/subjects";
 import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
+import { syncSubmittedCourses } from "../lib/students";
 import {
   applyReorder,
   buildInitialModel,
@@ -20,6 +21,7 @@ type RegisterPageProps = {
   courses: Course[];
   profile: UserProfile;
   bookmarks: Set<string>;
+  studentId: string | null;
   onNavigateToProfile?: () => void;
 };
 
@@ -27,6 +29,7 @@ function RegisterPage({
   courses,
   profile,
   bookmarks,
+  studentId,
   onNavigateToProfile,
 }: RegisterPageProps) {
   const profileComplete = isProfileComplete(profile);
@@ -78,16 +81,11 @@ function RegisterPage({
     // Drag state is tracked inside RankingAlignedGrid for connector updates.
   }, []);
 
-  const handleConfirmSubmit = () => {
-    const payload = {
-      grade,
-      fallOrder: courseIds(fallRows),
-      springOrder: courseIds(springRows),
-      appealsNotes,
-      profile,
-    };
-    console.log("Course registration submitted:", payload);
+  const handleConfirmSubmit = async () => {
     setConfirmOpen(false);
+    if (studentId) {
+      await syncSubmittedCourses(studentId, courseIds(fallRows), courseIds(springRows));
+    }
     setSubmitted(true);
   };
 

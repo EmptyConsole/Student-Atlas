@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import SubjectBookmark from "./SubjectBookmark";
 
-export type ProfileSection = "profile" | "course-info" | "help";
+export type ProfileSection = "profile";
 
 const PROFILE_NAV: {
   id: ProfileSection;
@@ -9,12 +9,6 @@ const PROFILE_NAV: {
   description: string;
 }[] = [
   { id: "profile", label: "Profile", description: "Your account details" },
-  {
-    id: "course-info",
-    label: "Course Information",
-    description: "Your course history",
-  },
-  { id: "help", label: "Help", description: "Support and FAQs" },
 ];
 
 const BLUE_TINT = "#edf2fb";
@@ -25,6 +19,7 @@ type ProfileSidebarProps = {
   activeSection: ProfileSection;
   onSelectSection: (id: ProfileSection) => void;
   onSignOut: () => void;
+  onDeleteAccount?: () => Promise<void>;
   showSignOut?: boolean;
 };
 
@@ -32,9 +27,12 @@ function ProfileSidebar({
   activeSection,
   onSelectSection,
   onSignOut,
+  onDeleteAccount,
   showSignOut = true,
 }: ProfileSidebarProps) {
   const activeItemRef = useRef<HTMLLIElement>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleSelect = (id: ProfileSection) => {
     onSelectSection(id);
@@ -80,7 +78,47 @@ function ProfileSidebar({
         </ul>
 
         {showSignOut && (
-          <div className="mt-auto px-4 pt-4 pb-3">
+          <div className="mt-auto px-4 pt-4 pb-3 flex flex-col gap-1">
+            {onDeleteAccount && (
+              confirmDelete ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 flex flex-col gap-2">
+                  <p className="text-xs font-semibold text-red-700">
+                    This will permanently delete your account and all data.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={deleting}
+                      onClick={async () => {
+                        setDeleting(true);
+                        await onDeleteAccount();
+                        setDeleting(false);
+                        setConfirmDelete(false);
+                      }}
+                      className="flex-1 cursor-pointer rounded-md bg-red-600 px-2 py-1 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                    >
+                      {deleting ? "Deleting…" : "Yes, delete"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deleting}
+                      onClick={() => setConfirmDelete(false)}
+                      className="flex-1 cursor-pointer rounded-md bg-white px-2 py-1 text-xs font-semibold text-gray-600 border border-gray-200 transition-colors hover:bg-gray-50 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                >
+                  Delete Account
+                </button>
+              )
+            )}
             <button
               type="button"
               onClick={onSignOut}

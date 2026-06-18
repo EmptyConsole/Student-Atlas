@@ -262,6 +262,35 @@ export async function syncStudentProfile(
 }
 
 // ---------------------------------------------------------------------------
+// Sync submitted course rankings → submitted_courses table
+// ---------------------------------------------------------------------------
+
+export async function syncSubmittedCourses(
+  studentId: string,
+  fallOrder: string[],
+  springOrder: string[],
+): Promise<void> {
+  await supabase.from("submitted_courses").delete().eq("student_id", studentId);
+
+  const rows = [
+    ...fallOrder.map((course_id, i) => ({
+      student_id: studentId,
+      course_id,
+      preference: i + 1,
+    })),
+    ...springOrder.map((course_id, i) => ({
+      student_id: studentId,
+      course_id,
+      preference: i + 1,
+    })),
+  ];
+
+  if (rows.length > 0) {
+    await supabase.from("submitted_courses").insert(rows);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Sync course notes → course_notes table
 // ---------------------------------------------------------------------------
 
@@ -282,5 +311,25 @@ export async function syncCourseNotes(
           note: note.trim(),
         })),
       );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Delete a student account and all associated data
+// ---------------------------------------------------------------------------
+
+export async function deleteStudentAccount(studentId: string): Promise<{ error?: string }> {
+  try {
+    await Promise.all([
+      supabase.from("bookmarked_courses").delete().eq("student_id", studentId),
+      supabase.from("completed_courses").delete().eq("student_id", studentId),
+      supabase.from("enrolled_courses").delete().eq("student_id", studentId),
+      supabase.from("course_notes").delete().eq("student_id", studentId),
+      supabase.from("submitted_courses").delete().eq("student_id", studentId),
+    ]);
+    await supabase.from("students").delete().eq("id", studentId);
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to delete account." };
   }
 }

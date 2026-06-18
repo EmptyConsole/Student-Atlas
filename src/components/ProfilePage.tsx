@@ -7,6 +7,7 @@ type ProfilePageProps = {
   profile: UserProfile;
   onChange: (patch: Partial<UserProfile>) => void;
   onSignOut: () => void;
+  onDeleteAccount?: () => Promise<void>;
   onboarding?: boolean;
   onSubmit?: () => Promise<{ error?: string }>;
 };
@@ -15,6 +16,7 @@ function ProfilePage({
   profile,
   onChange,
   onSignOut,
+  onDeleteAccount,
   onboarding = false,
   onSubmit,
 }: ProfilePageProps) {
@@ -26,6 +28,7 @@ function ProfilePage({
         activeSection={activeSection}
         onSelectSection={setActiveSection}
         onSignOut={onSignOut}
+        onDeleteAccount={onDeleteAccount}
         showSignOut={!onboarding}
       />
       <main className="flex flex-1 flex-col overflow-hidden bg-detail-400">
