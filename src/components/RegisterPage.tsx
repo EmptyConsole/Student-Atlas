@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { type Course } from "../data/courses";
 import { SUBJECTS } from "../data/subjects";
 import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
-import { syncSubmittedCourses } from "../lib/students";
+import { syncSubmittedCourses, syncSubmittedNotes } from "../lib/students";
 import {
   applyReorder,
   buildInitialModel,
@@ -48,6 +48,8 @@ function RegisterPage({
   const [appealsNotes, setAppealsNotes] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const courseById = useMemo(
     () => new Map(courses.map((course) => [course.id, course])),
@@ -82,10 +84,33 @@ function RegisterPage({
   }, []);
 
   const handleConfirmSubmit = async () => {
-    setConfirmOpen(false);
-    if (studentId) {
-      await syncSubmittedCourses(studentId, courseIds(fallRows), courseIds(springRows));
+    if (!studentId) {
+      setConfirmOpen(false);
+      setSubmitError("Please log in again from Profile.");
+      return;
     }
+
+    setSubmitting(true);
+    setSubmitError(null);
+
+    const fallSubmitted = courseIds(fallRows).slice(0, MIN_RANKED_COURSES);
+    const springSubmitted = courseIds(springRows).slice(0, MIN_RANKED_COURSES);
+    const noteValue = appealsNotes.trim() || null;
+
+    const [coursesResult, notesResult] = await Promise.all([
+      syncSubmittedCourses(studentId, fallSubmitted, springSubmitted),
+      syncSubmittedNotes(studentId, noteValue),
+    ]);
+
+    setSubmitting(false);
+    setConfirmOpen(false);
+
+    const combinedError = coursesResult.error ?? notesResult.error;
+    if (combinedError) {
+      setSubmitError(combinedError);
+      return;
+    }
+
     setSubmitted(true);
   };
 
@@ -176,6 +201,11 @@ function RegisterPage({
               Fall {fallCount}, Spring {springCount}.
             </p>
           )}
+          {submitError && (
+            <p className="rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-700">
+              {submitError}
+            </p>
+          )}
           {submitted && (
             <p className="rounded-lg bg-green-50 px-4 py-2 text-sm font-medium text-green-800">
               Your rankings have been submitted successfully.
@@ -183,13 +213,13 @@ function RegisterPage({
           )}
           <button
             type="button"
-            disabled={!valid || !profileComplete}
+            disabled={!valid || !profileComplete || submitting}
             onClick={() => {
               if (profileComplete) setConfirmOpen(true);
             }}
             className="cursor-pointer rounded-xl border-0 bg-[#4169e1] px-6 py-3 text-base font-semibold text-white transition-all duration-150 hover:scale-105 hover:bg-[#3557c7] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
           >
-            Submit rankings
+            {submitting ? "Submitting…" : "Submit rankings"}
           </button>
         </div>
         </div>
@@ -200,7 +230,10 @@ function RegisterPage({
         grade={grade}
         fallCount={fallCount}
         springCount={springCount}
-        onCancel={() => setConfirmOpen(false)}
+        submitting={submitting}
+        onCancel={() => {
+          if (!submitting) setConfirmOpen(false);
+        }}
         onConfirm={handleConfirmSubmit}
       />
     </main>

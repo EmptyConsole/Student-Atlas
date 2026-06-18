@@ -6,6 +6,7 @@ type SubmitConfirmDialogProps = {
   grade: number;
   fallCount: number;
   springCount: number;
+  submitting?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -15,11 +16,12 @@ function SubmitConfirmDialog({
   grade,
   fallCount,
   springCount,
+  submitting = false,
   onCancel,
   onConfirm,
 }: SubmitConfirmDialogProps) {
   useEffect(() => {
-    if (!open) return;
+    if (!open || submitting) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCancel();
@@ -27,14 +29,16 @@ function SubmitConfirmDialog({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onCancel]);
+  }, [open, submitting, onCancel]);
 
   if (!open) return null;
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-      onClick={onCancel}
+      onClick={() => {
+        if (!submitting) onCancel();
+      }}
       role="presentation"
     >
       <motion.div
@@ -74,17 +78,19 @@ function SubmitConfirmDialog({
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
+            disabled={submitting}
             onClick={onCancel}
-            className="cursor-pointer rounded-lg border border-main-400 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition-all duration-150 hover:scale-105 hover:bg-main-100 active:scale-95"
+            className="cursor-pointer rounded-lg border border-main-400 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition-all duration-150 hover:scale-105 hover:bg-main-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
           </button>
           <button
             type="button"
+            disabled={submitting}
             onClick={onConfirm}
-            className="cursor-pointer rounded-lg border-0 bg-[#4169e1] px-4 py-2 text-sm font-semibold text-white transition-all duration-150 hover:scale-105 hover:bg-[#3557c7] active:scale-95"
+            className="cursor-pointer rounded-lg border-0 bg-[#4169e1] px-4 py-2 text-sm font-semibold text-white transition-all duration-150 hover:scale-105 hover:bg-[#3557c7] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Confirm submit
+            {submitting ? "Submitting…" : "Confirm submit"}
           </button>
         </div>
       </motion.div>

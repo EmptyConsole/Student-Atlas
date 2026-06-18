@@ -129,18 +129,20 @@ export async function submitProfile(profile: UserProfile): Promise<SubmitResult>
 
     if (existingError) throw existingError;
 
-    // ---- Returning user: load all Supabase data ----
+    // ---- Returning user: push form edits, then load Supabase data ----
     if (existing && existing.length > 0) {
       const student = existing[0];
+      await syncStudentProfile(student.id, name, email, profile.grade);
+      await syncStudentCourses(student.id, profile.completedCourses);
       const { completedCourses, bookmarkIds, courseNotes } = await loadStudentData(student.id);
       return {
         studentId: student.id,
         hydratedData: {
           studentId: student.id,
           profile: {
-            name: student.name,
-            email: student.email,
-            grade: student.grade,
+            name,
+            email,
+            grade: profile.grade,
             completedCourses,
             courseNotes,
           },
@@ -178,7 +180,7 @@ export async function submitProfile(profile: UserProfile): Promise<SubmitResult>
 export async function syncStudentCourses(
   studentId: string,
   completedCourses: Record<string, "prereq" | "coreq" | null>,
-): Promise<void> {
+): Promise<{ error?: string }> {
   const prereqTitles: string[] = [];
   const coreqTitles: string[] = [];
 
@@ -198,29 +200,28 @@ export async function syncStudentCourses(
     .map((t) => titleToId.get(t))
     .filter((id): id is string => id !== undefined);
 
-  await Promise.all([
+  const [completedDelete, enrolledDelete] = await Promise.all([
     supabase.from("completed_courses").delete().eq("student_id", studentId),
     supabase.from("enrolled_courses").delete().eq("student_id", studentId),
   ]);
 
-  const inserts: Promise<unknown>[] = [];
+  if (completedDelete.error) return { error: completedDelete.error.message };
+  if (enrolledDelete.error) return { error: enrolledDelete.error.message };
 
   if (prereqIds.length > 0) {
-    inserts.push(
-      supabase
-        .from("completed_courses")
-        .insert(prereqIds.map((course_id) => ({ student_id: studentId, course_id }))) as unknown as Promise<unknown>,
-    );
+    const { error } = await supabase
+      .from("completed_courses")
+      .insert(prereqIds.map((course_id) => ({ student_id: studentId, course_id })));
+    if (error) return { error: error.message };
   }
   if (coreqIds.length > 0) {
-    inserts.push(
-      supabase
-        .from("enrolled_courses")
-        .insert(coreqIds.map((course_id) => ({ student_id: studentId, course_id }))) as unknown as Promise<unknown>,
-    );
+    const { error } = await supabase
+      .from("enrolled_courses")
+      .insert(coreqIds.map((course_id) => ({ student_id: studentId, course_id })));
+    if (error) return { error: error.message };
   }
 
-  await Promise.all(inserts);
+  return {};
 }
 
 // ---------------------------------------------------------------------------
@@ -230,15 +231,23 @@ export async function syncStudentCourses(
 export async function syncStudentBookmarks(
   studentId: string,
   bookmarkIds: Set<string>,
-): Promise<void> {
-  await supabase.from("bookmarked_courses").delete().eq("student_id", studentId);
+): Promise<{ error?: string }> {
+  const { error: deleteError } = await supabase
+    .from("bookmarked_courses")
+    .delete()
+    .eq("student_id", studentId);
+
+  if (deleteError) return { error: deleteError.message };
 
   const ids = [...bookmarkIds];
   if (ids.length > 0) {
-    await supabase
+    const { error: insertError } = await supabase
       .from("bookmarked_courses")
       .insert(ids.map((course_id) => ({ student_id: studentId, course_id })));
+    if (insertError) return { error: insertError.message };
   }
+
+  return {};
 }
 
 // ---------------------------------------------------------------------------
@@ -250,15 +259,18 @@ export async function syncStudentProfile(
   name: string,
   email: string,
   grade: number | null,
-): Promise<void> {
+): Promise<{ error?: string }> {
   const trimmedName = name.trim();
   const trimmedEmail = email.trim();
-  if (!trimmedName || !trimmedEmail || grade === null) return;
+  if (!trimmedName || !trimmedEmail || grade === null) return {};
 
-  await supabase
+  const { error } = await supabase
     .from("students")
     .update({ name: trimmedName, email: trimmedEmail, grade })
     .eq("id", studentId);
+
+  if (error) return { error: error.message };
+  return {};
 }
 
 // ---------------------------------------------------------------------------
@@ -269,25 +281,39 @@ export async function syncSubmittedCourses(
   studentId: string,
   fallOrder: string[],
   springOrder: string[],
-): Promise<void> {
-  await supabase.from("submitted_courses").delete().eq("student_id", studentId);
+): Promise<{ error?: string }> {
+  const { error: deleteError } = await supabase
+    .from("submitted_courses")
+    .delete()
+    .eq("student_id", studentId);
 
-  const rows = [
-    ...fallOrder.map((course_id, i) => ({
-      student_id: studentId,
-      course_id,
-      preference: i + 1,
-    })),
-    ...springOrder.map((course_id, i) => ({
-      student_id: studentId,
-      course_id,
-      preference: i + 1,
-    })),
-  ];
+  if (deleteError) {
+    return { error: deleteError.message };
+  }
+
+  const seen = new Set<string>();
+  const rows: { student_id: string; course_id: string; preference: number }[] = [];
+
+  for (const [i, course_id] of fallOrder.entries()) {
+    if (seen.has(course_id)) continue;
+    seen.add(course_id);
+    rows.push({ student_id: studentId, course_id, preference: i + 1 });
+  }
+
+  for (const [i, course_id] of springOrder.entries()) {
+    if (seen.has(course_id)) continue;
+    seen.add(course_id);
+    rows.push({ student_id: studentId, course_id, preference: i + 1 });
+  }
 
   if (rows.length > 0) {
-    await supabase.from("submitted_courses").insert(rows);
+    const { error: insertError } = await supabase.from("submitted_courses").insert(rows);
+    if (insertError) {
+      return { error: insertError.message };
+    }
   }
+
+  return {};
 }
 
 // ---------------------------------------------------------------------------
@@ -297,12 +323,17 @@ export async function syncSubmittedCourses(
 export async function syncCourseNotes(
   studentId: string,
   courseNotes: Record<string, string>,
-): Promise<void> {
-  await supabase.from("course_notes").delete().eq("student_id", studentId);
+): Promise<{ error?: string }> {
+  const { error: deleteError } = await supabase
+    .from("course_notes")
+    .delete()
+    .eq("student_id", studentId);
+
+  if (deleteError) return { error: deleteError.message };
 
   const entries = Object.entries(courseNotes).filter(([, note]) => note.trim());
   if (entries.length > 0) {
-    await supabase
+    const { error: insertError } = await supabase
       .from("course_notes")
       .insert(
         entries.map(([course_id, note]) => ({
@@ -311,7 +342,34 @@ export async function syncCourseNotes(
           note: note.trim(),
         })),
       );
+    if (insertError) return { error: insertError.message };
   }
+
+  return {};
+}
+
+// ---------------------------------------------------------------------------
+// Sync submission note → submitted_notes table (one row per student)
+// ---------------------------------------------------------------------------
+
+export async function syncSubmittedNotes(
+  studentId: string,
+  note: string | null,
+): Promise<{ error?: string }> {
+  const { error: deleteError } = await supabase
+    .from("submitted_notes")
+    .delete()
+    .eq("student_id", studentId);
+
+  if (deleteError) return { error: deleteError.message };
+
+  const { error: insertError } = await supabase
+    .from("submitted_notes")
+    .insert({ student_id: studentId, note: note ?? null });
+
+  if (insertError) return { error: insertError.message };
+
+  return {};
 }
 
 // ---------------------------------------------------------------------------
@@ -326,6 +384,7 @@ export async function deleteStudentAccount(studentId: string): Promise<{ error?:
       supabase.from("enrolled_courses").delete().eq("student_id", studentId),
       supabase.from("course_notes").delete().eq("student_id", studentId),
       supabase.from("submitted_courses").delete().eq("student_id", studentId),
+      supabase.from("submitted_notes").delete().eq("student_id", studentId),
     ]);
     await supabase.from("students").delete().eq("id", studentId);
     return {};

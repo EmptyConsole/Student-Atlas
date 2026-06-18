@@ -94,8 +94,7 @@ export function useProfile() {
   const updateCourseNote = useCallback((courseId: string, note: string) => {
     setProfile((prev) => {
       const next = { ...prev.courseNotes };
-      const trimmed = note.trim();
-      if (trimmed) next[courseId] = trimmed;
+      if (note) next[courseId] = note;
       else delete next[courseId];
       return { ...prev, courseNotes: next };
     });
