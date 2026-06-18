@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGroup } from "motion/react";
 import { Search } from "lucide-react";
 import { SUBJECTS } from "../data/subjects";
-import { COURSES, DEFAULT_FILTERS, matchesSearch, type Filters } from "../data/courses";
+import { DEFAULT_FILTERS, matchesSearch, type Filters } from "../data/courses";
+import { useCourses } from "../hooks/useCourses";
 import type { UserProfile } from "../hooks/useProfile";
 import FilterPanel from "./FilterPanel";
 import SubjectSection from "./SubjectSection";
@@ -35,15 +36,18 @@ function CourseBrowser({
   const activeRef = useRef(activeSubject);
   activeRef.current = activeSubject;
 
+  // Fetch courses from supabase
+  const { courses, loading, error } = useCourses();
+
   const coursesBySubject = useMemo(() => {
-    const map = new Map<string, typeof COURSES>();
+    const map = new Map<string, typeof courses>();
     for (const subject of SUBJECTS) map.set(subject.name, []);
-    for (const course of COURSES) {
+    for (const course of courses) {
       if (!matchesSearch(course, search)) continue;
       map.get(course.subject)?.push(course);
     }
     return map;
-  }, [search]);
+  }, [search, courses]);
 
   const toggleExpand = (id: string) =>
     setExpandedId((cur) => (cur === id ? null : id));
@@ -66,7 +70,9 @@ function CourseBrowser({
           }
         }
         if (visible.size === 0) return;
-        const topmost = [...visible.entries()].sort((a, b) => a[1] - b[1])[0][0];
+        const topmost = [...visible.entries()].sort(
+          (a, b) => a[1] - b[1],
+        )[0][0];
         if (topmost !== activeRef.current) onActiveSubjectChange(topmost);
       },
       { root, rootMargin: "0px 0px -70% 0px", threshold: 0 },
@@ -98,31 +104,49 @@ function CourseBrowser({
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pt-2 pb-10">
-        <LayoutGroup>
-          <div className="flex flex-col gap-8">
-            {SUBJECTS.map((subject) => (
-              <SubjectSection
-                key={subject.name}
-                subject={subject}
-                courses={coursesBySubject.get(subject.name) ?? []}
-                filters={filters}
-                completedCourses={profile.completedCourses}
-                expandedId={expandedId}
-                bookmarks={bookmarks}
-                courseNotes={profile.courseNotes}
-                onToggleExpand={toggleExpand}
-                onToggleBookmark={onToggleBookmark}
-                onUpdateCourseNote={onUpdateCourseNote}
-              />
-            ))}
-
-            {!hasResults && (
-              <p className="py-16 text-center text-gray-400">
-                No courses match "{search}".
-              </p>
-            )}
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <p className="text-gray-500 mb-2">Loading courses...</p>
+              <div className="inline-block h-8 w-8 border-4 border-main-300 border-t-main-600 rounded-full animate-spin" />
+            </div>
           </div>
-        </LayoutGroup>
+        ) : error ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <p className="text-red-500 font-semibold mb-2">
+                Error loading courses
+              </p>
+              <p className="text-gray-500 text-sm">{error}</p>
+            </div>
+          </div>
+        ) : (
+          <LayoutGroup>
+            <div className="flex flex-col gap-8">
+              {SUBJECTS.map((subject) => (
+                <SubjectSection
+                  key={subject.name}
+                  subject={subject}
+                  courses={coursesBySubject.get(subject.name) ?? []}
+                  filters={filters}
+                  completedCourses={profile.completedCourses}
+                  expandedId={expandedId}
+                  bookmarks={bookmarks}
+                  courseNotes={profile.courseNotes}
+                  onToggleExpand={toggleExpand}
+                  onToggleBookmark={onToggleBookmark}
+                  onUpdateCourseNote={onUpdateCourseNote}
+                />
+              ))}
+
+              {!hasResults && (
+                <p className="py-16 text-center text-gray-400">
+                  No courses match "{search}".
+                </p>
+              )}
+            </div>
+          </LayoutGroup>
+        )}
       </div>
     </main>
   );
