@@ -54,6 +54,17 @@ function CourseBrowser({
   const toggleExpand = (id: string) =>
     setExpandedId((cur) => (cur === id ? null : id));
 
+  const collapseResetKey = useMemo(
+    () =>
+      JSON.stringify({
+        search,
+        grades: [...filters.grades].sort(),
+        terms: [...filters.terms].sort(),
+        sortByPrerequisites: filters.sortByPrerequisites,
+      }),
+    [search, filters],
+  );
+
   // Scroll spy: update the active subject as sections cross the top of the list.
   useEffect(() => {
     const root = scrollRef.current;
@@ -135,6 +146,7 @@ function CourseBrowser({
                   expandedId={expandedId}
                   bookmarks={bookmarks}
                   courseNotes={profile.courseNotes}
+                  collapseResetKey={collapseResetKey}
                   onToggleExpand={toggleExpand}
                   onToggleBookmark={onToggleBookmark}
                   onUpdateCourseNote={onUpdateCourseNote}
