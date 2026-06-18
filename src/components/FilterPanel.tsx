@@ -62,8 +62,7 @@ function FilterPanel({ filters, onChange }: FilterPanelProps) {
   const activeCount =
     filters.grades.size +
     filters.terms.size +
-    (filters.sortByPrerequisites ? 1 : 0) +
-    (filters.sortByCorequisites ? 1 : 0);
+    (filters.sortByPrerequisites ? 1 : 0);
 
   useEffect(() => {
     if (!open) return;
@@ -175,30 +174,6 @@ function FilterPanel({ filters, onChange }: FilterPanelProps) {
               boldOutlineWhenActive
               onClick={() =>
                 onChange({ ...filters, sortByPrerequisites: false })
-              }
-            />
-          </div>
-
-          <h4 className="mt-4 mb-3 text-sm font-bold text-gray-700">
-            Corequisites
-          </h4>
-          <div className="flex flex-wrap gap-2">
-            <Chip
-              label="Yes"
-              active={filters.sortByCorequisites}
-              bg={YES_CHIP.bg}
-              fg={YES_CHIP.fg}
-              boldOutlineWhenActive
-              onClick={() => onChange({ ...filters, sortByCorequisites: true })}
-            />
-            <Chip
-              label="No"
-              active={!filters.sortByCorequisites}
-              bg={NO_CHIP.bg}
-              fg={NO_CHIP.fg}
-              boldOutlineWhenActive
-              onClick={() =>
-                onChange({ ...filters, sortByCorequisites: false })
               }
             />
           </div>

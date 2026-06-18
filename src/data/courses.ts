@@ -49,14 +49,12 @@ export type Filters = {
   grades: Set<number>;
   terms: Set<Term>;
   sortByPrerequisites: boolean;
-  sortByCorequisites: boolean;
 };
 
 export const DEFAULT_FILTERS: Filters = {
   grades: new Set(),
   terms: new Set(),
   sortByPrerequisites: false,
-  sortByCorequisites: false,
 };
 
 /** True when every prerequisite is marked completed in the user's profile. */
@@ -67,17 +65,6 @@ export function meetsPrerequisites(
   return course.prerequisites.every(
     (title) => completedCourses[title] === "prereq",
   );
-}
-
-/** True when every corequisite is marked as coreq or already completed as prereq. */
-export function meetsCorequisites(
-  course: Course,
-  completedCourses: Record<string, CourseCompletion | null>,
-): boolean {
-  return course.corequisites.every((title) => {
-    const completion = completedCourses[title];
-    return completion === "coreq" || completion === "prereq";
-  });
 }
 
 /** Which filter terms a course's term satisfies. */
@@ -105,9 +92,6 @@ export function matchesFilters(
   if (filters.sortByPrerequisites && !meetsPrerequisites(course, completedCourses)) {
     return false;
   }
-  if (filters.sortByCorequisites && !meetsCorequisites(course, completedCourses)) {
-    return false;
-  }
   return true;
 }
 
@@ -121,17 +105,12 @@ export function matchesSearch(course: Course, query: string): boolean {
   return false;
 }
 
-/** Formats a grade list compactly, e.g. [9,10,11,12] -> "Gr 9-12". */
+/** Formats a grade list compactly, e.g. [9,10,11,12] -> "Gr. 9-12". */
 export function formatGrades(grades: number[]): string {
   if (grades.length === 0) return "All grades";
   const sorted = [...grades].sort((a, b) => a - b);
-  const isContiguous = sorted.every(
-    (g, i) => i === 0 || g === sorted[i - 1] + 1,
-  );
-  if (isContiguous && sorted.length > 1) {
-    return `Gr ${sorted[0]}-${sorted[sorted.length - 1]}`;
-  }
-  return `Gr ${sorted.join(", ")}`;
+  if (sorted.length === 1) return `Gr. ${sorted[0]}`;
+  return `Gr. ${sorted[0]}-${sorted[sorted.length - 1]}`;
 }
 
 export const COURSES: Course[] = [

@@ -112,6 +112,13 @@ function CourseCard({
                   fg={subject.accent}
                 />
               )}
+              {course.corequisites.length > 0 && (
+                <MetaBadge
+                  label={`Coreq: ${course.corequisites.join(", ")}`}
+                  bg="#ffffff"
+                  fg={subject.accent}
+                />
+              )}
               <MetaBadge
                 label={TERM_LABELS[course.term]}
                 bg={term.bg}

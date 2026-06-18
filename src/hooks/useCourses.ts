@@ -139,7 +139,9 @@ export function useCourses() {
               id: supabaseCourse.id,
               subject: supabaseCourse.subject,
               title: supabaseCourse.title,
-              grades: [supabaseCourse.grade],
+              grades: Array.isArray(supabaseCourse.grade)
+                ? supabaseCourse.grade
+                : [supabaseCourse.grade],
               prerequisites,
               corequisites,
               teacher,

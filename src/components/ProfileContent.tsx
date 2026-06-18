@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { GRADE_COLORS, GRADES } from "../data/courses";
 import { PREREQUISITE_COURSES } from "../data/prerequisiteCourses";
-import {
-  isProfileComplete,
-  type CourseCompletion,
-  type UserProfile,
-} from "../hooks/useProfile";
+import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
 import type { ProfileSection } from "./ProfileSidebar";
 
 type ProfileContentProps = {
@@ -46,17 +42,13 @@ function GradeChip({
 
 function PrerequisiteRow({
   title,
-  completion,
+  checked,
   onToggle,
-  onSetCompletion,
 }: {
   title: string;
-  completion: CourseCompletion | null;
+  checked: boolean;
   onToggle: (checked: boolean) => void;
-  onSetCompletion: (type: CourseCompletion) => void;
 }) {
-  const checked = completion !== null;
-
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-main-300 bg-white px-4 py-3 shadow-sm">
       <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
@@ -68,31 +60,6 @@ function PrerequisiteRow({
         />
         <span className="text-sm font-medium text-gray-800">{title}</span>
       </label>
-
-      {checked && (
-        <div className="flex items-center gap-3 text-sm">
-          <label className="flex cursor-pointer items-center gap-1.5">
-            <input
-              type="radio"
-              name={`completion-${title}`}
-              checked={completion === "prereq"}
-              onChange={() => onSetCompletion("prereq")}
-              className="accent-[#4169e1]"
-            />
-            <span className="font-medium text-gray-700">Prereq</span>
-          </label>
-          <label className="flex cursor-pointer items-center gap-1.5">
-            <input
-              type="radio"
-              name={`completion-${title}`}
-              checked={completion === "coreq"}
-              onChange={() => onSetCompletion("coreq")}
-              className="accent-[#4169e1]"
-            />
-            <span className="font-medium text-gray-700">Coreq</span>
-          </label>
-        </div>
-      )}
     </div>
   );
 }
@@ -155,9 +122,12 @@ function ProfileContent({
     return () => observer.disconnect();
   }, [onSectionChange]);
 
-  const setCourseCompletion = (title: string, value: CourseCompletion | null) => {
+  const setCourseCompleted = (title: string, completed: boolean) => {
     onChange({
-      completedCourses: { ...profile.completedCourses, [title]: value },
+      completedCourses: {
+        ...profile.completedCourses,
+        [title]: completed ? "prereq" : null,
+      },
     });
   };
 
@@ -227,23 +197,15 @@ function ProfileContent({
 
             <div>
               <span className="mb-3 block text-sm font-semibold text-gray-700">
-                Prerequisites/Corequisites
+                Courses Taken
               </span>
               <div className="flex flex-col gap-2">
                 {PREREQUISITE_COURSES.map((title) => (
                   <PrerequisiteRow
                     key={title}
                     title={title}
-                    completion={profile.completedCourses[title] ?? null}
-                    onToggle={(checked) =>
-                      setCourseCompletion(
-                        title,
-                        checked ? "prereq" : null,
-                      )
-                    }
-                    onSetCompletion={(type) =>
-                      setCourseCompletion(title, type)
-                    }
+                    checked={profile.completedCourses[title] != null}
+                    onToggle={(checked) => setCourseCompleted(title, checked)}
                   />
                 ))}
               </div>

@@ -225,12 +225,6 @@ async function getOrCreateTeacher(
   return newTeacher.id;
 }
 
-// Get the representative grade for a course
-function getRepresentativeGrade(grades: number[]): number {
-  if (grades.length === 0) return 9; // Default to 9th grade
-  return Math.min(...grades); // Use the lowest grade
-}
-
 // Migrate all courses
 async function migrateCourses() {
   try {
@@ -283,7 +277,7 @@ async function migrateCourses() {
           subject: course.subject,
           short_description: course.shortDescription,
           long_description: course.longDescription,
-          grade: getRepresentativeGrade(course.grades),
+          grade: course.grades,
           term: course.term,
           teacher_id: teacherId,
           department_id: departmentId || null,
