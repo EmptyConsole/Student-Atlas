@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "motion/react";
 import { Bookmark, ChevronDown } from "lucide-react";
 import type { Subject } from "../data/subjects";
@@ -7,16 +9,29 @@ import {
   TERM_LABELS,
   type Course,
 } from "../data/courses";
+import SplitBookmark, { type SplitBookmarkState } from "./SplitBookmark";
+
+/**
+ * Bookmark behavior for a card. `single` is a plain toggle; `group` exposes the
+ * Fall/Spring/Both selection popup for merged courses.
+ */
+export type BookmarkControl =
+  | { kind: "single"; bookmarked: boolean; onToggle: () => void }
+  | {
+      kind: "group";
+      fall: boolean;
+      spring: boolean;
+      onSelect: (selection: "fall" | "spring" | "both" | "clear") => void;
+    };
 
 type CourseCardProps = {
   course: Course;
   subject: Subject;
   dimmed: boolean;
   expanded: boolean;
-  bookmarked: boolean;
+  bookmark: BookmarkControl;
   note: string;
   onToggleExpand: () => void;
-  onToggleBookmark: () => void;
   onNoteChange: (note: string) => void;
 };
 
@@ -39,15 +54,173 @@ function MetaBadge({
   );
 }
 
+function GroupBookmarkButton({
+  fall,
+  spring,
+  accent,
+  onSelect,
+}: {
+  fall: boolean;
+  spring: boolean;
+  accent: string;
+  onSelect: (selection: "fall" | "spring" | "both" | "clear") => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // Fixed-position anchor (escapes the card's overflow-hidden via a portal).
+  const [coords, setCoords] = useState<{ top: number; right: number } | null>(
+    null,
+  );
+
+  const current: SplitBookmarkState =
+    fall && spring ? "both" : fall ? "fall" : spring ? "spring" : "none";
+
+  useEffect(() => {
+    if (!open) return;
+
+    const updateCoords = () => {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (rect) {
+        setCoords({
+          top: rect.top,
+          right: window.innerWidth - rect.right,
+        });
+      }
+    };
+    updateCoords();
+
+    const handlePointer = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        !containerRef.current?.contains(target) &&
+        !menuRef.current?.contains(target)
+      ) {
+        setOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointer);
+    document.addEventListener("keydown", handleKey);
+    window.addEventListener("scroll", updateCoords, true);
+    window.addEventListener("resize", updateCoords);
+    return () => {
+      document.removeEventListener("mousedown", handlePointer);
+      document.removeEventListener("keydown", handleKey);
+      window.removeEventListener("scroll", updateCoords, true);
+      window.removeEventListener("resize", updateCoords);
+    };
+  }, [open]);
+
+  const choose = (option: "fall" | "spring" | "both") => {
+    // Fall/Spring toggle their own term additively (fall + spring -> both);
+    // Both selects everything, or clears when already both.
+    let nextFall = fall;
+    let nextSpring = spring;
+    if (option === "fall") nextFall = !fall;
+    else if (option === "spring") nextSpring = !spring;
+    else {
+      const makeBoth = !(fall && spring);
+      nextFall = makeBoth;
+      nextSpring = makeBoth;
+    }
+
+    const selection =
+      nextFall && nextSpring
+        ? "both"
+        : nextFall
+          ? "fall"
+          : nextSpring
+            ? "spring"
+            : "clear";
+    onSelect(selection);
+    setOpen(false);
+  };
+
+  const options: { id: "fall" | "spring" | "both"; label: string }[] = [
+    { id: "fall", label: "Fall" },
+    { id: "spring", label: "Spring" },
+    { id: "both", label: "Both" },
+  ];
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Choose terms to bookmark"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className="cursor-pointer rounded-full p-1.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
+        style={{ color: accent }}
+      >
+        <SplitBookmark state={current} color={accent} size={20} />
+      </button>
+
+      {open &&
+        coords &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            onClick={(e) => e.stopPropagation()}
+            className="fixed z-50 flex flex-col gap-1 rounded-xl border bg-white p-1.5 shadow-lg"
+            style={{
+              borderColor: accent,
+              top: coords.top,
+              right: coords.right,
+              transform: "translateY(calc(-100% - 0.5rem))",
+            }}
+          >
+            {options.map((option) => {
+              const active =
+                option.id === "fall"
+                  ? fall
+                  : option.id === "spring"
+                    ? spring
+                    : fall && spring;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={active}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    choose(option.id);
+                  }}
+                  className="cursor-pointer rounded-lg px-3 py-1.5 text-left text-sm font-semibold whitespace-nowrap transition-colors hover:opacity-90"
+                  style={{
+                    backgroundColor: active ? accent : "transparent",
+                    color: active ? "#ffffff" : accent,
+                  }}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
 function CourseCard({
   course,
   subject,
   dimmed,
   expanded,
-  bookmarked,
+  bookmark,
   note,
   onToggleExpand,
-  onToggleBookmark,
   onNoteChange,
 }: CourseCardProps) {
   const term = TERM_COLORS[course.term];
@@ -126,24 +299,33 @@ function CourseCard({
               />
             </div>
 
-            <button
-              type="button"
-              aria-pressed={bookmarked}
-              aria-label={
-                bookmarked ? "Remove bookmark" : "Bookmark this course"
-              }
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleBookmark();
-              }}
-              className="cursor-pointer rounded-full p-1.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
-              style={{ color: subject.accent }}
-            >
-              <Bookmark
-                className="h-5 w-5"
-                fill={bookmarked ? subject.accent : "none"}
+            {bookmark.kind === "single" ? (
+              <button
+                type="button"
+                aria-pressed={bookmark.bookmarked}
+                aria-label={
+                  bookmark.bookmarked ? "Remove bookmark" : "Bookmark this course"
+                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  bookmark.onToggle();
+                }}
+                className="cursor-pointer rounded-full p-1.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
+                style={{ color: subject.accent }}
+              >
+                <Bookmark
+                  className="h-5 w-5"
+                  fill={bookmark.bookmarked ? subject.accent : "none"}
+                />
+              </button>
+            ) : (
+              <GroupBookmarkButton
+                fall={bookmark.fall}
+                spring={bookmark.spring}
+                accent={subject.accent}
+                onSelect={bookmark.onSelect}
               />
-            </button>
+            )}
           </div>
         </div>
 

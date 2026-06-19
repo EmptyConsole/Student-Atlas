@@ -456,6 +456,7 @@ export type Database = {
           id: string
           preference: number | null
           student_id: string
+          submitted: boolean
         }
         Insert: {
           course_id: string
@@ -463,6 +464,7 @@ export type Database = {
           id?: string
           preference?: number | null
           student_id: string
+          submitted?: boolean
         }
         Update: {
           course_id?: string
@@ -470,6 +472,7 @@ export type Database = {
           id?: string
           preference?: number | null
           student_id?: string
+          submitted?: boolean
         }
         Relationships: [
           {

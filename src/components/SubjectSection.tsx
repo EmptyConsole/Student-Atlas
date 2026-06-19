@@ -5,14 +5,14 @@ import type { Subject } from "../data/subjects";
 import type { CourseCompletion } from "../hooks/useProfile";
 import {
   matchesFilters,
-  type Course,
   type Filters,
 } from "../data/courses";
-import CourseCard from "./CourseCard";
+import { repCourse, type DisplayCourse } from "../utils/courseGrouping";
+import CourseCard, { type BookmarkControl } from "./CourseCard";
 
 type SubjectSectionProps = {
   subject: Subject;
-  courses: Course[];
+  items: DisplayCourse[];
   filters: Filters;
   completedCourses: Record<string, CourseCompletion | null>;
   expandedId: string | null;
@@ -21,12 +21,17 @@ type SubjectSectionProps = {
   collapseResetKey: string;
   onToggleExpand: (id: string) => void;
   onToggleBookmark: (id: string) => void;
+  onApplyGroupBookmark: (
+    fallId: string,
+    springId: string,
+    selection: "fall" | "spring" | "both" | "clear",
+  ) => void;
   onUpdateCourseNote: (courseId: string, note: string) => void;
 };
 
 function SubjectSection({
   subject,
-  courses,
+  items,
   filters,
   completedCourses,
   expandedId,
@@ -35,13 +40,14 @@ function SubjectSection({
   collapseResetKey,
   onToggleExpand,
   onToggleBookmark,
+  onApplyGroupBookmark,
   onUpdateCourseNote,
 }: SubjectSectionProps) {
   const [collapsed, setCollapsed] = useState(false);
 
-  const decorated = courses.map((course) => ({
-    course,
-    passes: matchesFilters(course, filters, completedCourses),
+  const decorated = items.map((item) => ({
+    item,
+    passes: matchesFilters(repCourse(item), filters, completedCourses),
   }));
 
   const passCount = decorated.filter((d) => d.passes).length;
@@ -57,7 +63,7 @@ function SubjectSection({
     ...decorated.filter((d) => !d.passes),
   ];
 
-  if (courses.length === 0) return null;
+  if (items.length === 0) return null;
 
   return (
     <section
@@ -92,7 +98,7 @@ function SubjectSection({
           {subject.name}
         </h2>
         <span className="text-sm font-medium text-gray-400">
-          {passCount} of {courses.length}
+          {passCount} of {items.length}
         </span>
       </div>
 
@@ -108,20 +114,43 @@ function SubjectSection({
           >
             <div className="flex flex-col gap-3">
               <AnimatePresence initial={false}>
-                {ordered.map(({ course, passes }) => (
-                  <CourseCard
-                    key={course.id}
-                    course={course}
-                    subject={subject}
-                    dimmed={!passes}
-                    expanded={expandedId === course.id}
-                    bookmarked={bookmarks.has(course.id)}
-                    note={courseNotes[course.id] ?? ""}
-                    onToggleExpand={() => onToggleExpand(course.id)}
-                    onToggleBookmark={() => onToggleBookmark(course.id)}
-                    onNoteChange={(note) => onUpdateCourseNote(course.id, note)}
-                  />
-                ))}
+                {ordered.map(({ item, passes }) => {
+                  const course = repCourse(item);
+                  // Grouped cards key notes on the fall UUID so they persist.
+                  const noteId =
+                    item.kind === "group" ? item.fallId : course.id;
+                  const bookmark: BookmarkControl =
+                    item.kind === "group"
+                      ? {
+                          kind: "group",
+                          fall: bookmarks.has(item.fallId),
+                          spring: bookmarks.has(item.springId),
+                          onSelect: (selection) =>
+                            onApplyGroupBookmark(
+                              item.fallId,
+                              item.springId,
+                              selection,
+                            ),
+                        }
+                      : {
+                          kind: "single",
+                          bookmarked: bookmarks.has(course.id),
+                          onToggle: () => onToggleBookmark(course.id),
+                        };
+                  return (
+                    <CourseCard
+                      key={course.id}
+                      course={course}
+                      subject={subject}
+                      dimmed={!passes}
+                      expanded={expandedId === course.id}
+                      bookmark={bookmark}
+                      note={courseNotes[noteId] ?? ""}
+                      onToggleExpand={() => onToggleExpand(course.id)}
+                      onNoteChange={(note) => onUpdateCourseNote(noteId, note)}
+                    />
+                  );
+                })}
               </AnimatePresence>
             </div>
           </motion.div>

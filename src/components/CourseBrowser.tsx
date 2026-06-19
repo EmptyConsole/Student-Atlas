@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { SUBJECTS } from "../data/subjects";
 import { DEFAULT_FILTERS, matchesSearch, type Course, type Filters } from "../data/courses";
 import type { UserProfile } from "../hooks/useProfile";
+import { buildDisplayCourses, repCourse, type DisplayCourse } from "../utils/courseGrouping";
 import FilterPanel from "./FilterPanel";
 import SubjectSection from "./SubjectSection";
 
@@ -14,6 +15,11 @@ type CourseBrowserProps = {
   profile: UserProfile;
   bookmarks: Set<string>;
   onToggleBookmark: (id: string) => void;
+  onApplyGroupBookmark: (
+    fallId: string,
+    springId: string,
+    selection: "fall" | "spring" | "both" | "clear",
+  ) => void;
   onUpdateCourseNote: (courseId: string, note: string) => void;
   activeSubject: string;
   onActiveSubjectChange: (name: string) => void;
@@ -26,6 +32,7 @@ function CourseBrowser({
   profile,
   bookmarks,
   onToggleBookmark,
+  onApplyGroupBookmark,
   onUpdateCourseNote,
   activeSubject,
   onActiveSubjectChange,
@@ -41,12 +48,13 @@ function CourseBrowser({
   const activeRef = useRef(activeSubject);
   activeRef.current = activeSubject;
 
-  const coursesBySubject = useMemo(() => {
-    const map = new Map<string, typeof courses>();
+  const itemsBySubject = useMemo(() => {
+    const map = new Map<string, DisplayCourse[]>();
     for (const subject of SUBJECTS) map.set(subject.name, []);
-    for (const course of courses) {
-      if (!matchesSearch(course, search)) continue;
-      map.get(course.subject)?.push(course);
+    for (const item of buildDisplayCourses(courses)) {
+      const rep = repCourse(item);
+      if (!matchesSearch(rep, search)) continue;
+      map.get(rep.subject)?.push(item);
     }
     return map;
   }, [search, courses]);
@@ -97,7 +105,7 @@ function CourseBrowser({
   }, [search, onActiveSubjectChange]);
 
   const hasResults = SUBJECTS.some(
-    (s) => (coursesBySubject.get(s.name)?.length ?? 0) > 0,
+    (s) => (itemsBySubject.get(s.name)?.length ?? 0) > 0,
   );
 
   return (
@@ -140,7 +148,7 @@ function CourseBrowser({
                 <SubjectSection
                   key={subject.name}
                   subject={subject}
-                  courses={coursesBySubject.get(subject.name) ?? []}
+                  items={itemsBySubject.get(subject.name) ?? []}
                   filters={filters}
                   completedCourses={profile.completedCourses}
                   expandedId={expandedId}
@@ -149,6 +157,7 @@ function CourseBrowser({
                   collapseResetKey={collapseResetKey}
                   onToggleExpand={toggleExpand}
                   onToggleBookmark={onToggleBookmark}
+                  onApplyGroupBookmark={onApplyGroupBookmark}
                   onUpdateCourseNote={onUpdateCourseNote}
                 />
               ))}

@@ -1,8 +1,12 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type Course } from "../data/courses";
 import { SUBJECTS } from "../data/subjects";
 import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
-import { syncSubmittedCourses, syncSubmittedNotes } from "../lib/students";
+import {
+  loadSubmittedStatus,
+  syncSubmittedCourses,
+  syncSubmittedNotes,
+} from "../lib/students";
 import {
   applyReorder,
   buildInitialModel,
@@ -50,6 +54,7 @@ function RegisterPage({
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const courseById = useMemo(
     () => new Map(courses.map((course) => [course.id, course])),
@@ -83,6 +88,36 @@ function RegisterPage({
     // Drag state is tracked inside RankingAlignedGrid for connector updates.
   }, []);
 
+  // Determine initial mode: locked once a submitted=true row exists, otherwise
+  // the page stays in draft mode and auto-saves reorders.
+  useEffect(() => {
+    if (!studentId) return;
+    let cancelled = false;
+    loadSubmittedStatus(studentId).then(({ hasSubmitted: locked }) => {
+      if (!cancelled && locked) setHasSubmitted(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [studentId]);
+
+  // Auto-save the in-progress draft on every reorder while not yet submitted.
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (hasSubmitted || !studentId) return;
+
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      const fall = courseIds(fallRows).slice(0, MIN_RANKED_COURSES);
+      const spring = courseIds(springRows).slice(0, MIN_RANKED_COURSES);
+      void syncSubmittedCourses(studentId, fall, spring, false);
+    }, 600);
+
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
+  }, [model, hasSubmitted, studentId, fallRows, springRows]);
+
   const handleConfirmSubmit = async () => {
     if (!studentId) {
       setConfirmOpen(false);
@@ -98,7 +133,7 @@ function RegisterPage({
     const noteValue = appealsNotes.trim() || null;
 
     const [coursesResult, notesResult] = await Promise.all([
-      syncSubmittedCourses(studentId, fallSubmitted, springSubmitted),
+      syncSubmittedCourses(studentId, fallSubmitted, springSubmitted, true),
       syncSubmittedNotes(studentId, noteValue),
     ]);
 
@@ -111,6 +146,7 @@ function RegisterPage({
       return;
     }
 
+    setHasSubmitted(true);
     setSubmitted(true);
   };
 

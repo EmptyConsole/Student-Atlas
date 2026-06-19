@@ -281,6 +281,7 @@ export async function syncSubmittedCourses(
   studentId: string,
   fallOrder: string[],
   springOrder: string[],
+  submitted: boolean,
 ): Promise<{ error?: string }> {
   const { error: deleteError } = await supabase
     .from("submitted_courses")
@@ -292,18 +293,23 @@ export async function syncSubmittedCourses(
   }
 
   const seen = new Set<string>();
-  const rows: { student_id: string; course_id: string; preference: number }[] = [];
+  const rows: {
+    student_id: string;
+    course_id: string;
+    preference: number;
+    submitted: boolean;
+  }[] = [];
 
   for (const [i, course_id] of fallOrder.entries()) {
     if (seen.has(course_id)) continue;
     seen.add(course_id);
-    rows.push({ student_id: studentId, course_id, preference: i + 1 });
+    rows.push({ student_id: studentId, course_id, preference: i + 1, submitted });
   }
 
   for (const [i, course_id] of springOrder.entries()) {
     if (seen.has(course_id)) continue;
     seen.add(course_id);
-    rows.push({ student_id: studentId, course_id, preference: i + 1 });
+    rows.push({ student_id: studentId, course_id, preference: i + 1, submitted });
   }
 
   if (rows.length > 0) {
@@ -314,6 +320,27 @@ export async function syncSubmittedCourses(
   }
 
   return {};
+}
+
+// ---------------------------------------------------------------------------
+// Load submission status → decide draft vs. locked mode on the Register page
+// ---------------------------------------------------------------------------
+
+export async function loadSubmittedStatus(
+  studentId: string,
+): Promise<{ hasSubmitted: boolean; error?: string }> {
+  const { data, error } = await supabase
+    .from("submitted_courses")
+    .select("submitted")
+    .eq("student_id", studentId)
+    .eq("submitted", true)
+    .limit(1);
+
+  if (error) {
+    return { hasSubmitted: false, error: error.message };
+  }
+
+  return { hasSubmitted: (data?.length ?? 0) > 0 };
 }
 
 // ---------------------------------------------------------------------------
