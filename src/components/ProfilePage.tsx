@@ -10,6 +10,8 @@ type ProfilePageProps = {
   onDeleteAccount?: () => Promise<void>;
   onboarding?: boolean;
   onSubmit?: () => Promise<{ error?: string }>;
+  hasUnsavedChanges?: boolean;
+  onSaveChanges?: () => Promise<{ error?: string }>;
 };
 
 function ProfilePage({
@@ -19,6 +21,8 @@ function ProfilePage({
   onDeleteAccount,
   onboarding = false,
   onSubmit,
+  hasUnsavedChanges = false,
+  onSaveChanges,
 }: ProfilePageProps) {
   const [activeSection, setActiveSection] = useState<ProfileSection>("profile");
 
@@ -39,6 +43,8 @@ function ProfilePage({
           onSectionChange={setActiveSection}
           onboarding={onboarding}
           onSubmit={onSubmit}
+          hasUnsavedChanges={hasUnsavedChanges}
+          onSaveChanges={onSaveChanges}
         />
       </main>
     </div>

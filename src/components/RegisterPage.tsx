@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type Course } from "../data/courses";
-import { SUBJECTS } from "../data/subjects";
+import { type Subject } from "../data/subjects";
 import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
 import {
   loadSubmittedStatus,
@@ -23,6 +23,7 @@ import SubmitConfirmDialog from "./SubmitConfirmDialog";
 
 type RegisterPageProps = {
   courses: Course[];
+  subjects: Subject[];
   profile: UserProfile;
   bookmarks: Set<string>;
   studentId: string | null;
@@ -32,6 +33,7 @@ type RegisterPageProps = {
 
 function RegisterPage({
   courses,
+  subjects,
   profile,
   bookmarks,
   studentId,
@@ -63,8 +65,8 @@ function RegisterPage({
     [courses],
   );
   const subjectByName = useMemo(
-    () => new Map(SUBJECTS.map((subject) => [subject.name, subject])),
-    [],
+    () => new Map(subjects.map((subject) => [subject.name, subject])),
+    [subjects],
   );
 
   const { valid, fallCount, springCount } = validateRanking(

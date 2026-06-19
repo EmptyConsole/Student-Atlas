@@ -4,6 +4,7 @@ import type { CourseCompletion } from "../data/courses";
 export type { CourseCompletion };
 
 export type UserProfile = {
+  schoolId: string | null;
   name: string;
   email: string;
   grade: number | null;
@@ -16,6 +17,7 @@ const ONBOARDED_KEY = "student-atlas-onboarded";
 const STUDENT_ID_KEY = "student-atlas-student-id";
 
 export const DEFAULT_PROFILE: UserProfile = {
+  schoolId: null,
   name: "",
   email: "",
   grade: null,
@@ -25,6 +27,7 @@ export const DEFAULT_PROFILE: UserProfile = {
 
 export function isProfileComplete(profile: UserProfile): boolean {
   return (
+    profile.schoolId !== null &&
     profile.name.trim().length > 0 &&
     profile.email.trim().length > 0 &&
     profile.grade !== null
@@ -37,6 +40,7 @@ function loadProfile(): UserProfile {
     if (!raw) return { ...DEFAULT_PROFILE };
     const parsed = JSON.parse(raw) as Partial<UserProfile>;
     return {
+      schoolId: parsed.schoolId ?? null,
       name: parsed.name ?? "",
       email: parsed.email ?? "",
       grade: parsed.grade ?? null,

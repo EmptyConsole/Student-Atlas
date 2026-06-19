@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGroup } from "motion/react";
 import { Search } from "lucide-react";
-import { SUBJECTS } from "../data/subjects";
+import type { Subject } from "../data/subjects";
 import { DEFAULT_FILTERS, matchesSearch, type Course, type Filters } from "../data/courses";
 import type { UserProfile } from "../hooks/useProfile";
 import { buildDisplayCourses, repCourse, type DisplayCourse } from "../utils/courseGrouping";
@@ -10,6 +10,7 @@ import SubjectSection from "./SubjectSection";
 
 type CourseBrowserProps = {
   courses: Course[];
+  subjects: Subject[];
   loading: boolean;
   error: string | null;
   profile: UserProfile;
@@ -27,6 +28,7 @@ type CourseBrowserProps = {
 
 function CourseBrowser({
   courses,
+  subjects,
   loading,
   error,
   profile,
@@ -50,14 +52,14 @@ function CourseBrowser({
 
   const itemsBySubject = useMemo(() => {
     const map = new Map<string, DisplayCourse[]>();
-    for (const subject of SUBJECTS) map.set(subject.name, []);
+    for (const subject of subjects) map.set(subject.name, []);
     for (const item of buildDisplayCourses(courses)) {
       const rep = repCourse(item);
       if (!matchesSearch(rep, search)) continue;
       map.get(rep.subject)?.push(item);
     }
     return map;
-  }, [search, courses]);
+  }, [search, courses, subjects]);
 
   const toggleExpand = (id: string) =>
     setExpandedId((cur) => (cur === id ? null : id));
@@ -104,7 +106,7 @@ function CourseBrowser({
     return () => observer.disconnect();
   }, [search, onActiveSubjectChange]);
 
-  const hasResults = SUBJECTS.some(
+  const hasResults = subjects.some(
     (s) => (itemsBySubject.get(s.name)?.length ?? 0) > 0,
   );
 
@@ -144,7 +146,7 @@ function CourseBrowser({
         ) : (
           <LayoutGroup>
             <div className="flex flex-col gap-8">
-              {SUBJECTS.map((subject) => (
+              {subjects.map((subject) => (
                 <SubjectSection
                   key={subject.name}
                   subject={subject}

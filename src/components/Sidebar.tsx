@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Bookmark } from "lucide-react";
-import { SUBJECTS } from "../data/subjects";
+import type { Subject } from "../data/subjects";
 import type { Course } from "../data/courses";
 import { buildDisplayCourses, repCourse } from "../utils/courseGrouping";
 import SplitBookmark, { type SplitBookmarkState } from "./SplitBookmark";
@@ -9,6 +9,7 @@ import SubjectBookmark from "./SubjectBookmark";
 
 type SidebarProps = {
   courses: Course[];
+  subjects: Subject[];
   bookmarks: Set<string>;
   onToggleBookmark: (id: string) => void;
   onApplyGroupBookmark: (
@@ -30,6 +31,7 @@ type BookmarkEntry = {
 
 function Sidebar({
   courses,
+  subjects,
   bookmarks,
   onToggleBookmark,
   onApplyGroupBookmark,
@@ -41,7 +43,7 @@ function Sidebar({
   // Bookmarked display items (Fall/Spring duplicates merged) grouped by subject.
   const entriesBySubject = useMemo(() => {
     const map = new Map<string, BookmarkEntry[]>();
-    for (const subject of SUBJECTS) map.set(subject.name, []);
+    for (const subject of subjects) map.set(subject.name, []);
     for (const item of buildDisplayCourses(courses)) {
       const course = repCourse(item);
       if (item.kind === "group") {
@@ -68,7 +70,7 @@ function Sidebar({
       }
     }
     return map;
-  }, [courses, bookmarks, onToggleBookmark, onApplyGroupBookmark]);
+  }, [courses, subjects, bookmarks, onToggleBookmark, onApplyGroupBookmark]);
 
   const handleSelect = (name: string) => {
     onSelectSubject(name);
@@ -96,7 +98,7 @@ function Sidebar({
     <aside className="flex h-full w-60 shrink-0 flex-col bg-main-100">
       <nav aria-label="Course subjects" className="flex-1 overflow-y-auto py-3">
         <ul className="flex flex-col gap-1.5">
-          {SUBJECTS.map((subject) => {
+          {subjects.map((subject) => {
             const isActive = activeSubject === subject.name;
             const subjectBookmarks = entriesBySubject.get(subject.name) ?? [];
 

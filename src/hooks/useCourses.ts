@@ -5,9 +5,7 @@ import type { Tables } from "../types/database";
 
 type SupabaseCourse = Tables<"courses">;
 
-const SCHOOL_NAME = "Student Atlas High School";
-
-export function useCourses() {
+export function useCourses(schoolId: string | null) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -15,26 +13,19 @@ export function useCourses() {
   useEffect(() => {
     let isMounted = true;
 
-    async function fetchCourses() {
+    if (!schoolId) {
+      setCourses([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    async function fetchCourses(schoolId: string) {
       try {
         setLoading(true);
         setError(null);
 
-        // Step 1: Get the school ID
-        const { data: schools, error: schoolError } = await supabase
-          .from("schools")
-          .select("id")
-          .eq("name", SCHOOL_NAME)
-          .limit(1);
-
-        if (schoolError) throw schoolError;
-        if (!schools || schools.length === 0) {
-          throw new Error(`School "${SCHOOL_NAME}" not found in database`);
-        }
-
-        const schoolId = schools[0].id;
-
-        // Step 2: Fetch all courses for this school
+        // Fetch all courses for this school
         const { data: supabaseCourses, error: coursesError } = await supabase
           .from("courses")
           .select("*")
@@ -175,12 +166,12 @@ export function useCourses() {
       }
     }
 
-    fetchCourses();
+    fetchCourses(schoolId);
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [schoolId]);
 
   return { courses, loading, error };
 }

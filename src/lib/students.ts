@@ -104,23 +104,13 @@ export async function submitProfile(profile: UserProfile): Promise<SubmitResult>
   const name = profile.name.trim();
   const email = profile.email.trim();
 
-  if (!name || !email || profile.grade === null) {
-    return { error: "Please fill in your name, email, and grade." };
+  if (!profile.schoolId || !name || !email || profile.grade === null) {
+    return { error: "Please select a school and fill in your name, email, and grade." };
   }
 
+  const schoolId = profile.schoolId;
+
   try {
-    const { data: schools, error: schoolError } = await supabase
-      .from("schools")
-      .select("id")
-      .limit(1);
-
-    if (schoolError) throw schoolError;
-    if (!schools || schools.length === 0) {
-      return { error: "No school is configured. Please contact support." };
-    }
-
-    const schoolId = schools[0].id;
-
     const { data: existing, error: existingError } = await supabase
       .from("students")
       .select("id, name, email, grade")
@@ -132,7 +122,7 @@ export async function submitProfile(profile: UserProfile): Promise<SubmitResult>
     // ---- Returning user: push form edits, then load Supabase data ----
     if (existing && existing.length > 0) {
       const student = existing[0];
-      await syncStudentProfile(student.id, name, email, profile.grade);
+      await syncStudentProfile(student.id, name, email, profile.grade, schoolId);
       await syncStudentCourses(student.id, profile.completedCourses);
       const { completedCourses, bookmarkIds, courseNotes } = await loadStudentData(student.id);
       return {
@@ -259,14 +249,15 @@ export async function syncStudentProfile(
   name: string,
   email: string,
   grade: number | null,
+  schoolId: string | null,
 ): Promise<{ error?: string }> {
   const trimmedName = name.trim();
   const trimmedEmail = email.trim();
-  if (!trimmedName || !trimmedEmail || grade === null) return {};
+  if (!trimmedName || !trimmedEmail || grade === null || !schoolId) return {};
 
   const { error } = await supabase
     .from("students")
-    .update({ name: trimmedName, email: trimmedEmail, grade })
+    .update({ name: trimmedName, email: trimmedEmail, grade, school_id: schoolId })
     .eq("id", studentId);
 
   if (error) return { error: error.message };
