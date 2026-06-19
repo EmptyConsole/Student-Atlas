@@ -206,6 +206,7 @@ function App() {
           bookmarks={bookmarks}
           studentId={studentId}
           onNavigateToProfile={() => setActiveView("profile")}
+          onToggleBookmark={toggleBookmark}
         />
       )}
     </div>

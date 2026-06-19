@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { motion, Reorder } from "motion/react";
-import { Bookmark, ChevronDown, GripVertical, Link2, X } from "lucide-react";
+import { Bookmark, GripVertical, Link2, X } from "lucide-react";
 import type { Subject } from "../data/subjects";
 import {
   formatGrades,
@@ -29,6 +29,7 @@ type RankingAlignedGridProps = {
   courseNotes: Record<string, string>;
   onReorder: (column: RankingColumnKey, newOrder: string[]) => void;
   onDragStateChange: (active: boolean) => void;
+  onToggleBookmark: (courseId: string) => void;
 };
 
 // ─── Course detail modal ────────────────────────────────────────────────────
@@ -179,7 +180,6 @@ type RankedItemProps = {
   courseId: string;
   rank: number | null;
   pickTier: "top" | "alternate";
-  isFirstAlternate: boolean;
   course: Course;
   subject: Subject;
   bookmarked: boolean;
@@ -187,7 +187,29 @@ type RankedItemProps = {
   onDragStart: () => void;
   onDragEnd: () => void;
   onCardClick: () => void;
+  onUnbookmark: () => void;
 };
+
+function AlternatesDividerSpan() {
+  return (
+    <div className="relative z-[1] py-2" aria-hidden="true">
+      <div
+        className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center gap-2"
+        style={{ width: "calc(200% + 1.5rem)" }}
+      >
+        <div className="h-px flex-1 bg-main-400" />
+        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+          Alternates (not submitted)
+        </span>
+        <div className="h-px flex-1 bg-main-400" />
+      </div>
+    </div>
+  );
+}
+
+function AlternatesDividerSpacer() {
+  return <div className="py-2" aria-hidden="true" />;
+}
 
 function AlignmentSpacer() {
   return (
@@ -203,7 +225,6 @@ function RankedItem({
   courseId,
   rank,
   pickTier,
-  isFirstAlternate,
   course,
   subject,
   bookmarked,
@@ -211,6 +232,7 @@ function RankedItem({
   onDragStart,
   onDragEnd,
   onCardClick,
+  onUnbookmark,
 }: RankedItemProps) {
   const isDraggingRef = useRef(false);
   const termBadge = linked ? TERM_COLORS["all-year"] : TERM_COLORS[course.term];
@@ -239,20 +261,17 @@ function RankedItem({
         onDragEnd();
       }}
     >
-      {isFirstAlternate && (
-        <div className="mb-2 mt-2 flex items-center gap-2" aria-hidden="true">
-          <div className="h-px flex-1 bg-main-400" />
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-            Alternates (not submitted)
-          </span>
-          <div className="h-px flex-1 bg-main-400" />
-        </div>
-      )}
-
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => {
           if (!isDraggingRef.current) onCardClick();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (!isDraggingRef.current) onCardClick();
+          }
         }}
         className={`${RANKING_ROW_SHELL} w-full cursor-pointer touch-none select-none text-left active:cursor-grabbing ${
           isTopPick
@@ -276,17 +295,22 @@ function RankedItem({
           {isTopPick ? rank : "—"}
         </span>
 
-        <span className="flex w-5 shrink-0 items-center justify-center">
-          {bookmarked ? (
-            <Bookmark
-              className="h-4 w-4"
-              fill={subject.accent}
-              style={{ color: subject.accent }}
-            />
-          ) : (
-            <span className="h-4 w-4" aria-hidden="true" />
-          )}
-        </span>
+        {bookmarked ? (
+          <button
+            type="button"
+            aria-label="Remove bookmark"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUnbookmark();
+            }}
+            className="flex shrink-0 cursor-pointer rounded-full p-1 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
+            style={{ color: subject.accent }}
+          >
+            <Bookmark className="h-4 w-4" fill={subject.accent} />
+          </button>
+        ) : (
+          <span className="h-6 w-6 shrink-0" aria-hidden="true" />
+        )}
 
         <div className="min-w-0 flex-1">
           <p
@@ -308,12 +332,8 @@ function RankedItem({
           )}
         </div>
 
-        <ChevronDown
-          className="h-4 w-4 shrink-0 text-gray-400"
-          aria-hidden="true"
-        />
         <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-gray-400" aria-hidden="true" />
-      </button>
+      </div>
     </Reorder.Item>
   );
 }
@@ -330,6 +350,10 @@ function courseRankInOrder(order: string[], courseId: string): number {
   return rank;
 }
 
+function isAlternateRank(order: string[], courseId: string): boolean {
+  return courseRankInOrder(order, courseId) > MIN_RANKED_COURSES;
+}
+
 // ─── Main grid ──────────────────────────────────────────────────────────────
 
 function RankingAlignedGrid({
@@ -341,6 +365,7 @@ function RankingAlignedGrid({
   courseNotes,
   onReorder,
   onDragStateChange,
+  onToggleBookmark,
 }: RankingAlignedGridProps) {
   const [connectorRoot, setConnectorRoot] = useState<HTMLDivElement | null>(null);
   const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null);
@@ -350,45 +375,64 @@ function RankingAlignedGrid({
   const springCount = realCourseIds(model.springOrder).length;
   const layoutKey = `${model.fallOrder.join(",")}|${model.springOrder.join(",")}`;
 
+  const dividerBeforeRowIndex = alignedRows.findIndex((row) => {
+    const fallAlternate =
+      row.fall.kind === "course" &&
+      isAlternateRank(model.fallOrder, row.fall.id);
+    const springAlternate =
+      row.spring.kind === "course" &&
+      isAlternateRank(model.springOrder, row.spring.id);
+    return fallAlternate || springAlternate;
+  });
+  const showAlternatesDivider =
+    dividerBeforeRowIndex >= 0 &&
+    (fallCount > MIN_RANKED_COURSES || springCount > MIN_RANKED_COURSES);
+
   const expandedCourse = expandedCourseId ? courseById.get(expandedCourseId) : null;
   const expandedSubject =
     expandedCourse ? subjectByName.get(expandedCourse.subject) : null;
 
   const renderColumn = (column: RankingColumnKey, order: string[]) => {
     const draggableIds = realCourseIds(order);
-    let topPickCount = 0;
 
-    const cells = alignedRows.map((row, rowIndex) => {
+    const cells = alignedRows.flatMap((row, rowIndex) => {
+      const rowElements: ReactNode[] = [];
+
+      if (showAlternatesDivider && rowIndex === dividerBeforeRowIndex) {
+        rowElements.push(
+          column === "fall" ? (
+            <AlternatesDividerSpan key={`${column}-alt-divider`} />
+          ) : (
+            <AlternatesDividerSpacer key={`${column}-alt-divider`} />
+          ),
+        );
+      }
+
       const cell = column === "fall" ? row.fall : row.spring;
       if (cell.kind === "spacer") {
-        return <AlignmentSpacer key={`${column}-spacer-${rowIndex}`} />;
+        rowElements.push(
+          <AlignmentSpacer key={`${column}-spacer-${rowIndex}`} />,
+        );
+        return rowElements;
       }
 
       const course = courseById.get(cell.id);
-      if (!course) return null;
+      if (!course) return rowElements;
       const subject = subjectByName.get(course.subject);
-      if (!subject) return null;
+      if (!subject) return rowElements;
 
       const rank = courseRankInOrder(order, cell.id);
       const pickTier: "top" | "alternate" =
         rank <= MIN_RANKED_COURSES ? "top" : "alternate";
-      const isFirstAlternate =
-        pickTier === "alternate" &&
-        topPickCount === MIN_RANKED_COURSES &&
-        draggableIds.length > MIN_RANKED_COURSES;
-
-      if (pickTier === "top") topPickCount += 1;
-
       const linked = isLinked(course.term);
 
-      return (
+      rowElements.push(
         <RankedItem
           key={`${column}-${cell.id}`}
           column={column}
           courseId={cell.id}
           rank={pickTier === "top" ? rank : null}
           pickTier={pickTier}
-          isFirstAlternate={isFirstAlternate}
           course={course}
           subject={subject}
           bookmarked={bookmarks.has(cell.id)}
@@ -396,8 +440,11 @@ function RankingAlignedGrid({
           onDragStart={() => onDragStateChange(true)}
           onDragEnd={() => onDragStateChange(false)}
           onCardClick={() => setExpandedCourseId(cell.id)}
-        />
+          onUnbookmark={() => onToggleBookmark(cell.id)}
+        />,
       );
+
+      return rowElements;
     });
 
     return (

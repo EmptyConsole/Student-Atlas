@@ -27,6 +27,7 @@ type RegisterPageProps = {
   bookmarks: Set<string>;
   studentId: string | null;
   onNavigateToProfile?: () => void;
+  onToggleBookmark: (courseId: string) => void;
 };
 
 function RegisterPage({
@@ -35,6 +36,7 @@ function RegisterPage({
   bookmarks,
   studentId,
   onNavigateToProfile,
+  onToggleBookmark,
 }: RegisterPageProps) {
   const profileComplete = isProfileComplete(profile);
   const grade = profile.grade ?? 9;
@@ -209,6 +211,7 @@ function RegisterPage({
             courseNotes={profile.courseNotes}
             onReorder={handleReorder}
             onDragStateChange={handleDragStateChange}
+            onToggleBookmark={onToggleBookmark}
           />
 
         <section className="mt-8">
