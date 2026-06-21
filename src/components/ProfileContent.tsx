@@ -17,6 +17,36 @@ type ProfileContentProps = {
   onSaveChanges?: () => Promise<{ error?: string }>;
 };
 
+function RequiredFieldLabel({
+  children,
+  htmlFor,
+  className = "mb-1.5",
+}: {
+  children: React.ReactNode;
+  htmlFor?: string;
+  className?: string;
+}) {
+  const content = (
+    <>
+      {children}
+      <span className="ml-0.5 text-red-500" aria-hidden="true">
+        *
+      </span>
+    </>
+  );
+  const labelClass = `block text-sm font-semibold text-gray-700 ${className}`;
+
+  if (htmlFor) {
+    return (
+      <label htmlFor={htmlFor} className={labelClass}>
+        {content}
+      </label>
+    );
+  }
+
+  return <span className={labelClass}>{content}</span>;
+}
+
 function GradeChip({
   grade,
   active,
@@ -315,9 +345,7 @@ function ProfileContent({
 
           <div className="flex flex-col gap-5">
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-                School
-              </label>
+              <RequiredFieldLabel>School</RequiredFieldLabel>
               <SchoolPicker
                 schools={schools}
                 loading={schoolsLoading}
@@ -341,12 +369,7 @@ function ProfileContent({
               }
             >
               <div>
-                <label
-                  htmlFor="profile-name"
-                  className="mb-1.5 block text-sm font-semibold text-gray-700"
-                >
-                  Name
-                </label>
+                <RequiredFieldLabel htmlFor="profile-name">Name</RequiredFieldLabel>
                 <input
                   id="profile-name"
                   type="text"
@@ -359,12 +382,7 @@ function ProfileContent({
               </div>
 
               <div>
-                <label
-                  htmlFor="profile-email"
-                  className="mb-1.5 block text-sm font-semibold text-gray-700"
-                >
-                  Email
-                </label>
+                <RequiredFieldLabel htmlFor="profile-email">Email</RequiredFieldLabel>
                 <input
                   id="profile-email"
                   type="email"
@@ -377,9 +395,7 @@ function ProfileContent({
               </div>
 
               <div>
-                <span className="mb-2 block text-sm font-semibold text-gray-700">
-                  Grade
-                </span>
+                <RequiredFieldLabel className="mb-2">Grade</RequiredFieldLabel>
                 <div className="flex flex-wrap gap-2">
                   {GRADES.map((grade) => (
                     <GradeChip
