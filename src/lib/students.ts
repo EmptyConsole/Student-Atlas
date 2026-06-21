@@ -391,6 +391,57 @@ export async function syncSubmittedNotes(
 }
 
 // ---------------------------------------------------------------------------
+// Log in by email — look up an existing student and hydrate their data
+// ---------------------------------------------------------------------------
+
+export type LoginByEmailResult = {
+  error?: string;
+  studentId?: string;
+  hydratedData?: HydratedStudentData;
+};
+
+export async function loginByEmail(email: string): Promise<LoginByEmailResult> {
+  const trimmed = email.trim();
+  if (!trimmed) return { error: "Please enter your email." };
+
+  try {
+    const { data, error } = await supabase
+      .from("students")
+      .select("id, name, email, grade, school_id")
+      .eq("email", trimmed)
+      .limit(1);
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      return { error: "No account found with that email." };
+    }
+
+    const student = data[0];
+    const { completedCourses, bookmarkIds, courseNotes } = await loadStudentData(student.id);
+
+    return {
+      studentId: student.id,
+      hydratedData: {
+        studentId: student.id,
+        profile: {
+          name: student.name,
+          email: student.email,
+          grade: student.grade,
+          completedCourses,
+          courseNotes,
+        },
+        bookmarkIds,
+      },
+    };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Something went wrong. Please try again.";
+    return { error: message };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Delete a student account and all associated data
 // ---------------------------------------------------------------------------
 

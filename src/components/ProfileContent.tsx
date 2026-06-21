@@ -13,6 +13,7 @@ type ProfileContentProps = {
   onSectionChange: (id: ProfileSection) => void;
   onboarding?: boolean;
   onSubmit?: () => Promise<{ error?: string }>;
+  onLoginByEmail?: (email: string) => Promise<{ error?: string }>;
   hasUnsavedChanges?: boolean;
   onSaveChanges?: () => Promise<{ error?: string }>;
 };
@@ -235,6 +236,7 @@ function ProfileContent({
   onSectionChange,
   onboarding = false,
   onSubmit,
+  onLoginByEmail,
   hasUnsavedChanges = false,
   onSaveChanges,
 }: ProfileContentProps) {
@@ -244,6 +246,22 @@ function ProfileContent({
   );
 
   const schoolSelected = profile.schoolId !== null;
+
+  const [mode, setMode] = useState<"create" | "login">("create");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loggingIn, setLoggingIn] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  const handleLoginByEmailSubmit = async () => {
+    if (!onLoginByEmail || loggingIn) return;
+    setLoggingIn(true);
+    setLoginError(null);
+    const result = await onLoginByEmail(loginEmail);
+    if (result.error) {
+      setLoginError(result.error);
+      setLoggingIn(false);
+    }
+  };
 
   const handleSelectSchool = (schoolId: string) => {
     if (schoolId === profile.schoolId) return;
@@ -344,118 +362,183 @@ function ProfileContent({
           <h2 className="mb-6 text-2xl font-bold text-gray-800">Profile</h2>
 
           <div className="flex flex-col gap-5">
-            <div>
-              <RequiredFieldLabel>School</RequiredFieldLabel>
-              <SchoolPicker
-                schools={schools}
-                loading={schoolsLoading}
-                error={schoolsError}
-                selectedId={profile.schoolId}
-                onSelect={handleSelectSchool}
-              />
-              {!schoolSelected && (
-                <p className="mt-1.5 text-xs font-medium text-gray-400">
-                  Select a school first to fill in the rest of your profile.
-                </p>
-              )}
-            </div>
-
-            <div
-              aria-hidden={!schoolSelected}
-              className={
-                schoolSelected
-                  ? "flex flex-col gap-5"
-                  : "pointer-events-none flex flex-col gap-5 opacity-50 select-none"
-              }
-            >
-              <div>
-                <RequiredFieldLabel htmlFor="profile-name">Name</RequiredFieldLabel>
-                <input
-                  id="profile-name"
-                  type="text"
-                  value={profile.name}
-                  disabled={!schoolSelected}
-                  onChange={(e) => onChange({ name: e.target.value })}
-                  placeholder="Your name"
-                  className={inputClass}
-                />
-              </div>
-
-              <div>
-                <RequiredFieldLabel htmlFor="profile-email">Email</RequiredFieldLabel>
-                <input
-                  id="profile-email"
-                  type="email"
-                  value={profile.email}
-                  disabled={!schoolSelected}
-                  onChange={(e) => onChange({ email: e.target.value })}
-                  placeholder="you@school.edu"
-                  className={inputClass}
-                />
-              </div>
-
-              <div>
-                <RequiredFieldLabel className="mb-2">Grade</RequiredFieldLabel>
-                <div className="flex flex-wrap gap-2">
-                  {GRADES.map((grade) => (
-                    <GradeChip
-                      key={grade}
-                      grade={grade}
-                      active={profile.grade === grade}
-                      onClick={() => onChange({ grade })}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <span className="mb-3 block text-sm font-semibold text-gray-700">
-                  Courses Taken
-                </span>
-                {prereqLoading ? (
-                  <div className="flex items-center gap-2 py-3 text-sm text-gray-400">
-                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-main-300 border-t-main-600" />
-                    Loading courses...
-                  </div>
-                ) : courseTitles.length === 0 ? (
-                  <p className="py-3 text-sm text-gray-400">
-                    No prerequisite or corequisite courses for this school.
-                  </p>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {courseTitles.map((title) => (
-                      <PrerequisiteRow
-                        key={title}
-                        title={title}
-                        checked={profile.completedCourses[title] != null}
-                        onToggle={(checked) => setCourseCompleted(title, checked)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
             {onboarding && (
-              <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm font-medium text-gray-500">
+                  {mode === "create"
+                    ? "You are currently creating an account"
+                    : "You are currently signing into your account"}
+                </span>
                 <button
                   type="button"
-                  onClick={handleSubmit}
-                  disabled={!canSubmit || submitting}
-                  className={`h-11 w-full rounded-xl text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
-                    canSubmit && !submitting
-                      ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
-                      : "cursor-not-allowed bg-gray-300"
-                  }`}
+                  onClick={() => {
+                    setMode((m) => (m === "create" ? "login" : "create"));
+                    setLoginError(null);
+                    setLoginEmail("");
+                  }}
+                  className="h-11 shrink-0 cursor-pointer rounded-xl bg-[#4169e1] px-5 text-base font-semibold text-white shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-[#3557c7] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
                 >
-                  {submitting ? "Logging In..." : "Log In"}
+                  {mode === "create" ? "Already Have An Account?" : "Create An Account"}
                 </button>
-                {submitError && (
-                  <p className="text-sm font-medium text-red-600">
-                    {submitError}
-                  </p>
-                )}
               </div>
+            )}
+
+            {onboarding && mode === "login" ? (
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label
+                    htmlFor="login-email"
+                    className="mb-1.5 block text-sm font-semibold text-gray-700"
+                  >
+                    Email
+                  </label>
+                  <input
+                    id="login-email"
+                    type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void handleLoginByEmailSubmit();
+                    }}
+                    placeholder="you@school.edu"
+                    className={inputClass}
+                    autoFocus
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={handleLoginByEmailSubmit}
+                    disabled={!loginEmail.trim() || loggingIn}
+                    className={`h-11 w-full rounded-xl text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
+                      loginEmail.trim() && !loggingIn
+                        ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
+                        : "cursor-not-allowed bg-gray-300"
+                    }`}
+                  >
+                    {loggingIn ? "Logging In..." : "Log In"}
+                  </button>
+                  {loginError && (
+                    <p className="text-sm font-medium text-red-600">{loginError}</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <RequiredFieldLabel>School</RequiredFieldLabel>
+                  <SchoolPicker
+                    schools={schools}
+                    loading={schoolsLoading}
+                    error={schoolsError}
+                    selectedId={profile.schoolId}
+                    onSelect={handleSelectSchool}
+                  />
+                  {!schoolSelected && (
+                    <p className="mt-1.5 text-xs font-medium text-gray-400">
+                      Select a school first to fill in the rest of your profile.
+                    </p>
+                  )}
+                </div>
+
+                <div
+                  aria-hidden={!schoolSelected}
+                  className={
+                    schoolSelected
+                      ? "flex flex-col gap-5"
+                      : "pointer-events-none flex flex-col gap-5 opacity-50 select-none"
+                  }
+                >
+                  <div>
+                    <RequiredFieldLabel htmlFor="profile-name">Name</RequiredFieldLabel>
+                    <input
+                      id="profile-name"
+                      type="text"
+                      value={profile.name}
+                      disabled={!schoolSelected}
+                      onChange={(e) => onChange({ name: e.target.value })}
+                      placeholder="Your name"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <RequiredFieldLabel htmlFor="profile-email">Email</RequiredFieldLabel>
+                    <input
+                      id="profile-email"
+                      type="email"
+                      value={profile.email}
+                      disabled={!schoolSelected}
+                      onChange={(e) => onChange({ email: e.target.value })}
+                      placeholder="you@school.edu"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <RequiredFieldLabel className="mb-2">Grade</RequiredFieldLabel>
+                    <div className="flex flex-wrap gap-2">
+                      {GRADES.map((grade) => (
+                        <GradeChip
+                          key={grade}
+                          grade={grade}
+                          active={profile.grade === grade}
+                          onClick={() => onChange({ grade })}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="mb-3 block text-sm font-semibold text-gray-700">
+                      Courses Taken
+                    </span>
+                    {prereqLoading ? (
+                      <div className="flex items-center gap-2 py-3 text-sm text-gray-400">
+                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-main-300 border-t-main-600" />
+                        Loading courses...
+                      </div>
+                    ) : courseTitles.length === 0 ? (
+                      <p className="py-3 text-sm text-gray-400">
+                        No prerequisite or corequisite courses for this school.
+                      </p>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {courseTitles.map((title) => (
+                          <PrerequisiteRow
+                            key={title}
+                            title={title}
+                            checked={profile.completedCourses[title] != null}
+                            onToggle={(checked) => setCourseCompleted(title, checked)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {onboarding && (
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={!canSubmit || submitting}
+                      className={`h-11 w-full rounded-xl text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
+                        canSubmit && !submitting
+                          ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
+                          : "cursor-not-allowed bg-gray-300"
+                      }`}
+                    >
+                      {submitting ? "Creating Account..." : "Create Account"}
+                    </button>
+                    {submitError && (
+                      <p className="text-sm font-medium text-red-600">
+                        {submitError}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>

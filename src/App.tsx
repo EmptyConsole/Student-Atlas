@@ -9,6 +9,7 @@ import { useCourses } from "./hooks/useCourses";
 import { useSubjects } from "./hooks/useSubjects";
 import {
   submitProfile,
+  loginByEmail,
   loadStudentData,
   syncStudentCourses,
   syncStudentBookmarks,
@@ -209,6 +210,31 @@ function App() {
     return {};
   };
 
+  const handleLoginByEmail = async (email: string): Promise<{ error?: string }> => {
+    const result = await loginByEmail(email);
+
+    if (result.error) return { error: result.error };
+
+    if (result.hydratedData) {
+      const { studentId: id, profile: hydratedProfile, bookmarkIds } = result.hydratedData;
+      setStudentId(id);
+      updateProfile({ ...hydratedProfile, schoolId: profile.schoolId });
+      setBookmarks(bookmarkIds);
+      setSavedProfile({
+        schoolId: profile.schoolId,
+        name: hydratedProfile.name,
+        email: hydratedProfile.email,
+        grade: hydratedProfile.grade,
+        completedCourses: hydratedProfile.completedCourses,
+      });
+      syncEnabled.current = true;
+      markOnboarded();
+      setActiveView("courses");
+    }
+
+    return {};
+  };
+
   const handleDeleteAccount = async () => {
     if (!studentId) return;
     await deleteStudentAccount(studentId);
@@ -251,6 +277,7 @@ function App() {
           onSignOut={signOut}
           onboarding
           onSubmit={handleSubmitProfile}
+          onLoginByEmail={handleLoginByEmail}
         />
       </div>
     );
