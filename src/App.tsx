@@ -163,7 +163,7 @@ function App() {
       updateProfile(hydratedProfile);
       setBookmarks(bookmarkIds);
       setSavedProfile({
-        schoolId: profile.schoolId,
+        schoolId: hydratedProfile.schoolId,
         name: hydratedProfile.name,
         email: hydratedProfile.email,
         grade: hydratedProfile.grade,
@@ -218,10 +218,10 @@ function App() {
     if (result.hydratedData) {
       const { studentId: id, profile: hydratedProfile, bookmarkIds } = result.hydratedData;
       setStudentId(id);
-      updateProfile({ ...hydratedProfile, schoolId: profile.schoolId });
+      updateProfile(hydratedProfile);
       setBookmarks(bookmarkIds);
       setSavedProfile({
-        schoolId: profile.schoolId,
+        schoolId: hydratedProfile.schoolId,
         name: hydratedProfile.name,
         email: hydratedProfile.email,
         grade: hydratedProfile.grade,

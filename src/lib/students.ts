@@ -33,7 +33,7 @@ async function fetchCourseMapByIds(ids: string[]): Promise<Map<string, string>> 
 
 export type HydratedStudentData = {
   studentId: string;
-  profile: Pick<UserProfile, "name" | "email" | "grade" | "completedCourses" | "courseNotes">;
+  profile: Pick<UserProfile, "schoolId" | "name" | "email" | "grade" | "completedCourses" | "courseNotes">;
   bookmarkIds: Set<string>;
 };
 
@@ -130,6 +130,7 @@ export async function submitProfile(profile: UserProfile): Promise<SubmitResult>
         hydratedData: {
           studentId: student.id,
           profile: {
+            schoolId,
             name,
             email,
             grade: profile.grade,
@@ -425,6 +426,7 @@ export async function loginByEmail(email: string): Promise<LoginByEmailResult> {
       hydratedData: {
         studentId: student.id,
         profile: {
+          schoolId: student.school_id,
           name: student.name,
           email: student.email,
           grade: student.grade,
