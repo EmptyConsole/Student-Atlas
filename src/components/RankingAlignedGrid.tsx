@@ -147,14 +147,12 @@ function CourseDetailModal({ course, subject, note, onClose }: CourseDetailProps
                 ? course.corequisites.join(", ")
                 : "None"}
             </p>
-            {course.teacher && (
-              <p>
-                <span className="font-semibold" style={{ color: subject.accent }}>
-                  Teacher:{" "}
-                </span>
-                {course.teacher}
-              </p>
-            )}
+            <p>
+              <span className="font-semibold" style={{ color: subject.accent }}>
+                Teacher:{" "}
+              </span>
+              {course.teacher ?? "Unknown"}
+            </p>
             <p>
               <span className="font-semibold" style={{ color: subject.accent }}>
                 Retakeable:{" "}

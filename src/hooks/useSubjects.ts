@@ -32,17 +32,20 @@ export function useSubjects(schoolId: string | null) {
         // the order departments were added in Supabase.
         const { data: departments, error: deptError } = await supabase
           .from("departments")
-          .select("name, created_at")
+          .select("name, graduation_requirement, created_at")
           .eq("school_id", schoolId)
           .order("created_at", { ascending: true })
           .order("name", { ascending: true });
 
         if (deptError) throw deptError;
 
-        const names = (departments ?? []).map((d) => d.name);
+        const inputs = (departments ?? []).map((d) => ({
+          name: d.name,
+          graduationRequirement: d.graduation_requirement,
+        }));
 
         if (isMounted) {
-          setSubjects(buildSubjects(names));
+          setSubjects(buildSubjects(inputs));
           setError(null);
         }
       } catch (err) {
