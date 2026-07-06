@@ -19,6 +19,7 @@ import {
 } from "../utils/courseRanking";
 import { RANKING_ROW_SHELL } from "./RankedCourseRow";
 import YearLongConnector from "./YearLongConnector";
+import CourseRequirements from "./CourseRequirements";
 
 type RankingAlignedGridProps = {
   model: RankingModel;
@@ -130,23 +131,9 @@ function CourseDetailModal({ course, subject, note, onClose }: CourseDetailProps
             {course.longDescription}
           </p>
 
-          <div className="mt-4 space-y-1.5 text-sm text-gray-700">
-            <p>
-              <span className="font-semibold" style={{ color: subject.accent }}>
-                Prerequisites:{" "}
-              </span>
-              {course.prerequisites.length > 0
-                ? course.prerequisites.join(", ")
-                : "None"}
-            </p>
-            <p>
-              <span className="font-semibold" style={{ color: subject.accent }}>
-                Corequisites:{" "}
-              </span>
-              {course.corequisites.length > 0
-                ? course.corequisites.join(", ")
-                : "None"}
-            </p>
+          <CourseRequirements course={course} accent={subject.accent} className="mt-4" />
+
+          <div className="mt-1.5 space-y-1.5 text-sm text-gray-700">
             <p>
               <span className="font-semibold" style={{ color: subject.accent }}>
                 Teacher:{" "}

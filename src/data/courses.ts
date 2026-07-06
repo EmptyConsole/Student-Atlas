@@ -7,6 +7,10 @@ export type Course = {
   grades: number[];
   prerequisites: string[];
   corequisites: string[];
+  /** Verbatim catalog prerequisite wording; display-only, not used for filtering. */
+  customPrereq?: string;
+  /** Verbatim catalog corequisite wording; display-only, not used for filtering. */
+  customCoreq?: string;
   /** Omitted when the instructor is not yet assigned. */
   teacher?: string;
   retakeable: boolean;

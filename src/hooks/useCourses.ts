@@ -135,6 +135,8 @@ export function useCourses(schoolId: string | null) {
                 : [supabaseCourse.grade],
               prerequisites,
               corequisites,
+              customPrereq: supabaseCourse.custom_prereq?.trim() || undefined,
+              customCoreq: supabaseCourse.custom_coreq?.trim() || undefined,
               teacher,
               retakeable: supabaseCourse.retakeable ?? false,
               term: supabaseCourse.term as

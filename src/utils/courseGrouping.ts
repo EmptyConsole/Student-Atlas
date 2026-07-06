@@ -26,6 +26,8 @@ function signature(course: Course): string {
     grades: [...course.grades].sort((a, b) => a - b),
     prerequisites: [...course.prerequisites].sort((a, b) => a.localeCompare(b)),
     corequisites: [...course.corequisites].sort((a, b) => a.localeCompare(b)),
+    customPrereq: course.customPrereq ?? null,
+    customCoreq: course.customCoreq ?? null,
     teacher: course.teacher ?? null,
     shortDescription: course.shortDescription,
     longDescription: course.longDescription,

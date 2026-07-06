@@ -10,6 +10,7 @@ import {
   type Course,
 } from "../data/courses";
 import SplitBookmark, { type SplitBookmarkState } from "./SplitBookmark";
+import CourseRequirements from "./CourseRequirements";
 
 /**
  * Bookmark behavior for a card. `single` is a plain toggle; `group` exposes the
@@ -367,26 +368,11 @@ function CourseCard({
               {course.longDescription}
             </p>
 
-            <p className="mt-3 text-sm text-gray-700">
-              <span
-                className="font-semibold"
-                style={{ color: subject.accent }}
-              >
-                Prerequisites:{" "}
-              </span>
-              {course.prerequisites.length > 0
-                ? course.prerequisites.join(", ")
-                : "None"}
-            </p>
-
-            <p className="mt-1 text-sm text-gray-700">
-              <span className="font-semibold" style={{ color: subject.accent }}>
-                Corequisites:{" "}
-              </span>
-              {course.corequisites.length > 0
-                ? course.corequisites.join(", ")
-                : "None"}
-            </p>
+            <CourseRequirements
+              course={course}
+              accent={subject.accent}
+              className="mt-3"
+            />
 
             <p className="mt-1 text-sm text-gray-700">
               <span

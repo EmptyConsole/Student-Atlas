@@ -200,6 +200,8 @@ export type Database = {
       courses: {
         Row: {
           created_at: string
+          custom_coreq: string | null
+          custom_prereq: string | null
           department_id: string | null
           grade: number[]
           id: string
@@ -215,6 +217,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_coreq?: string | null
+          custom_prereq?: string | null
           department_id?: string | null
           grade: number[]
           id?: string
@@ -230,6 +234,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_coreq?: string | null
+          custom_prereq?: string | null
           department_id?: string | null
           grade?: number[]
           id?: string
