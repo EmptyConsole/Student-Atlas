@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Bookmark } from "lucide-react";
-import type { Subject } from "../data/subjects";
+import { REQUIREMENTS_KEY, type Subject } from "../data/subjects";
 import type { Course } from "../data/courses";
 import { buildDisplayCourses, repCourse } from "../utils/courseGrouping";
+import RequirementsBookmark from "./RequirementsBookmark";
 import SplitBookmark, { type SplitBookmarkState } from "./SplitBookmark";
 import SubjectBookmark from "./SubjectBookmark";
 
@@ -72,6 +73,13 @@ function Sidebar({
     return map;
   }, [courses, subjects, bookmarks, onToggleBookmark, onApplyGroupBookmark]);
 
+  const handleSelectRequirements = () => {
+    onSelectSubject(REQUIREMENTS_KEY);
+    document
+      .getElementById(`subject-${REQUIREMENTS_KEY}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const handleSelect = (name: string) => {
     onSelectSubject(name);
     document
@@ -98,6 +106,15 @@ function Sidebar({
     <aside className="flex h-full w-60 shrink-0 flex-col bg-main-100">
       <nav aria-label="Course subjects" className="flex-1 overflow-y-auto py-3">
         <ul className="flex flex-col gap-1.5">
+          <li
+            ref={activeSubject === REQUIREMENTS_KEY ? activeItemRef : null}
+            className="flex flex-col items-end"
+          >
+            <RequirementsBookmark
+              isActive={activeSubject === REQUIREMENTS_KEY}
+              onClick={handleSelectRequirements}
+            />
+          </li>
           {subjects.map((subject) => {
             const isActive = activeSubject === subject.name;
             const subjectBookmarks = entriesBySubject.get(subject.name) ?? [];

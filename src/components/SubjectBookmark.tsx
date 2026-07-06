@@ -77,8 +77,14 @@ function SubjectBookmark({
       }`}
       style={{ outlineColor: accent }}
     >
+      {isActive && (
+        <span
+          className="bookmark-tab-frame absolute -inset-0.5 z-0"
+          aria-hidden="true"
+        />
+      )}
       <span
-        className="bookmark-tab flex h-20 w-full flex-col justify-center gap-0.5 pr-3 pl-[calc(40px+0.85rem)] shadow-sm transition-colors duration-150"
+        className="bookmark-tab relative z-[1] flex h-20 w-full flex-col justify-center gap-0.5 pr-3 pl-[calc(40px+0.85rem)] shadow-sm transition-colors duration-150"
         style={{
           backgroundColor: showColor ? color : tint,
           color: accent,

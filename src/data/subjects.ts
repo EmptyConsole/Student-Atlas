@@ -1,3 +1,6 @@
+/** Sentinel value for the Requirements sidebar tab and scroll-spy target. */
+export const REQUIREMENTS_KEY = "__requirements__";
+
 export type Subject = {
   name: string;
   description: string;
