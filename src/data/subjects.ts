@@ -1,6 +1,11 @@
 export type Subject = {
   name: string;
   description: string;
+  /**
+   * Optional graduation requirement for the department, shown under the section
+   * heading. Comes from the Supabase `departments.graduation_requirement` column.
+   */
+  graduationRequirement?: string;
   /** Pastel color used for the sidebar bookmark tab. */
   color: string;
   /** Very light pastel tint used as the course card background. */
@@ -53,17 +58,28 @@ export const SUBJECT_DESCRIPTIONS: Record<string, string> = {
   "Social Emotional Learning": "Social & emotional growth",
 };
 
-/** Builds a Subject from a department name, assigning a looped palette color. */
-export function buildSubject(name: string, index: number): Subject {
+/** A department as returned from Supabase, narrowed to the fields we render. */
+export type DepartmentInput = {
+  name: string;
+  graduationRequirement?: string | null;
+};
+
+/** Builds a Subject from a department, assigning a looped palette color. */
+export function buildSubject(
+  department: DepartmentInput,
+  index: number,
+): Subject {
   const palette = SUBJECT_PALETTE[index % SUBJECT_PALETTE.length];
+  const graduationRequirement = department.graduationRequirement?.trim();
   return {
-    name,
-    description: SUBJECT_DESCRIPTIONS[name] ?? "",
+    name: department.name,
+    description: SUBJECT_DESCRIPTIONS[department.name] ?? "",
+    graduationRequirement: graduationRequirement || undefined,
     ...palette,
   };
 }
 
-/** Builds the full ordered list of Subjects from department names. */
-export function buildSubjects(names: string[]): Subject[] {
-  return names.map((name, index) => buildSubject(name, index));
+/** Builds the full ordered list of Subjects from departments. */
+export function buildSubjects(departments: DepartmentInput[]): Subject[] {
+  return departments.map((department, index) => buildSubject(department, index));
 }

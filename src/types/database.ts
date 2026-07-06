@@ -204,6 +204,7 @@ export type Database = {
           grade: number[]
           id: string
           long_description: string
+          retakeable: boolean
           school_id: string
           short_description: string
           subject: string
@@ -218,6 +219,7 @@ export type Database = {
           grade: number[]
           id?: string
           long_description: string
+          retakeable?: boolean
           school_id: string
           short_description: string
           subject: string
@@ -232,6 +234,7 @@ export type Database = {
           grade?: number[]
           id?: string
           long_description?: string
+          retakeable?: boolean
           school_id?: string
           short_description?: string
           subject?: string
@@ -275,6 +278,7 @@ export type Database = {
         Row: {
           code: string | null
           created_at: string
+          graduation_requirement: string | null
           id: string
           name: string
           school_id: string
@@ -282,6 +286,7 @@ export type Database = {
         Insert: {
           code?: string | null
           created_at?: string
+          graduation_requirement?: string | null
           id?: string
           name: string
           school_id: string
@@ -289,6 +294,7 @@ export type Database = {
         Update: {
           code?: string | null
           created_at?: string
+          graduation_requirement?: string | null
           id?: string
           name?: string
           school_id?: string

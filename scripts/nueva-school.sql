@@ -7,6 +7,7 @@
 --   Term:  "Fall & Spring" -> both | "Fall Only" -> fall | "Spring Only" -> spring | "Yearlong" -> all-year
 --   Grade: "9th-12th" -> {9,10,11,12}, "10th-12th" -> {10,11,12}, "11th-12th" -> {11,12}, "9th" -> {9}, ...
 --   Repeatable: Yes/No -> courses.retakeable
+--   graduation_requirement: NULL in source -> '' (column is NOT NULL)
 --   teacher_id: NULL (no instructors listed in the catalog)
 --   Prerequisites/Corequisites: best-effort links to catalog courses; non-course requirements
 --     (e.g. "approval of instructor", "Math Department Approval", placement) are left in the
@@ -26,7 +27,7 @@ VALUES ($c$The Nueva School$c$, $c$https://www.nuevaschool.org$c$, $c$San Mateo$
 -- 2. Departments
 ----------------------------------------------------------------------
 INSERT INTO departments (school_id, name, code, graduation_requirement)
-SELECT s.id, d.name, d.code, d.graduation_requirement
+SELECT s.id, d.name, d.code, COALESCE(d.graduation_requirement, '')
 FROM schools s
 CROSS JOIN (
   VALUES

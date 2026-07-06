@@ -9,6 +9,7 @@ export type Course = {
   corequisites: string[];
   /** Omitted when the instructor is not yet assigned. */
   teacher?: string;
+  retakeable: boolean;
   term: Term;
   shortDescription: string;
   longDescription: string;
@@ -123,6 +124,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Ms. Elena Vasquez",
+    retakeable: false,
     term: "fall",
     shortDescription:
       "Explore color, composition, and material across drawing, collage, and mixed media while building a personal visual vocabulary.",
@@ -137,6 +139,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Art Foundations"],
     corequisites: [],
     teacher: "Mr. James Whitfield",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "An advanced studio for self-directed artists developing a cohesive body of work for college or exhibition.",
@@ -151,6 +154,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Art Foundations"],
     corequisites: [],
     teacher: "Ms. Priya Kapoor",
+    retakeable: false,
     term: "spring",
     shortDescription:
       "Carve, ink, and press original editions using relief, monotype, and screen techniques.",
@@ -167,6 +171,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Ms. Rachel Donovan",
+    retakeable: false,
     term: "fall",
     shortDescription:
       "Build presence, listening, and spontaneity through scene work, games, and improvisation.",
@@ -181,6 +186,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Mr. Marcus Chen",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Rehearse and perform as a group across genres, developing musicianship and collaboration.",
@@ -195,6 +201,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Ms. Sofia Reyes",
+    retakeable: false,
     term: "spring",
     shortDescription:
       "Choreograph and perform original movement studies grounded in modern and contemporary technique.",
@@ -211,6 +218,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Mr. Daniel Okonkwo",
+    retakeable: false,
     term: "fall",
     shortDescription:
       "Train your eye and hand through observational drawing of still life, figure, and landscape.",
@@ -225,6 +233,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Ms. Hannah Brooks",
+    retakeable: false,
     term: "spring",
     shortDescription:
       "Design with type, layout, and image using industry-standard vector and raster tools.",
@@ -239,6 +248,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Drawing & Observation"],
     corequisites: [],
     teacher: "Mr. Thomas Lindqvist",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Develop a painting practice in acrylic and oil with attention to color, surface, and intent.",
@@ -255,6 +265,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Ms. Aisha Rahman",
+    retakeable: false,
     term: "fall",
     shortDescription:
       "Learn programming fundamentals — variables, loops, functions, and logic — by building small interactive projects.",
@@ -269,6 +280,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Intro to Programming"],
     corequisites: [],
     teacher: "Mr. Kevin Park",
+    retakeable: false,
     term: "spring",
     shortDescription:
       "Study core data structures and algorithmic strategies, analyzing efficiency and trade-offs.",
@@ -283,6 +295,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Intro to Programming"],
     corequisites: [],
     teacher: "Ms. Laura Nguyen",
+    retakeable: false,
     term: "both",
     shortDescription:
       "Build responsive, interactive websites with HTML, CSS, and JavaScript from concept to deployment.",
@@ -297,6 +310,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Data Structures & Algorithms"],
     corequisites: ["Statistics"],
     teacher: "Dr. Samuel Ortiz",
+    retakeable: false,
     term: "spring",
     shortDescription:
       "An accessible introduction to the ideas and ethics behind modern machine learning models.",
@@ -313,6 +327,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Mr. Gregory Walsh",
+    retakeable: false,
     term: "fall",
     shortDescription:
       "Examine how individuals, firms, and markets make decisions under scarcity.",
@@ -327,6 +342,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Microeconomics"],
     corequisites: [],
     teacher: "Ms. Natalie Fischer",
+    retakeable: false,
     term: "spring",
     shortDescription:
       "Analyze national economies through growth, inflation, unemployment, and policy.",
@@ -341,6 +357,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Mr. David Kim",
+    retakeable: false,
     term: "both",
     shortDescription:
       "Practical money skills: budgeting, saving, credit, investing, and planning for the future.",
@@ -357,6 +374,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Mr. Richard Pemberton",
+    retakeable: false,
     term: "fall",
     shortDescription:
       "Apply the design process to real problems through sketching, prototyping, and testing.",
@@ -371,6 +389,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Intro to Engineering Design"],
     corequisites: [],
     teacher: "Mr. Ryan Holloway",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Design, build, and program robots to complete autonomous and driver-controlled challenges.",
@@ -385,6 +404,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Intro to Engineering Design"],
     corequisites: [],
     teacher: "Ms. Christine Alvarez",
+    retakeable: false,
     term: "spring",
     shortDescription:
       "Model parts in 3D CAD and bring them to life with 3D printing and laser cutting.",
@@ -401,6 +421,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Ms. Margaret Sullivan",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Read across cultures and centuries, building close-reading and analytical writing skills.",
@@ -415,6 +436,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Mr. Ethan Morrison",
+    retakeable: false,
     term: "fall",
     shortDescription:
       "Craft poetry, fiction, and creative nonfiction in a supportive workshop setting.",
@@ -429,6 +451,7 @@ export const COURSES: Course[] = [
     prerequisites: ["World Literature"],
     corequisites: [],
     teacher: "Dr. Claire Bennett",
+    retakeable: false,
     term: "spring",
     shortDescription:
       "Analyze and craft persuasive arguments across speeches, essays, and media.",
@@ -445,6 +468,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Mr. Omar Hassan",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Trace global change from revolutions to the present through evidence and interpretation.",
@@ -459,6 +483,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Ms. Jennifer Caldwell",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Investigate the American past through its conflicts, movements, and enduring questions.",
@@ -473,6 +498,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Modern World History"],
     corequisites: [],
     teacher: "Dr. Robert Stein",
+    retakeable: false,
     term: "fall",
     shortDescription:
       "Explore how markets, labor, and money reshaped societies over five centuries.",
@@ -489,6 +515,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Ms. Maya Patel",
+    retakeable: false,
     term: "fall",
     shortDescription:
       "Tackle open-ended problems with empathy, prototyping, and iteration across disciplines.",
@@ -503,6 +530,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Mr. Andrew Green",
+    retakeable: false,
     term: "spring",
     shortDescription:
       "Examine climate and sustainability through science, policy, and ethics together.",
@@ -517,6 +545,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Design Thinking"],
     corequisites: [],
     teacher: "Ms. Diane Foster",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Pursue a year-long, self-directed project culminating in a public presentation.",
@@ -533,6 +562,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Sra. Carmen Delgado",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Begin communicating in Spanish through speaking, listening, reading, and culture.",
@@ -547,6 +577,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Ms. Wei Lin",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Start speaking and reading Mandarin Chinese with tones, characters, and culture.",
@@ -561,6 +592,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Spanish I"],
     corequisites: [],
     teacher: "Mme. Isabelle Moreau",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Refine fluency through literature, film, and discussion conducted entirely in French.",
@@ -577,6 +609,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Mr. Steven Clarke",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Master linear and quadratic relationships, functions, and algebraic reasoning.",
@@ -591,6 +624,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Algebra I"],
     corequisites: [],
     teacher: "Ms. Angela Torres",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Reason about shape, proof, and space through construction and deductive logic.",
@@ -605,6 +639,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Algebra I", "Geometry"],
     corequisites: [],
     teacher: "Dr. Michael Brennan",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Study limits, derivatives, and integrals with applications to change and motion.",
@@ -619,6 +654,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Algebra I"],
     corequisites: [],
     teacher: "Ms. Olivia Grant",
+    retakeable: false,
     term: "fall",
     shortDescription:
       "Collect, analyze, and interpret data to reason under uncertainty.",
@@ -635,6 +671,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Dr. Susan Nakamura",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Investigate life from cells to ecosystems through inquiry and lab work.",
@@ -649,6 +686,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Biology"],
     corequisites: ["Algebra I"],
     teacher: "Mr. Paul Richardson",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Understand matter, reactions, and energy through experimentation and modeling.",
@@ -663,6 +701,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Chemistry"],
     corequisites: ["Calculus"],
     teacher: "Dr. Helen Voss",
+    retakeable: false,
     term: "all-year",
     shortDescription:
       "Explore motion, forces, energy, and waves through experiment and mathematics.",
@@ -677,6 +716,7 @@ export const COURSES: Course[] = [
     prerequisites: ["Biology"],
     corequisites: [],
     teacher: "Ms. Emily Carter",
+    retakeable: false,
     term: "spring",
     shortDescription:
       "Study ecosystems, resources, and human impact through fieldwork and data.",
@@ -693,6 +733,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Ms. Grace Williams",
+    retakeable: false,
     term: "both",
     shortDescription:
       "Build attention, self-awareness, and resilience through mindfulness practice.",
@@ -707,6 +748,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Mr. Jonathan Price",
+    retakeable: false,
     term: "fall",
     shortDescription:
       "Develop collaboration, communication, and ethical leadership through real projects.",
@@ -721,6 +763,7 @@ export const COURSES: Course[] = [
     prerequisites: [],
     corequisites: [],
     teacher: "Ms. Karen Mitchell",
+    retakeable: false,
     term: "spring",
     shortDescription:
       "Learn communication, empathy, and boundary-setting for healthy connections.",

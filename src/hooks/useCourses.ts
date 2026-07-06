@@ -136,6 +136,7 @@ export function useCourses(schoolId: string | null) {
               prerequisites,
               corequisites,
               teacher,
+              retakeable: supabaseCourse.retakeable ?? false,
               term: supabaseCourse.term as
                 | "fall"
                 | "spring"

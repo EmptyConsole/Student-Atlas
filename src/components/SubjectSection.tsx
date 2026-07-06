@@ -71,9 +71,9 @@ function SubjectSection({
       data-subject={subject.name}
       className="scroll-mt-4"
     >
-      <div className="mb-3 flex items-center gap-3">
+      <div className="mb-3 flex items-start gap-3">
         <span
-          className="h-6 w-2 rounded-full"
+          className="mt-1 h-6 w-2 shrink-0 rounded-full"
           style={{ backgroundColor: subject.color }}
           aria-hidden="true"
         />
@@ -94,12 +94,25 @@ function SubjectSection({
             style={{ transform: collapsed ? "rotate(180deg)" : "rotate(0deg)" }}
           />
         </button>
-        <h2 className="text-2xl font-bold" style={{ color: subject.accent }}>
-          {subject.name}
-        </h2>
-        <span className="text-sm font-medium text-gray-400">
-          {passCount} of {items.length}
-        </span>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <div className="flex items-center gap-3">
+            <h2
+              className="text-2xl font-bold"
+              style={{ color: subject.accent }}
+            >
+              {subject.name}
+            </h2>
+            <span className="text-sm font-medium text-gray-400">
+              {passCount} of {items.length}
+            </span>
+          </div>
+          {!collapsed && subject.graduationRequirement && (
+            <p className="text-sm leading-snug text-gray-600">
+              <span className="font-bold">Graduation Requirement: </span>
+              {subject.graduationRequirement}
+            </p>
+          )}
+        </div>
       </div>
 
       <AnimatePresence initial={false}>

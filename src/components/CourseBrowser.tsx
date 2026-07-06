@@ -6,6 +6,7 @@ import { DEFAULT_FILTERS, matchesSearch, type Course, type Filters } from "../da
 import type { UserProfile } from "../hooks/useProfile";
 import { buildDisplayCourses, repCourse, type DisplayCourse } from "../utils/courseGrouping";
 import FilterPanel from "./FilterPanel";
+import RequirementsSection from "./RequirementsSection";
 import SubjectSection from "./SubjectSection";
 
 type CourseBrowserProps = {
@@ -146,6 +147,7 @@ function CourseBrowser({
         ) : (
           <LayoutGroup>
             <div className="flex flex-col gap-8">
+              <RequirementsSection subjects={subjects} />
               {subjects.map((subject) => (
                 <SubjectSection
                   key={subject.name}

@@ -388,17 +388,22 @@ function CourseCard({
                 : "None"}
             </p>
 
-            {course.teacher && (
-              <p className="mt-1 text-sm text-gray-700">
-                <span
-                  className="font-semibold"
-                  style={{ color: subject.accent }}
-                >
-                  Teacher:{" "}
-                </span>
-                {course.teacher}
-              </p>
-            )}
+            <p className="mt-1 text-sm text-gray-700">
+              <span
+                className="font-semibold"
+                style={{ color: subject.accent }}
+              >
+                Teacher:{" "}
+              </span>
+              {course.teacher ?? "Unknown"}
+            </p>
+
+            <p className="mt-1 text-sm text-gray-700">
+              <span className="font-semibold" style={{ color: subject.accent }}>
+                Retakeable:{" "}
+              </span>
+              {course.retakeable ? "True" : "False"}
+            </p>
 
             <div
               className="mt-4"
