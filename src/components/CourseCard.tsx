@@ -400,6 +400,13 @@ function CourseCard({
               </p>
             )}
 
+            <p className="mt-1 text-sm text-gray-700">
+              <span className="font-semibold" style={{ color: subject.accent }}>
+                Retakeable:{" "}
+              </span>
+              {course.retakeable ? "True" : "False"}
+            </p>
+
             <div
               className="mt-4"
               onClick={(e) => e.stopPropagation()}

@@ -155,6 +155,12 @@ function CourseDetailModal({ course, subject, note, onClose }: CourseDetailProps
                 {course.teacher}
               </p>
             )}
+            <p>
+              <span className="font-semibold" style={{ color: subject.accent }}>
+                Retakeable:{" "}
+              </span>
+              {course.retakeable ? "True" : "False"}
+            </p>
           </div>
 
           {note && (
