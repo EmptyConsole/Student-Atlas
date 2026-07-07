@@ -1,13 +1,15 @@
 -- The Nueva School — 2026–2027 custom prerequisite / corequisite text
 --
 -- Populates courses.custom_prereq and courses.custom_coreq ONLY with requirements
--- that can't be modeled as structured course links:
---   * free-text requirements (e.g. "Any economics class", "Read the Teaching Fellow
---     Program Overview", "Student must play an instrument"), and
---   * "class or class" choices (e.g. "Chemistry or Biology", "Math 2 or higher").
--- A requirement that is a single existing course (e.g. "History 9") or several
--- existing courses joined by "and" (e.g. "Physics and Calculus") is left as an
--- empty string, since those belong in course_prerequisites / course_corequisites.
+-- that reference at least one non-course element and therefore cannot be modeled as
+-- structured course links, e.g.:
+--   * free-text requirements ("Any economics class", "Read the Teaching Fellow
+--     Program Overview", "Student must play an instrument", "... or equivalent",
+--     "... or approval of instructor").
+-- Any requirement composed solely of real courses -- a single course ("History 9"),
+-- an "and" list ("Physics and Calculus"), or an "or" choice ("Chemistry or
+-- Biology") -- is left as an empty string, since those belong in
+-- course_prerequisites / course_corequisites (which sync to completed_courses).
 --
 -- Safe to re-run; matches rows by school + course title.
 
@@ -174,7 +176,7 @@ FROM (
     ($c$Chemical Engineering$c$, $c$$c$, $c$$c$),
     ($c$Chemistry$c$, $c$$c$, $c$$c$),
     ($c$Chemistry Consulting$c$, $c$$c$, $c$$c$),
-    ($c$Drug Design$c$, $c$Chemical Engineering or Bioorganic Chemistry.$c$, $c$$c$),
+    ($c$Drug Design$c$, $c$$c$, $c$$c$),
     ($c$Environmental Earth Science$c$, $c$$c$, $c$$c$),
     ($c$Immunology$c$, $c$$c$, $c$$c$),
     ($c$Marine Environments$c$, $c$$c$, $c$$c$),
