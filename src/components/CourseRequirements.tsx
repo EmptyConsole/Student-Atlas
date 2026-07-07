@@ -1,4 +1,4 @@
-import type { Course } from "../data/courses";
+import { formatRequirementList, type Course } from "../data/courses";
 
 type CourseRequirementsProps = {
   course: Course;
@@ -10,11 +10,13 @@ function RequirementBlock({
   label,
   items,
   custom,
+  orChoice = false,
   accent,
 }: {
   label: string;
   items: string[];
   custom?: string;
+  orChoice?: boolean;
   accent: string;
 }) {
   const hasItems = items.length > 0;
@@ -27,7 +29,7 @@ function RequirementBlock({
           {label}:{" "}
         </span>
         {!hasItems && !hasCustom ? "None" : null}
-        {hasItems ? items.join(", ") : null}
+        {hasItems ? formatRequirementList(items, orChoice) : null}
       </p>
       {hasCustom && (
         <p className="mt-0.5 text-sm leading-relaxed text-gray-600">
@@ -46,12 +48,14 @@ function CourseRequirements({ course, accent, className = "" }: CourseRequiremen
         label="Prerequisites"
         items={course.prerequisites}
         custom={course.customPrereq}
+        orChoice={course.orPrereq}
         accent={accent}
       />
       <RequirementBlock
         label="Corequisites"
         items={course.corequisites}
         custom={course.customCoreq}
+        orChoice={course.orCoreq}
         accent={accent}
       />
     </div>

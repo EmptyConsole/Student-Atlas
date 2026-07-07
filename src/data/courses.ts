@@ -7,10 +7,22 @@ export type Course = {
   grades: number[];
   prerequisites: string[];
   corequisites: string[];
-  /** Verbatim catalog prerequisite wording; display-only, not used for filtering. */
+  /**
+   * Verbatim catalog prerequisite wording for the non-course portion of the
+   * requirement. When present it cannot be verified from completed courses, so
+   * it always blocks the "prerequisites met" calculation (course prereq AND
+   * free text).
+   */
   customPrereq?: string;
-  /** Verbatim catalog corequisite wording; display-only, not used for filtering. */
+  /** Corequisite equivalent of {@link customPrereq}; blocks the coreq calc. */
   customCoreq?: string;
+  /**
+   * When true, the `prerequisites` list is an "or" choice — completing any one
+   * of them satisfies the requirement. When false/undefined, all are required.
+   */
+  orPrereq?: boolean;
+  /** Corequisite equivalent of {@link orPrereq}. */
+  orCoreq?: boolean;
   /** Omitted when the instructor is not yet assigned. */
   teacher?: string;
   retakeable: boolean;
@@ -62,14 +74,39 @@ export const DEFAULT_FILTERS: Filters = {
   sortByPrerequisites: false,
 };
 
-/** True when every prerequisite is marked completed in the user's profile. */
+/**
+ * True when the user's profile satisfies a course's prerequisites.
+ *
+ * Free text (`customPrereq`) can't be verified from completed courses, so its
+ * presence always returns false. Otherwise an `orPrereq` course needs any one
+ * listed prerequisite; a normal course needs them all.
+ */
 export function meetsPrerequisites(
   course: Course,
   completedCourses: Record<string, CourseCompletion | null>,
 ): boolean {
-  return course.prerequisites.every(
-    (title) => completedCourses[title] === "prereq",
-  );
+  if (course.customPrereq) return false;
+  if (course.prerequisites.length === 0) return true;
+  const isMet = (title: string) => completedCourses[title] === "prereq";
+  return course.orPrereq
+    ? course.prerequisites.some(isMet)
+    : course.prerequisites.every(isMet);
+}
+
+/**
+ * Corequisite counterpart to {@link meetsPrerequisites}. Free text blocks; an
+ * `orCoreq` course needs any one listed corequisite, otherwise all are needed.
+ */
+export function meetsCorequisites(
+  course: Course,
+  completedCourses: Record<string, CourseCompletion | null>,
+): boolean {
+  if (course.customCoreq) return false;
+  if (course.corequisites.length === 0) return true;
+  const isMet = (title: string) => completedCourses[title] === "coreq";
+  return course.orCoreq
+    ? course.corequisites.some(isMet)
+    : course.corequisites.every(isMet);
 }
 
 /** Which filter terms a course's term satisfies. */
@@ -108,6 +145,18 @@ export function matchesSearch(course: Course, query: string): boolean {
   if (course.shortDescription.toLowerCase().includes(q)) return true;
   if (course.longDescription.toLowerCase().includes(q)) return true;
   return false;
+}
+
+/** Joins course requirement titles for display: commas for AND; "A or B" or "A, B, or C" for OR. */
+export function formatRequirementList(
+  items: string[],
+  orChoice = false,
+): string {
+  if (items.length === 0) return "";
+  if (!orChoice) return items.join(", ");
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} or ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, or ${items[items.length - 1]}`;
 }
 
 /** Formats a grade list compactly, e.g. [9,10,11,12] -> "Gr. 9-12". */

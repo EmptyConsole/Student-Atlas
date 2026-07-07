@@ -28,6 +28,8 @@ function signature(course: Course): string {
     corequisites: [...course.corequisites].sort((a, b) => a.localeCompare(b)),
     customPrereq: course.customPrereq ?? null,
     customCoreq: course.customCoreq ?? null,
+    orPrereq: course.orPrereq ?? false,
+    orCoreq: course.orCoreq ?? false,
     teacher: course.teacher ?? null,
     shortDescription: course.shortDescription,
     longDescription: course.longDescription,

@@ -206,6 +206,8 @@ export type Database = {
           grade: number[]
           id: string
           long_description: string
+          or_coreq: boolean
+          or_prereq: boolean
           retakeable: boolean
           school_id: string
           short_description: string
@@ -223,6 +225,8 @@ export type Database = {
           grade: number[]
           id?: string
           long_description: string
+          or_coreq?: boolean
+          or_prereq?: boolean
           retakeable?: boolean
           school_id: string
           short_description: string
@@ -240,6 +244,8 @@ export type Database = {
           grade?: number[]
           id?: string
           long_description?: string
+          or_coreq?: boolean
+          or_prereq?: boolean
           retakeable?: boolean
           school_id?: string
           short_description?: string

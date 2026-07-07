@@ -5,6 +5,7 @@ import { Bookmark, ChevronDown } from "lucide-react";
 import type { Subject } from "../data/subjects";
 import {
   formatGrades,
+  formatRequirementList,
   TERM_COLORS,
   TERM_LABELS,
   type Course,
@@ -281,14 +282,14 @@ function CourseCard({
               />
               {course.prerequisites.length > 0 && (
                 <MetaBadge
-                  label={`Prereq: ${course.prerequisites.join(", ")}`}
+                  label={`Prereq: ${formatRequirementList(course.prerequisites, course.orPrereq)}`}
                   bg="#ffffff"
                   fg={subject.accent}
                 />
               )}
               {course.corequisites.length > 0 && (
                 <MetaBadge
-                  label={`Coreq: ${course.corequisites.join(", ")}`}
+                  label={`Coreq: ${formatRequirementList(course.corequisites, course.orCoreq)}`}
                   bg="#ffffff"
                   fg={subject.accent}
                 />
