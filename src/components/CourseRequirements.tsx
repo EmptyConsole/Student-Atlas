@@ -21,6 +21,9 @@ function RequirementBlock({
 }) {
   const hasItems = items.length > 0;
   const hasCustom = Boolean(custom);
+  const parts: string[] = [];
+  if (hasItems) parts.push(formatRequirementList(items, orChoice));
+  if (hasCustom) parts.push(custom!);
 
   return (
     <div>
@@ -28,14 +31,8 @@ function RequirementBlock({
         <span className="font-semibold" style={{ color: accent }}>
           {label}:{" "}
         </span>
-        {!hasItems && !hasCustom ? "None" : null}
-        {hasItems ? formatRequirementList(items, orChoice) : null}
+        {parts.length > 0 ? parts.join(", ") : "None"}
       </p>
-      {hasCustom && (
-        <p className="mt-0.5 text-sm leading-relaxed text-gray-600">
-          {custom}
-        </p>
-      )}
     </div>
   );
 }
