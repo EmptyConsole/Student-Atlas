@@ -3,6 +3,7 @@ export const REQUIREMENTS_KEY = "__requirements__";
 
 export type Subject = {
   name: string;
+  /** Sidebar tagline from the Supabase `departments.subtitle` column. */
   description: string;
   /**
    * Optional graduation requirement for the department, shown under the section
@@ -41,30 +42,11 @@ export const SUBJECT_PALETTE: Palette[] = [
   { color: "#f6e6a8", tint: "#fcf8e6", accent: "#a8902f" },
 ];
 
-/**
- * Optional taglines keyed by department name. Departments returned from Supabase
- * that aren't listed here simply render without a tagline.
- */
-export const SUBJECT_DESCRIPTIONS: Record<string, string> = {
-  Arts: "Creative expression",
-  "Performing Arts": "Theater, dance & music",
-  "Visual Arts": "Drawing, painting & design",
-  "Computer Science": "Code & computing",
-  Economics: "Markets & money",
-  Engineering: "Design & build systems",
-  English: "Reading & writing",
-  History: "People & the past",
-  Interdisciplinary: "Where subjects meet",
-  Languages: "Speak the world",
-  Math: "Numbers & logic",
-  Science: "How nature works",
-  "Social Emotional Learning": "Social & emotional growth",
-};
-
 /** A department as returned from Supabase, narrowed to the fields we render. */
 export type DepartmentInput = {
   name: string;
   graduationRequirement?: string | null;
+  subtitle?: string | null;
 };
 
 /** Builds a Subject from a department, assigning a looped palette color. */
@@ -74,9 +56,10 @@ export function buildSubject(
 ): Subject {
   const palette = SUBJECT_PALETTE[index % SUBJECT_PALETTE.length];
   const graduationRequirement = department.graduationRequirement?.trim();
+  const subtitle = department.subtitle?.trim();
   return {
     name: department.name,
-    description: SUBJECT_DESCRIPTIONS[department.name] ?? "",
+    description: subtitle ?? "",
     graduationRequirement: graduationRequirement || undefined,
     ...palette,
   };

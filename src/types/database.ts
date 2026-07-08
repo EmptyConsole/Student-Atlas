@@ -300,6 +300,7 @@ export type Database = {
           id: string
           name: string
           school_id: string
+          subtitle: string | null
         }
         Insert: {
           code?: string | null
@@ -308,6 +309,7 @@ export type Database = {
           id?: string
           name: string
           school_id: string
+          subtitle?: string | null
         }
         Update: {
           code?: string | null
@@ -316,6 +318,7 @@ export type Database = {
           id?: string
           name?: string
           school_id?: string
+          subtitle?: string | null
         }
         Relationships: [
           {

@@ -32,7 +32,7 @@ export function useSubjects(schoolId: string | null) {
         // the order departments were added in Supabase.
         const { data: departments, error: deptError } = await supabase
           .from("departments")
-          .select("name, graduation_requirement, created_at")
+          .select("name, graduation_requirement, subtitle, created_at")
           .eq("school_id", schoolId)
           .order("created_at", { ascending: true })
           .order("name", { ascending: true });
@@ -42,6 +42,7 @@ export function useSubjects(schoolId: string | null) {
         const inputs = (departments ?? []).map((d) => ({
           name: d.name,
           graduationRequirement: d.graduation_requirement,
+          subtitle: d.subtitle,
         }));
 
         if (isMounted) {
