@@ -144,6 +144,7 @@ CREATE TABLE public.departments (
   code text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   graduation_requirement text NOT NULL DEFAULT ''::text,
+  subtitle text DEFAULT ''::text,
   CONSTRAINT departments_pkey PRIMARY KEY (id),
   CONSTRAINT departments_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );

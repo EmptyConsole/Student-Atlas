@@ -187,23 +187,33 @@ export function reqItemLabel(item: ReqItem): string {
   return item.kind === "course" ? item.title : item.text;
 }
 
+/** Joins items as a natural-language list: "A", "A and B", "A, B, and C". */
+function joinWithConjunction(items: string[], conjunction: "and" | "or"): string {
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} ${conjunction} ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, ${conjunction} ${items[items.length - 1]}`;
+}
+
 /**
- * Renders {@link ReqOptions} as text: items within a group joined by " and ",
- * groups joined by " or ". Multi-item groups are parenthesized when there is
- * more than one group to keep the AND/OR grouping unambiguous. Returns "" when
- * there is no requirement.
+ * Renders {@link ReqOptions} as text: items within a group joined with "and",
+ * groups joined with "or", both as comma-separated lists for 3+ entries
+ * ("A, B, or C"). Multi-item groups are parenthesized when there is more than
+ * one group to keep the AND/OR grouping unambiguous. Returns "" when there is
+ * no requirement.
  */
 export function formatRequirementOptions(options: ReqOptions | undefined): string {
   const groups = (options ?? []).filter((g) => g.length > 0);
   if (groups.length === 0) return "";
-  const groupText = (group: ReqGroup) => group.map(reqItemLabel).join(" and ");
+  const groupText = (group: ReqGroup) =>
+    joinWithConjunction(group.map(reqItemLabel), "and");
   if (groups.length === 1) return groupText(groups[0]);
-  return groups
-    .map((group) => {
+  return joinWithConjunction(
+    groups.map((group) => {
       const text = groupText(group);
       return group.length > 1 ? `(${text})` : text;
-    })
-    .join(" or ");
+    }),
+    "or",
+  );
 }
 
 /** Formats a grade list compactly, e.g. [9,10,11,12] -> "Gr. 9-12". */
