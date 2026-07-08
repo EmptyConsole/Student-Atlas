@@ -305,7 +305,7 @@ async function migrateCourses() {
       }
 
       // Create prerequisites
-      for (const prerequisiteTitle of course.prerequisites) {
+      for (const prerequisiteTitle of course.prerequisites ?? []) {
         const prerequisiteId = courseMap.get(prerequisiteTitle);
         if (!prerequisiteId) {
           console.warn(
@@ -368,7 +368,7 @@ async function migrateCourses() {
       }
 
       // Create corequisites
-      for (const corequisiteTitle of course.corequisites) {
+      for (const corequisiteTitle of course.corequisites ?? []) {
         const corequisiteId = courseMap.get(corequisiteTitle);
         if (!corequisiteId) {
           console.warn(

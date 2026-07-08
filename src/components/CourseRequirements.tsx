@@ -1,4 +1,4 @@
-import { formatRequirementList, type Course } from "../data/courses";
+import { formatRequirementOptions, type Course, type ReqOptions } from "../data/courses";
 
 type CourseRequirementsProps = {
   course: Course;
@@ -8,22 +8,14 @@ type CourseRequirementsProps = {
 
 function RequirementBlock({
   label,
-  items,
-  custom,
-  orChoice = false,
+  options,
   accent,
 }: {
   label: string;
-  items: string[];
-  custom?: string;
-  orChoice?: boolean;
+  options: ReqOptions | undefined;
   accent: string;
 }) {
-  const hasItems = items.length > 0;
-  const hasCustom = Boolean(custom);
-  const parts: string[] = [];
-  if (hasItems) parts.push(formatRequirementList(items, orChoice));
-  if (hasCustom) parts.push(custom!);
+  const text = formatRequirementOptions(options);
 
   return (
     <div>
@@ -31,28 +23,24 @@ function RequirementBlock({
         <span className="font-semibold" style={{ color: accent }}>
           {label}:{" "}
         </span>
-        {parts.length > 0 ? parts.join(", ") : "None"}
+        {text || "None"}
       </p>
     </div>
   );
 }
 
-/** Structured prereq/coreq links plus catalog custom text (display-only). */
+/** Structured prereq/coreq requirements rendered from the options arrays (display-only). */
 function CourseRequirements({ course, accent, className = "" }: CourseRequirementsProps) {
   return (
     <div className={`space-y-1 ${className}`.trim()}>
       <RequirementBlock
         label="Prerequisites"
-        items={course.prerequisites}
-        custom={course.customPrereq}
-        orChoice={course.orPrereq}
+        options={course.prereqOptions}
         accent={accent}
       />
       <RequirementBlock
         label="Corequisites"
-        items={course.corequisites}
-        custom={course.customCoreq}
-        orChoice={course.orCoreq}
+        options={course.coreqOptions}
         accent={accent}
       />
     </div>

@@ -1,34 +1,57 @@
 export type Term = "fall" | "spring" | "both" | "all-year";
 
+/**
+ * A single element of a requirement. Either a concrete course (satisfiable from
+ * a student's completed/enrolled courses) or free text (never auto-verifiable).
+ */
+export type ReqItem =
+  | { kind: "course"; courseId: string; title: string }
+  | { kind: "text"; text: string };
+
+/** An AND-group: every item must be satisfied for the group to be satisfied. */
+export type ReqGroup = ReqItem[];
+
+/**
+ * A requirement in disjunctive normal form: a list of OR-groups. The
+ * requirement is satisfied when at least one group is fully satisfied. An empty
+ * list means "no requirement".
+ */
+export type ReqOptions = ReqGroup[];
+
 export type Course = {
   id: string;
   subject: string;
   title: string;
   grades: number[];
-  prerequisites: string[];
-  corequisites: string[];
   /**
-   * Verbatim catalog prerequisite wording for the non-course portion of the
-   * requirement. When present it cannot be verified from completed courses, so
-   * it always blocks the "prerequisites met" calculation (course prereq AND
-   * free text).
+   * Prerequisites as OR-of-AND groups (see {@link ReqOptions}). Course elements
+   * are checked against completed courses; free-text elements are never
+   * auto-satisfied. An empty/omitted list means no prerequisite. Optional only
+   * so the static demo data can omit it; the live pipeline always sets it.
    */
-  customPrereq?: string;
-  /** Corequisite equivalent of {@link customPrereq}; blocks the coreq calc. */
-  customCoreq?: string;
-  /**
-   * When true, the `prerequisites` list is an "or" choice — completing any one
-   * of them satisfies the requirement. When false/undefined, all are required.
-   */
-  orPrereq?: boolean;
-  /** Corequisite equivalent of {@link orPrereq}. */
-  orCoreq?: boolean;
+  prereqOptions?: ReqOptions;
+  /** Corequisite counterpart of {@link prereqOptions}, checked against enrolled courses. */
+  coreqOptions?: ReqOptions;
   /** Omitted when the instructor is not yet assigned. */
   teacher?: string;
   retakeable: boolean;
   term: Term;
   shortDescription: string;
   longDescription: string;
+
+  // --- Legacy fields kept optional for the static demo data / tests only. ---
+  /** @deprecated Superseded by {@link prereqOptions}. */
+  prerequisites?: string[];
+  /** @deprecated Superseded by {@link coreqOptions}. */
+  corequisites?: string[];
+  /** @deprecated Superseded by free-text elements in {@link prereqOptions}. */
+  customPrereq?: string;
+  /** @deprecated Superseded by free-text elements in {@link coreqOptions}. */
+  customCoreq?: string;
+  /** @deprecated Superseded by multiple OR-groups in {@link prereqOptions}. */
+  orPrereq?: boolean;
+  /** @deprecated Superseded by multiple OR-groups in {@link coreqOptions}. */
+  orCoreq?: boolean;
 };
 
 export const TERM_LABELS: Record<Term, string> = {
@@ -75,38 +98,38 @@ export const DEFAULT_FILTERS: Filters = {
 };
 
 /**
- * True when the user's profile satisfies a course's prerequisites.
- *
- * Free text (`customPrereq`) can't be verified from completed courses, so its
- * presence always returns false. Otherwise an `orPrereq` course needs any one
- * listed prerequisite; a normal course needs them all.
+ * Evaluates a requirement (OR-of-AND groups) against a student's course record.
+ * A course item is satisfied when its title maps to `need` ("prereq" =
+ * completed, "coreq" = enrolled); free-text items are never auto-satisfied. The
+ * requirement is met when any non-empty group is fully satisfied, or when there
+ * are no groups at all.
  */
+function meetsOptions(
+  options: ReqOptions | undefined,
+  completedCourses: Record<string, CourseCompletion | null>,
+  need: CourseCompletion,
+): boolean {
+  const groups = (options ?? []).filter((g) => g.length > 0);
+  if (groups.length === 0) return true;
+  const itemMet = (item: ReqItem) =>
+    item.kind === "course" && completedCourses[item.title] === need;
+  return groups.some((group) => group.every(itemMet));
+}
+
+/** True when the user's completed courses satisfy a course's prerequisites. */
 export function meetsPrerequisites(
   course: Course,
   completedCourses: Record<string, CourseCompletion | null>,
 ): boolean {
-  if (course.customPrereq) return false;
-  if (course.prerequisites.length === 0) return true;
-  const isMet = (title: string) => completedCourses[title] === "prereq";
-  return course.orPrereq
-    ? course.prerequisites.some(isMet)
-    : course.prerequisites.every(isMet);
+  return meetsOptions(course.prereqOptions, completedCourses, "prereq");
 }
 
-/**
- * Corequisite counterpart to {@link meetsPrerequisites}. Free text blocks; an
- * `orCoreq` course needs any one listed corequisite, otherwise all are needed.
- */
+/** Corequisite counterpart to {@link meetsPrerequisites} (checks enrolled courses). */
 export function meetsCorequisites(
   course: Course,
   completedCourses: Record<string, CourseCompletion | null>,
 ): boolean {
-  if (course.customCoreq) return false;
-  if (course.corequisites.length === 0) return true;
-  const isMet = (title: string) => completedCourses[title] === "coreq";
-  return course.orCoreq
-    ? course.corequisites.some(isMet)
-    : course.corequisites.every(isMet);
+  return meetsOptions(course.coreqOptions, completedCourses, "coreq");
 }
 
 /** Which filter terms a course's term satisfies. */
@@ -157,6 +180,30 @@ export function formatRequirementList(
   if (items.length === 1) return items[0];
   if (items.length === 2) return `${items[0]} or ${items[1]}`;
   return `${items.slice(0, -1).join(", ")}, or ${items[items.length - 1]}`;
+}
+
+/** Human-readable label for a single requirement item. */
+export function reqItemLabel(item: ReqItem): string {
+  return item.kind === "course" ? item.title : item.text;
+}
+
+/**
+ * Renders {@link ReqOptions} as text: items within a group joined by " and ",
+ * groups joined by " or ". Multi-item groups are parenthesized when there is
+ * more than one group to keep the AND/OR grouping unambiguous. Returns "" when
+ * there is no requirement.
+ */
+export function formatRequirementOptions(options: ReqOptions | undefined): string {
+  const groups = (options ?? []).filter((g) => g.length > 0);
+  if (groups.length === 0) return "";
+  const groupText = (group: ReqGroup) => group.map(reqItemLabel).join(" and ");
+  if (groups.length === 1) return groupText(groups[0]);
+  return groups
+    .map((group) => {
+      const text = groupText(group);
+      return group.length > 1 ? `(${text})` : text;
+    })
+    .join(" or ");
 }
 
 /** Formats a grade list compactly, e.g. [9,10,11,12] -> "Gr. 9-12". */

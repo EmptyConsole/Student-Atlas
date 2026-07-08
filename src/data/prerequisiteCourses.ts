@@ -2,7 +2,7 @@ import { COURSES, type Course } from "./courses";
 
 /** Sorted unique course titles referenced as prerequisites across all courses. */
 export const PREREQUISITE_COURSES: string[] = [
-  ...new Set(COURSES.flatMap((c) => c.prerequisites)),
+  ...new Set(COURSES.flatMap((c) => c.prerequisites ?? [])),
 ].sort((a, b) => a.localeCompare(b));
 
 const titleToCourse = new Map<string, Course>(

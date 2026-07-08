@@ -208,6 +208,8 @@ export type Database = {
           long_description: string
           or_coreq: boolean
           or_prereq: boolean
+          prereq_options: string[][] | null
+          coreq_options: string[][] | null
           retakeable: boolean
           school_id: string
           short_description: string
@@ -227,6 +229,8 @@ export type Database = {
           long_description: string
           or_coreq?: boolean
           or_prereq?: boolean
+          prereq_options?: string[][] | null
+          coreq_options?: string[][] | null
           retakeable?: boolean
           school_id: string
           short_description: string
@@ -246,6 +250,8 @@ export type Database = {
           long_description?: string
           or_coreq?: boolean
           or_prereq?: boolean
+          prereq_options?: string[][] | null
+          coreq_options?: string[][] | null
           retakeable?: boolean
           school_id?: string
           short_description?: string
