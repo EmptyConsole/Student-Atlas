@@ -37,7 +37,7 @@ function parseRequirementOptions(
   return groups;
 }
 
-export function useCourses(schoolId: string | null) {
+export function useCourses(schoolId: string | null, reloadKey?: number) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +164,7 @@ export function useCourses(schoolId: string | null) {
     return () => {
       isMounted = false;
     };
-  }, [schoolId]);
+  }, [schoolId, reloadKey]);
 
   return { courses, loading, error };
 }

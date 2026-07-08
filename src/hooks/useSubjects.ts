@@ -8,7 +8,7 @@ import { buildSubjects, type Subject } from "../data/subjects";
  * in Supabase is reflected here on the next load; colors are assigned by order
  * and loop once there are more departments than palette entries.
  */
-export function useSubjects(schoolId: string | null) {
+export function useSubjects(schoolId: string | null, reloadKey?: number) {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +69,7 @@ export function useSubjects(schoolId: string | null) {
     return () => {
       isMounted = false;
     };
-  }, [schoolId]);
+  }, [schoolId, reloadKey]);
 
   return { subjects, loading, error };
 }

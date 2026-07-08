@@ -417,6 +417,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          password: string
           state: string
           website: string
         }
@@ -425,6 +426,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          password?: string
           state: string
           website: string
         }
@@ -433,6 +435,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          password?: string
           state?: string
           website?: string
         }

@@ -1,26 +1,58 @@
-import { useState } from "react";
-import TeacherContent from "./TeacherContent";
+import { useEffect, useState } from "react";
+import TeacherCatalog from "./TeacherCatalog";
+import TeacherGate, { type UnlockedSchool } from "./TeacherGate";
 import TeacherHeader from "./TeacherHeader";
-import TeacherSidebar, { type TeacherSection } from "./TeacherSidebar";
+
+const STORAGE_KEY = "teacher-unlocked";
+
+function readStoredUnlock(): UnlockedSchool | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed.id === "string" &&
+      typeof parsed.name === "string" &&
+      typeof parsed.password === "string"
+    ) {
+      return parsed as UnlockedSchool;
+    }
+  } catch {
+    // Ignore malformed storage.
+  }
+  return null;
+}
 
 function TeacherPage() {
-  const [activeSection, setActiveSection] = useState<TeacherSection>("course");
+  const [unlocked, setUnlocked] = useState<UnlockedSchool | null>(() =>
+    readStoredUnlock(),
+  );
+
+  useEffect(() => {
+    if (unlocked) {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(unlocked));
+    } else {
+      sessionStorage.removeItem(STORAGE_KEY);
+    }
+  }, [unlocked]);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden font-sans">
       <TeacherHeader />
-      <div className="flex flex-1 overflow-hidden">
-        <TeacherSidebar
-          activeSection={activeSection}
-          onSelectSection={setActiveSection}
+      {unlocked ? (
+        <TeacherCatalog
+          school={unlocked}
+          onSwitchSchool={() => setUnlocked(null)}
+          onSchoolDeleted={() => setUnlocked(null)}
+          onSchoolUpdated={(name, password) =>
+            setUnlocked((cur) => (cur ? { ...cur, name, password } : cur))
+          }
+          onSwitchToSchool={(school) => setUnlocked(school)}
         />
-        <main className="flex flex-1 flex-col overflow-hidden bg-detail-400">
-          <TeacherContent
-            activeSection={activeSection}
-            onSectionChange={setActiveSection}
-          />
-        </main>
-      </div>
+      ) : (
+        <TeacherGate onUnlock={setUnlocked} />
+      )}
     </div>
   );
 }

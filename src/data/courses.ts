@@ -187,6 +187,21 @@ export function reqItemLabel(item: ReqItem): string {
   return item.kind === "course" ? item.title : item.text;
 }
 
+/**
+ * Serializes {@link ReqOptions} back into the stored `text[][]` form: course
+ * items become their UUID, text items their raw string. Empty items and empty
+ * groups are dropped so blank rows never persist.
+ */
+export function reqOptionsToRaw(options: ReqOptions): string[][] {
+  return options
+    .map((group) =>
+      group
+        .map((item) => (item.kind === "course" ? item.courseId : item.text.trim()))
+        .filter((value) => value !== ""),
+    )
+    .filter((group) => group.length > 0);
+}
+
 /** Joins items as a natural-language list: "A", "A and B", "A, B, and C". */
 function joinWithConjunction(items: string[], conjunction: "and" | "or"): string {
   if (items.length === 1) return items[0];
