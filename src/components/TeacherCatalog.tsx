@@ -28,7 +28,9 @@ import TeacherSubjectSection from "./TeacherSubjectSection";
 import AddMenu, { type AddKind } from "./teacher/AddMenu";
 import CourseFormModal from "./teacher/CourseFormModal";
 import DepartmentFormModal from "./teacher/DepartmentFormModal";
-import SchoolFormModal, { type SchoolFormInitial } from "./teacher/SchoolFormModal";
+import SchoolFormModal, {
+  type SchoolFormInitial,
+} from "./teacher/SchoolFormModal";
 import ConfirmDeleteDialog from "./teacher/ConfirmDeleteDialog";
 import ModalShell from "./teacher/ModalShell";
 import { primaryButtonClass, secondaryButtonClass } from "./teacher/formStyles";
@@ -42,7 +44,10 @@ type TeacherCatalogProps = {
 };
 
 type CourseModalState = { mode: "add" | "edit"; course?: Course };
-type DepartmentModalState = { mode: "add" | "edit"; department?: DepartmentRow };
+type DepartmentModalState = {
+  mode: "add" | "edit";
+  department?: DepartmentRow;
+};
 type DeleteState =
   | { kind: "course"; course: Course }
   | { kind: "department"; department: DepartmentRow }
@@ -59,7 +64,10 @@ function TeacherCatalog({
   const [reloadKey, setReloadKey] = useState(0);
   const reload = () => setReloadKey((k) => k + 1);
 
-  const { subjects, loading: subjectsLoading } = useSubjects(school.id, reloadKey);
+  const { subjects, loading: subjectsLoading } = useSubjects(
+    school.id,
+    reloadKey,
+  );
   const { courses, loading: coursesLoading } = useCourses(school.id, reloadKey);
   const [departments, setDepartments] = useState<DepartmentRow[]>([]);
 
@@ -73,7 +81,9 @@ function TeacherCatalog({
   const [schoolModalInitial, setSchoolModalInitial] =
     useState<SchoolFormInitial | null>(null);
   const [addSchoolOpen, setAddSchoolOpen] = useState(false);
-  const [createdSchool, setCreatedSchool] = useState<UnlockedSchool | null>(null);
+  const [createdSchool, setCreatedSchool] = useState<UnlockedSchool | null>(
+    null,
+  );
 
   const [deleteState, setDeleteState] = useState<DeleteState>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -108,13 +118,17 @@ function TeacherCatalog({
       }
     }
     return extras.map((name, i) =>
-      buildSubject({ name, subtitle: null, graduationRequirement: null }, subjects.length + i),
+      buildSubject(
+        { name, subtitle: null, graduationRequirement: null },
+        subjects.length + i,
+      ),
     );
   }, [subjects, courses]);
 
   const coursesBySubject = useMemo(() => {
     const map = new Map<string, Course[]>();
-    for (const subject of [...subjects, ...extraSubjects]) map.set(subject.name, []);
+    for (const subject of [...subjects, ...extraSubjects])
+      map.set(subject.name, []);
     for (const course of courses) {
       if (!matchesSearch(course, search)) continue;
       map.get(course.subject)?.push(course);
@@ -131,11 +145,14 @@ function TeacherCatalog({
         for (const entry of entries) {
           const name = entry.target.getAttribute("data-subject");
           if (!name) continue;
-          if (entry.isIntersecting) visible.set(name, entry.boundingClientRect.top);
+          if (entry.isIntersecting)
+            visible.set(name, entry.boundingClientRect.top);
           else visible.delete(name);
         }
         if (visible.size === 0) return;
-        const topmost = [...visible.entries()].sort((a, b) => a[1] - b[1])[0][0];
+        const topmost = [...visible.entries()].sort(
+          (a, b) => a[1] - b[1],
+        )[0][0];
         if (topmost !== activeRef.current) setActiveSubject(topmost);
       },
       { root, rootMargin: "0px 0px -70% 0px", threshold: 0 },
@@ -265,8 +282,8 @@ function TeacherCatalog({
     }
     if (deleteState.kind === "department") {
       return {
-        title: "Delete department",
-        message: `Delete the "${deleteState.department.name}" department? Its courses are kept but become ungrouped. Enter the school password to confirm.`,
+        title: "Delete department and courses",
+        message: `Delete the "${deleteState.department.name}" department and all of its courses? This cannot be undone. Enter the school password to confirm.`,
         passwordToMatch: school.password,
       };
     }
@@ -451,8 +468,8 @@ function TeacherCatalog({
           }
         >
           <p className="text-sm leading-relaxed text-gray-600">
-            {createdSchool.name} was created. Switch to it now to add departments
-            and courses?
+            {createdSchool.name} was created. Switch to it now to add
+            departments and courses?
           </p>
         </ModalShell>
       )}

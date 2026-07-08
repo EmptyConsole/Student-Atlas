@@ -260,18 +260,56 @@ export async function updateDepartment(
 
 export async function deleteDepartment(departmentId: string): Promise<Result> {
   try {
-    // Detach courses so the FK does not block the delete; the courses remain
-    // (ungrouped) rather than being destroyed with the department.
-    await supabase
+    const { data: courseRows } = await supabase
       .from("courses")
-      .update({ department_id: null })
+      .select("id")
       .eq("department_id", departmentId);
+    const courseIds = (courseRows ?? []).map((course) => course.id);
 
-    const { error } = await supabase
+    if (courseIds.length > 0) {
+      const byCourse = [
+        "completed_courses",
+        "enrolled_courses",
+        "bookmarked_courses",
+        "course_notes",
+        "submitted_courses",
+        "course_prerequisites",
+        "course_corequisites",
+        "graduation_requirements",
+      ] as const;
+      for (const table of byCourse) {
+        const { error } = await supabase
+          .from(table)
+          .delete()
+          .in("course_id", courseIds);
+        if (error) throw error;
+      }
+
+      const { error: prereqError } = await supabase
+        .from("course_prerequisites")
+        .delete()
+        .in("prerequisite_course_id", courseIds);
+      if (prereqError) throw prereqError;
+
+      const { error: coreqError } = await supabase
+        .from("course_corequisites")
+        .delete()
+        .in("corequisite_course_id", courseIds);
+      if (coreqError) throw coreqError;
+    }
+
+    const { error: courseError } = await supabase
+      .from("courses")
+      .delete()
+      .eq("department_id", departmentId);
+    if (courseError) throw courseError;
+
+    const { error: departmentError } = await supabase
       .from("departments")
       .delete()
       .eq("id", departmentId);
-    if (error) throw error;
+    if (departmentError) throw departmentError;
+
     return {};
   } catch (err) {
     return { error: toMessage(err, "Failed to delete department") };

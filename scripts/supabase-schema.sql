@@ -35,7 +35,7 @@ CREATE TABLE public.courses (
   CONSTRAINT courses_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
   CONSTRAINT courses_term_id_fkey FOREIGN KEY (term_id) REFERENCES public.terms(id),
   CONSTRAINT courses_teacher_id_fkey FOREIGN KEY (teacher_id) REFERENCES public.teachers(id),
-  CONSTRAINT courses_department_id_fkey FOREIGN KEY (department_id) REFERENCES public.departments(id)
+  CONSTRAINT courses_department_id_fkey FOREIGN KEY (department_id) REFERENCES public.departments(id) ON DELETE CASCADE
 );
 CREATE TABLE public.students (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
