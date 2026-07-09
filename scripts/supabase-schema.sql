@@ -31,11 +31,12 @@ CREATE TABLE public.courses (
   or_coreq boolean NOT NULL DEFAULT false,
   prereq_options ARRAY,
   coreq_options ARRAY,
+  max_student_count smallint NOT NULL DEFAULT '-1'::smallint,
   CONSTRAINT courses_pkey PRIMARY KEY (id),
   CONSTRAINT courses_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
   CONSTRAINT courses_term_id_fkey FOREIGN KEY (term_id) REFERENCES public.terms(id),
   CONSTRAINT courses_teacher_id_fkey FOREIGN KEY (teacher_id) REFERENCES public.teachers(id),
-  CONSTRAINT courses_department_id_fkey FOREIGN KEY (department_id) REFERENCES public.departments(id) ON DELETE CASCADE
+  CONSTRAINT courses_department_id_fkey FOREIGN KEY (department_id) REFERENCES public.departments(id)
 );
 CREATE TABLE public.students (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
