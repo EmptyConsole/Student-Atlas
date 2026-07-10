@@ -128,6 +128,7 @@ export function useCourses(schoolId: string | null, reloadKey?: number) {
               prereqOptions,
               coreqOptions,
               teacher,
+              maxStudentCount: supabaseCourse.max_student_count ?? -1,
               retakeable: supabaseCourse.retakeable ?? false,
               term: supabaseCourse.term as
                 | "fall"

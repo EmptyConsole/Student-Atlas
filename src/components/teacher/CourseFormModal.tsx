@@ -56,6 +56,10 @@ function CourseFormModal({
   const [term, setTerm] = useState<Term>(editingCourse?.term ?? "fall");
   const [departmentId, setDepartmentId] = useState(initialDepartmentId);
   const [teacherName, setTeacherName] = useState(editingCourse?.teacher ?? "");
+  const [maxStudentCountInput, setMaxStudentCountInput] = useState(() => {
+    const count = editingCourse?.maxStudentCount;
+    return count != null && count >= 0 ? String(count) : "";
+  });
   const [retakeable, setRetakeable] = useState(
     editingCourse?.retakeable ?? false,
   );
@@ -96,6 +100,11 @@ function CourseFormModal({
     }
     setSaving(true);
     setError(null);
+    const trimmedMax = maxStudentCountInput.trim();
+    const maxStudentCount =
+      trimmedMax === ""
+        ? -1
+        : Math.max(0, Number.parseInt(trimmedMax, 10) || -1);
     const result = await onSave({
       title,
       shortDescription,
@@ -105,6 +114,7 @@ function CourseFormModal({
       subject: department.name,
       departmentId,
       teacherName,
+      maxStudentCount,
       retakeable,
       prereqOptions: reqOptionsToRaw(prereq),
       coreqOptions: reqOptionsToRaw(coreq),
@@ -262,32 +272,6 @@ function CourseFormModal({
           </div>
         </div>
 
-        <div>
-          <label htmlFor="course-teacher" className={labelClass}>
-            Teacher
-          </label>
-          <input
-            id="course-teacher"
-            type="text"
-            value={teacherName}
-            onChange={(e) => setTeacherName(e.target.value)}
-            placeholder="e.g. Jane Doe (leave blank if unassigned)"
-            className={inputClass}
-          />
-        </div>
-
-        <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-main-300 bg-white px-4 py-3 shadow-sm">
-          <input
-            type="checkbox"
-            checked={retakeable}
-            onChange={(e) => setRetakeable(e.target.checked)}
-            className="h-4 w-4 shrink-0 accent-[#4169e1]"
-          />
-          <span className="text-sm font-medium text-gray-800">
-            Repeatable (students may take this more than once)
-          </span>
-        </label>
-
         <RequirementBuilder
           label="Prerequisites"
           value={prereq}
@@ -303,6 +287,47 @@ function CourseFormModal({
           courses={builderCourses}
           accent="#4169e1"
         />
+
+        <div>
+          <label htmlFor="course-teacher" className={labelClass}>
+            Teacher
+          </label>
+          <input
+            id="course-teacher"
+            type="text"
+            value={teacherName}
+            onChange={(e) => setTeacherName(e.target.value)}
+            placeholder="e.g. Jane Doe (leave blank if unassigned)"
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="course-max-students" className={labelClass}>
+            Max number of students
+          </label>
+          <input
+            id="course-max-students"
+            type="number"
+            min={0}
+            value={maxStudentCountInput}
+            onChange={(e) => setMaxStudentCountInput(e.target.value)}
+            placeholder="Leave blank if unknown"
+            className={inputClass}
+          />
+        </div>
+
+        <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-main-300 bg-white px-4 py-3 shadow-sm">
+          <input
+            type="checkbox"
+            checked={retakeable}
+            onChange={(e) => setRetakeable(e.target.checked)}
+            className="h-4 w-4 shrink-0 accent-[#4169e1]"
+          />
+          <span className="text-sm font-medium text-gray-800">
+            Repeatable (students may take this more than once)
+          </span>
+        </label>
 
         {error && <p className="text-sm font-medium text-red-600">{error}</p>}
       </div>

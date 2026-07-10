@@ -27,6 +27,7 @@ function signature(course: Course): string {
     prereqOptions: course.prereqOptions ?? [],
     coreqOptions: course.coreqOptions ?? [],
     teacher: course.teacher ?? null,
+    maxStudentCount: course.maxStudentCount ?? -1,
     shortDescription: course.shortDescription,
     longDescription: course.longDescription,
   });

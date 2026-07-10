@@ -34,6 +34,8 @@ export type Course = {
   coreqOptions?: ReqOptions;
   /** Omitted when the instructor is not yet assigned. */
   teacher?: string;
+  /** Max enrollment; -1 means unknown / not set. */
+  maxStudentCount?: number;
   retakeable: boolean;
   term: Term;
   shortDescription: string;
@@ -229,6 +231,12 @@ export function formatRequirementOptions(options: ReqOptions | undefined): strin
     }),
     "or",
   );
+}
+
+/** Formats max enrollment for display; -1 (or omitted) shows as "Unknown". */
+export function formatMaxStudentCount(count: number | undefined): string {
+  if (count == null || count < 0) return "Unknown";
+  return String(count);
 }
 
 /** Formats a grade list compactly, e.g. [9,10,11,12] -> "Gr. 9-12". */

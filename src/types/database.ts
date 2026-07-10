@@ -206,6 +206,7 @@ export type Database = {
           grade: number[]
           id: string
           long_description: string
+          max_student_count: number
           or_coreq: boolean
           or_prereq: boolean
           prereq_options: string[][] | null
@@ -227,6 +228,7 @@ export type Database = {
           grade: number[]
           id?: string
           long_description: string
+          max_student_count?: number
           or_coreq?: boolean
           or_prereq?: boolean
           prereq_options?: string[][] | null
@@ -248,6 +250,7 @@ export type Database = {
           grade?: number[]
           id?: string
           long_description?: string
+          max_student_count?: number
           or_coreq?: boolean
           or_prereq?: boolean
           prereq_options?: string[][] | null

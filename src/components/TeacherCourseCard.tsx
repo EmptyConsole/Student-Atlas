@@ -3,6 +3,7 @@ import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 import type { Subject } from "../data/subjects";
 import {
   formatGrades,
+  formatMaxStudentCount,
   formatRequirementOptions,
   TERM_COLORS,
   TERM_LABELS,
@@ -176,6 +177,13 @@ function TeacherCourseCard({
                 Teacher:{" "}
               </span>
               {course.teacher ?? "Unassigned"}
+            </p>
+
+            <p className="mt-1 text-sm text-gray-700">
+              <span className="font-semibold" style={{ color: subject.accent }}>
+                Max students:{" "}
+              </span>
+              {formatMaxStudentCount(course.maxStudentCount)}
             </p>
 
             <p className="mt-1 text-sm text-gray-700">

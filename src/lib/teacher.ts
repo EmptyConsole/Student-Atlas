@@ -30,6 +30,8 @@ export type CourseInput = {
   departmentId: string | null;
   /** Free-text teacher name, e.g. "Jane Doe"; resolved to a teachers row. */
   teacherName: string;
+  /** Max enrollment; -1 means unknown / not set. */
+  maxStudentCount: number;
   retakeable: boolean;
   /** OR-of-AND groups of course UUIDs / free text. */
   prereqOptions: string[][];
@@ -381,6 +383,7 @@ export async function createCourse(
       subject: input.subject,
       department_id: input.departmentId,
       teacher_id: teacherId,
+      max_student_count: input.maxStudentCount,
       retakeable: input.retakeable,
       prereq_options: input.prereqOptions,
       coreq_options: input.coreqOptions,
@@ -410,6 +413,7 @@ export async function updateCourse(
         subject: input.subject,
         department_id: input.departmentId,
         teacher_id: teacherId,
+        max_student_count: input.maxStudentCount,
         retakeable: input.retakeable,
         prereq_options: input.prereqOptions,
         coreq_options: input.coreqOptions,

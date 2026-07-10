@@ -4,6 +4,7 @@ import { Bookmark, GripVertical, Link2, X } from "lucide-react";
 import type { Subject } from "../data/subjects";
 import {
   formatGrades,
+  formatMaxStudentCount,
   TERM_COLORS,
   TERM_LABELS,
   type Course,
@@ -139,6 +140,12 @@ function CourseDetailModal({ course, subject, note, onClose }: CourseDetailProps
                 Teacher:{" "}
               </span>
               {course.teacher ?? "Unknown"}
+            </p>
+            <p>
+              <span className="font-semibold" style={{ color: subject.accent }}>
+                Max students:{" "}
+              </span>
+              {formatMaxStudentCount(course.maxStudentCount)}
             </p>
             <p>
               <span className="font-semibold" style={{ color: subject.accent }}>
