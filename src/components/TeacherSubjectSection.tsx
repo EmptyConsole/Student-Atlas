@@ -2,25 +2,25 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 import type { Subject } from "../data/subjects";
-import type { Course } from "../data/courses";
+import { repCourse, type DisplayCourse } from "../utils/courseGrouping";
 import TeacherCourseCard from "./TeacherCourseCard";
 
 type TeacherSubjectSectionProps = {
   subject: Subject;
-  courses: Course[];
+  items: DisplayCourse[];
   expandedId: string | null;
   /** When false, the department edit/delete controls are hidden (ungrouped courses). */
   editable?: boolean;
   onToggleExpand: (id: string) => void;
   onEditDepartment: () => void;
   onDeleteDepartment: () => void;
-  onEditCourse: (course: Course) => void;
-  onDeleteCourse: (course: Course) => void;
+  onEditCourse: (item: DisplayCourse) => void;
+  onDeleteCourse: (item: DisplayCourse) => void;
 };
 
 function TeacherSubjectSection({
   subject,
-  courses,
+  items,
   expandedId,
   editable = true,
   onToggleExpand,
@@ -62,7 +62,7 @@ function TeacherSubjectSection({
               {subject.name}
             </h2>
             <span className="text-sm font-medium text-gray-400">
-              {courses.length} {courses.length === 1 ? "course" : "courses"}
+              {items.length} {items.length === 1 ? "course" : "courses"}
             </span>
             {editable && (
               <div className="flex items-center gap-1">
@@ -106,22 +106,25 @@ function TeacherSubjectSection({
             className="overflow-hidden"
           >
             <div className="flex flex-col gap-3">
-              {courses.length === 0 ? (
+              {items.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-main-300 px-4 py-6 text-center text-sm text-gray-400">
                   No courses in this department yet.
                 </p>
               ) : (
-                courses.map((course) => (
-                  <TeacherCourseCard
-                    key={course.id}
-                    course={course}
-                    subject={subject}
-                    expanded={expandedId === course.id}
-                    onToggleExpand={() => onToggleExpand(course.id)}
-                    onEdit={() => onEditCourse(course)}
-                    onDelete={() => onDeleteCourse(course)}
-                  />
-                ))
+                items.map((item) => {
+                  const course = repCourse(item);
+                  return (
+                    <TeacherCourseCard
+                      key={course.id}
+                      course={course}
+                      subject={subject}
+                      expanded={expandedId === course.id}
+                      onToggleExpand={() => onToggleExpand(course.id)}
+                      onEdit={() => onEditCourse(item)}
+                      onDelete={() => onDeleteCourse(item)}
+                    />
+                  );
+                })
               )}
             </div>
           </motion.div>

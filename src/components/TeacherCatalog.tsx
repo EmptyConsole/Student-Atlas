@@ -2,9 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGroup } from "motion/react";
 import { LogOut, Pencil, Search, Trash2 } from "lucide-react";
 import { buildSubject, type Subject } from "../data/subjects";
-import { matchesSearch, type Course } from "../data/courses";
+import { matchesSearch } from "../data/courses";
 import { useCourses } from "../hooks/useCourses";
 import { useSubjects } from "../hooks/useSubjects";
+import {
+  buildDisplayCourses,
+  courseIdsInItem,
+  repCourse,
+  type DisplayCourse,
+} from "../utils/courseGrouping";
 import {
   createCourse,
   createDepartment,
@@ -43,13 +49,15 @@ type TeacherCatalogProps = {
   onSwitchToSchool: (school: UnlockedSchool) => void;
 };
 
-type CourseModalState = { mode: "add" | "edit"; course?: Course };
+type CourseModalState =
+  | { mode: "add" }
+  | { mode: "edit"; item: DisplayCourse };
 type DepartmentModalState = {
   mode: "add" | "edit";
   department?: DepartmentRow;
 };
 type DeleteState =
-  | { kind: "course"; course: Course }
+  | { kind: "course"; item: DisplayCourse }
   | { kind: "department"; department: DepartmentRow }
   | { kind: "school" }
   | null;
@@ -125,13 +133,14 @@ function TeacherCatalog({
     );
   }, [subjects, courses]);
 
-  const coursesBySubject = useMemo(() => {
-    const map = new Map<string, Course[]>();
+  const itemsBySubject = useMemo(() => {
+    const map = new Map<string, DisplayCourse[]>();
     for (const subject of [...subjects, ...extraSubjects])
       map.set(subject.name, []);
-    for (const course of courses) {
-      if (!matchesSearch(course, search)) continue;
-      map.get(course.subject)?.push(course);
+    for (const item of buildDisplayCourses(courses)) {
+      const rep = repCourse(item);
+      if (!matchesSearch(rep, search)) continue;
+      map.get(rep.subject)?.push(item);
     }
     return map;
   }, [subjects, extraSubjects, courses, search]);
@@ -178,10 +187,26 @@ function TeacherCatalog({
   const handleSaveCourse = async (
     input: CourseInput,
   ): Promise<{ error?: string }> => {
-    const result =
-      courseModal?.mode === "edit" && courseModal.course
-        ? await updateCourse(courseModal.course.id, school.id, input)
-        : await createCourse(school.id, input);
+    if (courseModal?.mode === "edit") {
+      const { item } = courseModal;
+      if (item.kind === "group") {
+        const fall = await updateCourse(item.fallId, school.id, {
+          ...input,
+          term: "fall",
+        });
+        if (fall.error) return { error: fall.error };
+        const spring = await updateCourse(item.springId, school.id, {
+          ...input,
+          term: "spring",
+        });
+        if (!spring.error) reload();
+        return { error: spring.error };
+      }
+      const result = await updateCourse(item.course.id, school.id, input);
+      if (!result.error) reload();
+      return { error: result.error };
+    }
+    const result = await createCourse(school.id, input);
     if (!result.error) reload();
     return { error: result.error };
   };
@@ -255,7 +280,11 @@ function TeacherCatalog({
     setDeleteError(null);
     let result: { error?: string } = {};
     if (deleteState.kind === "course") {
-      result = await deleteCourse(deleteState.course.id, school.id);
+      const ids = courseIdsInItem(deleteState.item);
+      for (const id of ids) {
+        result = await deleteCourse(id, school.id);
+        if (result.error) break;
+      }
     } else if (deleteState.kind === "department") {
       result = await deleteDepartment(deleteState.department.id);
     } else {
@@ -275,9 +304,13 @@ function TeacherCatalog({
   const deleteDialogProps = () => {
     if (!deleteState) return null;
     if (deleteState.kind === "course") {
+      const title = repCourse(deleteState.item).title;
+      const bothTerms = deleteState.item.kind === "group";
       return {
         title: "Delete course",
-        message: `Delete "${deleteState.course.title}"? This cannot be undone.`,
+        message: bothTerms
+          ? `Delete "${title}" (Fall and Spring)? This cannot be undone.`
+          : `Delete "${title}"? This cannot be undone.`,
       };
     }
     if (deleteState.kind === "department") {
@@ -303,16 +336,16 @@ function TeacherCatalog({
     <TeacherSubjectSection
       key={subject.name}
       subject={subject}
-      courses={coursesBySubject.get(subject.name) ?? []}
+      items={itemsBySubject.get(subject.name) ?? []}
       expandedId={expandedId}
       onToggleExpand={toggleExpand}
       editable={editableSubjectNames.has(subject.name)}
       onEditDepartment={() => openEditDepartment(subject.name)}
       onDeleteDepartment={() => requestDeleteDepartment(subject.name)}
-      onEditCourse={(course) => setCourseModal({ mode: "edit", course })}
-      onDeleteCourse={(course) => {
+      onEditCourse={(item) => setCourseModal({ mode: "edit", item })}
+      onDeleteCourse={(item) => {
         setDeleteError(null);
-        setDeleteState({ kind: "course", course });
+        setDeleteState({ kind: "course", item });
       }}
     />
   );
@@ -407,7 +440,9 @@ function TeacherCatalog({
           mode={courseModal.mode}
           departments={departments}
           courses={courses}
-          editingCourse={courseModal.course ?? null}
+          editingCourse={
+            courseModal.mode === "edit" ? repCourse(courseModal.item) : null
+          }
           onClose={() => setCourseModal(null)}
           onSave={handleSaveCourse}
         />

@@ -15,6 +15,13 @@ export type DisplayCourse =
       springId: string;
     };
 
+/** Database course ids represented by a display item (one or two for a group). */
+export function courseIdsInItem(item: DisplayCourse): string[] {
+  return item.kind === "group"
+    ? [item.fallId, item.springId]
+    : [item.course.id];
+}
+
 /**
  * Signature of everything that must match for two rows to merge — every field
  * except `id` and `term`.
