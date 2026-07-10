@@ -421,6 +421,7 @@ export type Database = {
           id: string
           name: string
           password: string
+          rankings: number
           state: string
           website: string
         }
@@ -430,6 +431,7 @@ export type Database = {
           id?: string
           name: string
           password?: string
+          rankings?: number
           state: string
           website: string
         }
@@ -439,6 +441,7 @@ export type Database = {
           id?: string
           name?: string
           password?: string
+          rankings?: number
           state?: string
           website?: string
         }

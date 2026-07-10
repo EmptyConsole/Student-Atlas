@@ -13,7 +13,6 @@ import {
   deriveAlignedRows,
   isAlignPad,
   isLinked,
-  MIN_RANKED_COURSES,
   realCourseIds,
   type RankingColumnKey,
   type RankingModel,
@@ -24,6 +23,7 @@ import CourseRequirements from "./CourseRequirements";
 
 type RankingAlignedGridProps = {
   model: RankingModel;
+  requiredRankings: number;
   courseById: Map<string, Course>;
   subjectByName: Map<string, Subject>;
   bookmarks: Set<string>;
@@ -348,14 +348,19 @@ function courseRankInOrder(order: string[], courseId: string): number {
   return rank;
 }
 
-function isAlternateRank(order: string[], courseId: string): boolean {
-  return courseRankInOrder(order, courseId) > MIN_RANKED_COURSES;
+function isAlternateRank(
+  order: string[],
+  courseId: string,
+  requiredRankings: number,
+): boolean {
+  return courseRankInOrder(order, courseId) > requiredRankings;
 }
 
 // ─── Main grid ──────────────────────────────────────────────────────────────
 
 function RankingAlignedGrid({
   model,
+  requiredRankings,
   courseById,
   subjectByName,
   bookmarks,
@@ -376,15 +381,15 @@ function RankingAlignedGrid({
   const dividerBeforeRowIndex = alignedRows.findIndex((row) => {
     const fallAlternate =
       row.fall.kind === "course" &&
-      isAlternateRank(model.fallOrder, row.fall.id);
+      isAlternateRank(model.fallOrder, row.fall.id, requiredRankings);
     const springAlternate =
       row.spring.kind === "course" &&
-      isAlternateRank(model.springOrder, row.spring.id);
+      isAlternateRank(model.springOrder, row.spring.id, requiredRankings);
     return fallAlternate || springAlternate;
   });
   const showAlternatesDivider =
     dividerBeforeRowIndex >= 0 &&
-    (fallCount > MIN_RANKED_COURSES || springCount > MIN_RANKED_COURSES);
+    (fallCount > requiredRankings || springCount > requiredRankings);
 
   const expandedCourse = expandedCourseId ? courseById.get(expandedCourseId) : null;
   const expandedSubject =
@@ -421,7 +426,7 @@ function RankingAlignedGrid({
 
       const rank = courseRankInOrder(order, cell.id);
       const pickTier: "top" | "alternate" =
-        rank <= MIN_RANKED_COURSES ? "top" : "alternate";
+        rank <= requiredRankings ? "top" : "alternate";
       const linked = isLinked(course.term);
 
       rowElements.push(
@@ -481,7 +486,7 @@ function RankingAlignedGrid({
             <p className="text-xs text-gray-500">
               Top{" "}
               <strong className="font-semibold text-[#4169e1]">
-                {MIN_RANKED_COURSES}
+                {requiredRankings}
               </strong>{" "}
               ranked courses are submitted
             </p>
@@ -496,7 +501,7 @@ function RankingAlignedGrid({
             <p className="text-xs text-gray-500">
               Top{" "}
               <strong className="font-semibold text-[#4169e1]">
-                {MIN_RANKED_COURSES}
+                {requiredRankings}
               </strong>{" "}
               ranked courses are submitted
             </p>

@@ -8,6 +8,7 @@ import {
   deriveColumns,
   mergeModelWithBookmarks,
   syncYearLongPositions,
+  validateRanking,
   yearLongCourseIds,
   type RankingModel,
 } from "./courseRanking";
@@ -149,6 +150,23 @@ describe("mergeModelWithBookmarks", () => {
 
     expect(next.fallOrder).toEqual(["cs-intro", "pa-acting"]);
     expect(next.springOrder).toEqual(["pa-dance", "art-printmaking"]);
+  });
+});
+
+describe("validateRanking", () => {
+  const fallRows = Array.from({ length: 6 }, (_, i) => ({
+    kind: "course" as const,
+    id: `f${i}`,
+  }));
+  const springRows = Array.from({ length: 6 }, (_, i) => ({
+    kind: "course" as const,
+    id: `s${i}`,
+  }));
+
+  it("requires the configured number of courses per column", () => {
+    expect(validateRanking(fallRows, springRows, 8).valid).toBe(false);
+    expect(validateRanking(fallRows, springRows, 6).valid).toBe(true);
+    expect(validateRanking(fallRows, springRows, 4).valid).toBe(true);
   });
 });
 

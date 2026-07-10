@@ -7,13 +7,13 @@ import {
   syncSubmittedCourses,
   syncSubmittedNotes,
 } from "../lib/students";
+import { useSchoolRankings } from "../hooks/useSchoolRankings";
 import {
   applyReorder,
   buildInitialModel,
   courseIds,
   deriveColumns,
   mergeModelWithBookmarks,
-  MIN_RANKED_COURSES,
   validateRanking,
   yearLongCourseIds,
   yearLongIdSet,
@@ -42,6 +42,7 @@ function RegisterPage({
 }: RegisterPageProps) {
   const profileComplete = isProfileComplete(profile);
   const grade = profile.grade ?? 9;
+  const { requiredRankings } = useSchoolRankings(profile.schoolId);
   const [model, setModel] = useState(() => buildInitialModel(bookmarks, courses));
 
   // Reconcile the ranked lists when bookmarks change, preserving the user's
@@ -72,6 +73,7 @@ function RegisterPage({
   const { valid, fallCount, springCount } = validateRanking(
     fallRows,
     springRows,
+    requiredRankings,
   );
 
   const yearLongIds = useMemo(
@@ -112,15 +114,15 @@ function RegisterPage({
 
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     draftTimerRef.current = setTimeout(() => {
-      const fall = courseIds(fallRows).slice(0, MIN_RANKED_COURSES);
-      const spring = courseIds(springRows).slice(0, MIN_RANKED_COURSES);
+      const fall = courseIds(fallRows).slice(0, requiredRankings);
+      const spring = courseIds(springRows).slice(0, requiredRankings);
       void syncSubmittedCourses(studentId, fall, spring, false);
     }, 600);
 
     return () => {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     };
-  }, [model, hasSubmitted, studentId, fallRows, springRows]);
+  }, [model, hasSubmitted, studentId, fallRows, springRows, requiredRankings]);
 
   const handleConfirmSubmit = async () => {
     if (!studentId) {
@@ -132,8 +134,8 @@ function RegisterPage({
     setSubmitting(true);
     setSubmitError(null);
 
-    const fallSubmitted = courseIds(fallRows).slice(0, MIN_RANKED_COURSES);
-    const springSubmitted = courseIds(springRows).slice(0, MIN_RANKED_COURSES);
+    const fallSubmitted = courseIds(fallRows).slice(0, requiredRankings);
+    const springSubmitted = courseIds(springRows).slice(0, requiredRankings);
     const noteValue = appealsNotes.trim() || null;
 
     const [coursesResult, notesResult] = await Promise.all([
@@ -172,8 +174,8 @@ function RegisterPage({
         <div className="mb-6 rounded-xl border border-main-300 bg-main-100 px-4 py-3 text-sm leading-relaxed text-gray-700">
           <p>
             Only your <strong>bookmarked courses</strong> appear here. Drag to
-            rank — your <strong>top {MIN_RANKED_COURSES}</strong> in each column
-            (numbered <strong>1–{MIN_RANKED_COURSES}</strong>) are what gets
+            rank — your <strong>top {requiredRankings}</strong> in each column
+            (numbered <strong>1–{requiredRankings}</strong>) are what gets
             submitted. Courses below the line are alternates only. All-year
             courses stay on the same row in both columns.
           </p>
@@ -206,6 +208,7 @@ function RegisterPage({
         >
           <RankingAlignedGrid
             model={model}
+            requiredRankings={requiredRankings}
             courseById={courseById}
             subjectByName={subjectByName}
             bookmarks={bookmarks}
@@ -237,8 +240,8 @@ function RegisterPage({
         <div className="mt-8 flex flex-col items-start gap-3">
           {!valid && (
             <p className="text-sm text-gray-500">
-              Bookmark at least {MIN_RANKED_COURSES} fall-eligible and{" "}
-              {MIN_RANKED_COURSES} spring-eligible courses to submit. Currently:
+              Bookmark at least {requiredRankings} fall-eligible and{" "}
+              {requiredRankings} spring-eligible courses to submit. Currently:
               Fall {fallCount}, Spring {springCount}.
             </p>
           )}

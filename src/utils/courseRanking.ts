@@ -1,6 +1,7 @@
 import { type Course, type Term } from "../data/courses";
 
-export const MIN_RANKED_COURSES = 8;
+/** Matches `schools.rankings` default when a school row is unavailable. */
+export const DEFAULT_REQUIRED_RANKINGS = 8;
 
 /** Internal padding token so both columns share row indices for all-year courses. */
 export const ALIGN_PAD = "__align_pad__";
@@ -260,11 +261,12 @@ export function courseIds(rows: RankingRow[]): string[] {
 export function validateRanking(
   fallRows: RankingRow[],
   springRows: RankingRow[],
+  requiredRankings: number = DEFAULT_REQUIRED_RANKINGS,
 ): { valid: boolean; fallCount: number; springCount: number } {
   const fallCount = courseIds(fallRows).length;
   const springCount = courseIds(springRows).length;
   return {
-    valid: fallCount >= MIN_RANKED_COURSES && springCount >= MIN_RANKED_COURSES,
+    valid: fallCount >= requiredRankings && springCount >= requiredRankings,
     fallCount,
     springCount,
   };

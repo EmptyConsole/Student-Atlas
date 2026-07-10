@@ -11,6 +11,7 @@ import {
   repCourse,
   type DisplayCourse,
 } from "../utils/courseGrouping";
+import { DEFAULT_REQUIRED_RANKINGS } from "../utils/courseRanking";
 import {
   createCourse,
   createDepartment,
@@ -244,6 +245,7 @@ function TeacherCatalog({
       city: row?.city ?? "",
       state: row?.state ?? "",
       password: row?.password ?? school.password,
+      rankings: row?.rankings ?? DEFAULT_REQUIRED_RANKINGS,
     });
   };
 

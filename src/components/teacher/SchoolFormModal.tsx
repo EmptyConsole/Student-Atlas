@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { SchoolInput } from "../../lib/teacher";
+import { DEFAULT_REQUIRED_RANKINGS } from "../../utils/courseRanking";
 import ModalShell from "./ModalShell";
 import {
   inputClass,
@@ -14,6 +15,7 @@ export type SchoolFormInitial = {
   city: string;
   state: string;
   password: string;
+  rankings: number;
 };
 
 type SchoolFormModalProps = {
@@ -34,10 +36,18 @@ function SchoolFormModal({
   const [city, setCity] = useState(initial?.city ?? "");
   const [stateField, setStateField] = useState(initial?.state ?? "");
   const [password, setPassword] = useState(initial?.password ?? "");
+  const [rankings, setRankings] = useState(
+    String(initial?.rankings ?? DEFAULT_REQUIRED_RANKINGS),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSave = name.trim().length > 0 && password.trim().length > 0;
+  const rankingsValue = Number.parseInt(rankings, 10);
+  const canSave =
+    name.trim().length > 0 &&
+    password.trim().length > 0 &&
+    Number.isFinite(rankingsValue) &&
+    rankingsValue > 0;
 
   const handleSave = async () => {
     if (!canSave || saving) return;
@@ -49,6 +59,7 @@ function SchoolFormModal({
       city,
       state: stateField,
       password,
+      rankings: rankingsValue,
     });
     setSaving(false);
     if (result.error) setError(result.error);
@@ -153,6 +164,24 @@ function SchoolFormModal({
           <p className="mt-1.5 text-xs text-gray-400">
             Teachers must enter this to edit the school. Keep it away from
             students.
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor="school-rankings" className={labelClass}>
+            # of Courses Required
+          </label>
+          <input
+            id="school-rankings"
+            type="number"
+            min={1}
+            step={1}
+            value={rankings}
+            onChange={(e) => setRankings(e.target.value)}
+            className={inputClass}
+          />
+          <p className="mt-1.5 text-xs text-gray-400">
+            How many ranked courses each student must submit per term.
           </p>
         </div>
 

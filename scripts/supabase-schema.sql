@@ -9,6 +9,7 @@ CREATE TABLE public.schools (
   state text NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   password text NOT NULL DEFAULT ''::text,
+  rankings smallint NOT NULL DEFAULT '8'::smallint,
   CONSTRAINT schools_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.courses (

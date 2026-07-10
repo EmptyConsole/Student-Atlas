@@ -11,6 +11,7 @@ export type SchoolInput = {
   city: string;
   state: string;
   password: string;
+  rankings: number;
 };
 
 export type DepartmentInput = {
@@ -86,6 +87,7 @@ export async function createSchool(input: SchoolInput): Promise<Result<SchoolRow
         city: input.city.trim(),
         state: input.state.trim(),
         password: input.password,
+        rankings: input.rankings,
       })
       .select()
       .single();
@@ -109,6 +111,7 @@ export async function updateSchool(
         city: input.city.trim(),
         state: input.state.trim(),
         password: input.password,
+        rankings: input.rankings,
       })
       .eq("id", schoolId);
     if (error) throw error;
