@@ -6,10 +6,11 @@ import type { Course, Term } from "../data/courses";
 import {
   buildDisplayCourses,
   repCourse,
+  type Offering,
 } from "../utils/courseGrouping";
+import MarqueeText from "./MarqueeText";
 import RequirementsBookmark from "./RequirementsBookmark";
 import SubjectBookmark from "./SubjectBookmark";
-import TermBadges from "./TermBadges";
 
 type SidebarProps = {
   courses: Course[];
@@ -22,12 +23,44 @@ type SidebarProps = {
 };
 
 type BookmarkEntry = {
-  id: string;
+  scrollId: string;
   title: string;
-  termOptions?: string[];
+  /** Shown for multi-row courses; lists bookmarked offering term(s). */
+  termLabel?: string;
   subject: string;
   onRemove: () => void;
 };
+
+function offeringSortKey(
+  termOptions: string[],
+  termById: Map<string, Term>,
+): number {
+  const positions = termOptions
+    .map((id) => termById.get(id)?.position ?? 999)
+    .sort((a, b) => a - b);
+  return positions[0] ?? 999;
+}
+
+function termNamesForOffering(
+  termOptions: string[],
+  termById: Map<string, Term>,
+): string {
+  return termOptions
+    .map((id) => termById.get(id)?.name ?? "?")
+    .join(" + ");
+}
+
+/** Label for bookmarked rows of a grouped course, e.g. "Trimester 2" or "T1 / T3". */
+function bookmarkedTermLabel(
+  offerings: Offering[],
+  bookmarks: Set<string>,
+  termById: Map<string, Term>,
+): string {
+  return offerings
+    .filter((o) => bookmarks.has(o.courseId))
+    .map((o) => termNamesForOffering(o.termOptions, termById))
+    .join(" / ");
+}
 
 function Sidebar({
   courses,
@@ -40,35 +73,52 @@ function Sidebar({
 }: SidebarProps) {
   const activeItemRef = useRef<HTMLLIElement>(null);
 
-  // Bookmarked offerings grouped by subject (one entry per bookmarked row).
   const entriesBySubject = useMemo(() => {
     const map = new Map<string, BookmarkEntry[]>();
     for (const subject of subjects) map.set(subject.name, []);
+
     for (const item of buildDisplayCourses(courses)) {
       const course = repCourse(item);
+
       if (item.kind === "group") {
-        for (const offering of item.offerings) {
-          if (!bookmarks.has(offering.courseId)) continue;
-          map.get(course.subject)?.push({
-            id: offering.courseId,
-            title: course.title,
-            termOptions: offering.termOptions,
-            subject: course.subject,
-            onRemove: () => onToggleBookmark(offering.courseId),
-          });
-        }
-      } else {
-        if (!bookmarks.has(course.id)) continue;
+        const sortedOfferings = [...item.offerings].sort(
+          (a, b) =>
+            offeringSortKey(a.termOptions, termById) -
+            offeringSortKey(b.termOptions, termById),
+        );
+        if (!sortedOfferings.some((o) => bookmarks.has(o.courseId))) continue;
+
+        const termLabel = bookmarkedTermLabel(
+          sortedOfferings,
+          bookmarks,
+          termById,
+        );
+
         map.get(course.subject)?.push({
-          id: course.id,
+          scrollId: course.id,
           title: course.title,
-          termOptions:
-            course.termOptions.length > 0 ? course.termOptions : undefined,
+          termLabel,
           subject: course.subject,
-          onRemove: () => onToggleBookmark(course.id),
+          onRemove: () => {
+            for (const offering of sortedOfferings) {
+              if (bookmarks.has(offering.courseId)) {
+                onToggleBookmark(offering.courseId);
+              }
+            }
+          },
         });
+        continue;
       }
+
+      if (!bookmarks.has(course.id)) continue;
+      map.get(course.subject)?.push({
+        scrollId: course.id,
+        title: course.title,
+        subject: course.subject,
+        onRemove: () => onToggleBookmark(course.id),
+      });
     }
+
     return map;
   }, [courses, subjects, termById, bookmarks, onToggleBookmark]);
 
@@ -93,7 +143,6 @@ function Sidebar({
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  // Keep the highlighted bookmark visible within the sidebar as it changes.
   useEffect(() => {
     activeItemRef.current?.scrollIntoView({
       behavior: "smooth",
@@ -147,7 +196,7 @@ function Sidebar({
                       <AnimatePresence initial={false}>
                         {subjectBookmarks.map((entry) => (
                           <motion.li
-                            key={entry.id}
+                            key={entry.scrollId}
                             layout
                             initial={{ opacity: 0, x: 12 }}
                             animate={{ opacity: 1, x: 0 }}
@@ -159,12 +208,12 @@ function Sidebar({
                             }}
                             className="flex items-center gap-1.5"
                           >
-                            <div className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-white/60">
+                            <div className="flex w-full items-start gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-white/60">
                               <button
                                 type="button"
                                 onClick={entry.onRemove}
                                 aria-label={`Remove ${entry.title} bookmark`}
-                                className="shrink-0 cursor-pointer rounded p-0.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
+                                className="mt-0.5 shrink-0 cursor-pointer rounded p-0.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
                                 style={{ color: subject.accent }}
                               >
                                 <Bookmark
@@ -175,21 +224,24 @@ function Sidebar({
                               <button
                                 type="button"
                                 onClick={() =>
-                                  handleBookmarkSelect(entry.id, subject.name)
+                                  handleBookmarkSelect(
+                                    entry.scrollId,
+                                    subject.name,
+                                  )
                                 }
-                                className="min-w-0 flex-1 cursor-pointer text-left text-xs font-medium focus:outline-none focus-visible:ring-2"
+                                className="min-w-0 flex-1 cursor-pointer text-left focus:outline-none focus-visible:ring-2"
                                 style={{ color: subject.accent }}
                               >
-                                <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-                                  <span className="truncate">{entry.title}</span>
-                                  {entry.termOptions &&
-                                    entry.termOptions.length > 0 && (
-                                      <TermBadges
-                                        offerings={[entry.termOptions]}
-                                        termById={termById}
-                                      />
-                                    )}
-                                </span>
+                                <MarqueeText
+                                  text={entry.title}
+                                  className="text-xs font-medium"
+                                />
+                                {entry.termLabel && (
+                                  <MarqueeText
+                                    text={entry.termLabel}
+                                    className="text-[10px] font-medium opacity-70"
+                                  />
+                                )}
                               </button>
                             </div>
                           </motion.li>

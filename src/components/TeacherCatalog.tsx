@@ -116,6 +116,7 @@ function TeacherCatalog({
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pendingScrollRef = useRef<number | null>(null);
   const activeRef = useRef(activeSubject);
   activeRef.current = activeSubject;
 
@@ -193,6 +194,18 @@ function TeacherCatalog({
     setExpandedId((cur) => (cur === id ? null : id));
 
   const loading = subjectsLoading || coursesLoading;
+  const initialLoading =
+    loading && subjects.length === 0 && courses.length === 0;
+
+  // After a background reload, restore the catalog scroll position.
+  useEffect(() => {
+    if (pendingScrollRef.current === null || loading) return;
+    const top = pendingScrollRef.current;
+    pendingScrollRef.current = null;
+    requestAnimationFrame(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = top;
+    });
+  }, [loading, courses, subjects, reloadKey]);
 
   // --- Add menu ---------------------------------------------------------------
   const handleAdd = (kind: AddKind) => {
@@ -205,6 +218,9 @@ function TeacherCatalog({
   const handleSaveCourse = async (
     submit: CourseFormSubmit,
   ): Promise<{ error?: string }> => {
+    if (scrollRef.current) {
+      pendingScrollRef.current = scrollRef.current.scrollTop;
+    }
     // Existing offering rows to reconcile against (empty when adding).
     const existingIds =
       courseModal?.mode === "edit" ? courseIdsInItem(courseModal.item) : [];
@@ -466,7 +482,7 @@ function TeacherCatalog({
         </div>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pt-2 pb-10">
-          {loading ? (
+          {initialLoading ? (
             <div className="flex items-center justify-center py-16">
               <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-main-300 border-t-main-600" />
             </div>

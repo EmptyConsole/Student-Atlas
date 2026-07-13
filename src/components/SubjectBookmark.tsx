@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import MarqueeText from "./MarqueeText";
 
 type SubjectBookmarkProps = {
   label: string;
@@ -9,50 +10,6 @@ type SubjectBookmarkProps = {
   isActive?: boolean;
   onClick?: () => void;
 };
-
-type MarqueeTextProps = {
-  text: string;
-  active: boolean;
-  className?: string;
-};
-
-function MarqueeText({ text, active, className = "" }: MarqueeTextProps) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [overflowing, setOverflowing] = useState(false);
-
-  useEffect(() => {
-    if (!active) {
-      setOverflowing(false);
-      return;
-    }
-    const el = ref.current;
-    if (!el) return;
-    const check = () => setOverflowing(el.scrollWidth > el.clientWidth + 1);
-    check();
-    const observer = new ResizeObserver(check);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [active, text]);
-
-  if (active && overflowing) {
-    return (
-      <span className={`block w-full overflow-hidden ${className}`}>
-        <span className="marquee-track flex">
-          <span className="pr-10">{text}</span>
-          <span className="pr-10" aria-hidden="true">
-            {text}
-          </span>
-        </span>
-      </span>
-    );
-  }
-
-  return (
-    <span ref={ref} className={`block w-full truncate ${className}`}>
-      {text}
-    </span>
-  );
-}
 
 function SubjectBookmark({
   label,

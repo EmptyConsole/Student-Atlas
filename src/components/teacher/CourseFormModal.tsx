@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
 import {
   GRADE_COLORS,
@@ -17,6 +17,8 @@ import {
 } from "../../utils/courseGrouping";
 import ModalShell from "./ModalShell";
 import RequirementBuilder from "./RequirementBuilder";
+import UnsavedChangesDialog from "./UnsavedChangesDialog";
+import { useGuardedClose } from "./useGuardedClose";
 import {
   inputClass,
   labelClass,
@@ -34,6 +36,12 @@ type CourseFormModalProps = {
   onClose: () => void;
   onSave: (input: CourseFormSubmit) => Promise<{ error?: string }>;
 };
+
+function normalizeOfferings(offerings: string[][]): string[][] {
+  return offerings
+    .map((o) => [...o].sort())
+    .sort((a, b) => a.join("\0").localeCompare(b.join("\0")));
+}
 
 function CourseFormModal({
   mode,
@@ -91,6 +99,58 @@ function CourseFormModal({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const initialSnapshot = useRef({
+    title: editingCourse?.title ?? "",
+    shortDescription: editingCourse?.shortDescription ?? "",
+    longDescription: editingCourse?.longDescription ?? "",
+    grades: [...(editingCourse?.grades ?? [])].sort((a, b) => a - b),
+    offerings: normalizeOfferings(
+      editingItem ? offeringsOf(editingItem) : [[]],
+    ),
+    departmentId: initialDepartmentId,
+    teacherName: editingCourse?.teacher ?? "",
+    maxStudentCountInput:
+      editingCourse?.maxStudentCount != null &&
+      editingCourse.maxStudentCount >= 0
+        ? String(editingCourse.maxStudentCount)
+        : "",
+    retakeable: editingCourse?.retakeable ?? false,
+    prereq: editingCourse?.prereqOptions ?? [],
+    coreq: editingCourse?.coreqOptions ?? [],
+  });
+
+  const isDirty = useMemo(() => {
+    const current = {
+      title,
+      shortDescription,
+      longDescription,
+      grades: [...grades].sort((a, b) => a - b),
+      offerings: normalizeOfferings(offerings),
+      departmentId,
+      teacherName,
+      maxStudentCountInput,
+      retakeable,
+      prereq,
+      coreq,
+    };
+    return JSON.stringify(current) !== JSON.stringify(initialSnapshot.current);
+  }, [
+    title,
+    shortDescription,
+    longDescription,
+    grades,
+    offerings,
+    departmentId,
+    teacherName,
+    maxStudentCountInput,
+    retakeable,
+    prereq,
+    coreq,
+  ]);
+
+  const { requestClose, discardOpen, cancelDiscard, confirmDiscard } =
+    useGuardedClose(onClose, isDirty, saving);
 
   const builderCourses = useMemo(
     () =>
@@ -164,21 +224,22 @@ function CourseFormModal({
   };
 
   return (
-    <ModalShell
-      title={mode === "add" ? "Add course" : "Edit course"}
-      onClose={onClose}
-      busy={saving}
-      maxWidthClass="max-w-2xl"
-      footer={
-        <>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className={secondaryButtonClass}
-          >
-            Cancel
-          </button>
+    <>
+      <ModalShell
+        title={mode === "add" ? "Add course" : "Edit course"}
+        onClose={requestClose}
+        busy={saving}
+        maxWidthClass="max-w-2xl"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={requestClose}
+              disabled={saving}
+              className={secondaryButtonClass}
+            >
+              Cancel
+            </button>
           <button
             type="button"
             onClick={handleSave}
@@ -413,6 +474,13 @@ function CourseFormModal({
         {error && <p className="text-sm font-medium text-red-600">{error}</p>}
       </div>
     </ModalShell>
+      {discardOpen && (
+        <UnsavedChangesDialog
+          onStay={cancelDiscard}
+          onDiscard={confirmDiscard}
+        />
+      )}
+    </>
   );
 }
 

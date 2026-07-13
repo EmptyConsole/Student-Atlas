@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { DepartmentInput, DepartmentRow } from "../../lib/teacher";
 import ModalShell from "./ModalShell";
+import UnsavedChangesDialog from "./UnsavedChangesDialog";
+import { useGuardedClose } from "./useGuardedClose";
 import {
   inputClass,
   labelClass,
@@ -30,6 +32,23 @@ function DepartmentFormModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const initialSnapshot = useRef({
+    name: editingDepartment?.name ?? "",
+    subtitle: editingDepartment?.subtitle ?? "",
+    graduationRequirement: editingDepartment?.graduation_requirement ?? "",
+  });
+
+  const isDirty = useMemo(
+    () =>
+      name !== initialSnapshot.current.name ||
+      subtitle !== initialSnapshot.current.subtitle ||
+      graduationRequirement !== initialSnapshot.current.graduationRequirement,
+    [name, subtitle, graduationRequirement],
+  );
+
+  const { requestClose, discardOpen, cancelDiscard, confirmDiscard } =
+    useGuardedClose(onClose, isDirty, saving);
+
   const canSave = name.trim().length > 0;
 
   const handleSave = async () => {
@@ -43,20 +62,21 @@ function DepartmentFormModal({
   };
 
   return (
-    <ModalShell
-      title={mode === "add" ? "Add department" : "Edit department"}
-      onClose={onClose}
-      busy={saving}
-      footer={
-        <>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className={secondaryButtonClass}
-          >
-            Cancel
-          </button>
+    <>
+      <ModalShell
+        title={mode === "add" ? "Add department" : "Edit department"}
+        onClose={requestClose}
+        busy={saving}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={requestClose}
+              disabled={saving}
+              className={secondaryButtonClass}
+            >
+              Cancel
+            </button>
           <button
             type="button"
             onClick={handleSave}
@@ -119,6 +139,13 @@ function DepartmentFormModal({
         {error && <p className="text-sm font-medium text-red-600">{error}</p>}
       </div>
     </ModalShell>
+      {discardOpen && (
+        <UnsavedChangesDialog
+          onStay={cancelDiscard}
+          onDiscard={confirmDiscard}
+        />
+      )}
+    </>
   );
 }
 

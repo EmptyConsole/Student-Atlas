@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import type { SchoolInput } from "../../lib/teacher";
 import type { Term } from "../../data/courses";
 import { DEFAULT_REQUIRED_RANKINGS } from "../../utils/courseRanking";
 import ModalShell from "./ModalShell";
+import UnsavedChangesDialog from "./UnsavedChangesDialog";
+import { useGuardedClose } from "./useGuardedClose";
 import {
   inputClass,
   labelClass,
@@ -61,6 +63,35 @@ function SchoolFormModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const initialSnapshot = useRef({
+    name: initial?.name ?? "",
+    website: initial?.website ?? "",
+    city: initial?.city ?? "",
+    state: initial?.state ?? "",
+    password: initial?.password ?? "",
+    rankings: String(initial?.rankings ?? DEFAULT_REQUIRED_RANKINGS),
+    terms: (initialTerms ?? []).map((t) => ({ id: t.id, name: t.name })),
+  });
+
+  const isDirty = useMemo(() => {
+    const currentTerms = terms
+      .filter((t) => t.name.trim().length > 0)
+      .map((t) => ({ id: t.id, name: t.name.trim() }));
+    const current = {
+      name,
+      website,
+      city,
+      state: stateField,
+      password,
+      rankings,
+      terms: currentTerms,
+    };
+    return JSON.stringify(current) !== JSON.stringify(initialSnapshot.current);
+  }, [name, website, city, stateField, password, rankings, terms]);
+
+  const { requestClose, discardOpen, cancelDiscard, confirmDiscard } =
+    useGuardedClose(onClose, isDirty, saving);
+
   const rankingsValue = Number.parseInt(rankings, 10);
   const trimmedTerms = terms.filter((t) => t.name.trim().length > 0);
   const canSave =
@@ -111,20 +142,21 @@ function SchoolFormModal({
   };
 
   return (
-    <ModalShell
-      title={mode === "add" ? "Add school" : "Edit school"}
-      onClose={onClose}
-      busy={saving}
-      footer={
-        <>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className={secondaryButtonClass}
-          >
-            Cancel
-          </button>
+    <>
+      <ModalShell
+        title={mode === "add" ? "Add school" : "Edit school"}
+        onClose={requestClose}
+        busy={saving}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={requestClose}
+              disabled={saving}
+              className={secondaryButtonClass}
+            >
+              Cancel
+            </button>
           <button
             type="button"
             onClick={handleSave}
@@ -298,6 +330,13 @@ function SchoolFormModal({
         {error && <p className="text-sm font-medium text-red-600">{error}</p>}
       </div>
     </ModalShell>
+      {discardOpen && (
+        <UnsavedChangesDialog
+          onStay={cancelDiscard}
+          onDiscard={confirmDiscard}
+        />
+      )}
+    </>
   );
 }
 
