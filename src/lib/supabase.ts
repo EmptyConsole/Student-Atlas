@@ -62,8 +62,7 @@ terms
 id: uuid (PK)
 school_id: uuid (FK -> schools.id)
 name: text
-season: text
-year: smallint
+position: smallint
 start_date: date
 end_date: date
 created_at: timestamptz

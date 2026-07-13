@@ -4,6 +4,7 @@ import type { Term } from "../data/courses";
 
 export type SchoolRow = Tables<"schools">;
 export type DepartmentRow = Tables<"departments">;
+export type TermRow = Tables<"terms">;
 
 export type SchoolInput = {
   name: string;
@@ -20,12 +21,12 @@ export type DepartmentInput = {
   graduationRequirement: string;
 };
 
-export type CourseInput = {
+/** Fields shared across every offering-row of a logical course. */
+export type CourseBaseInput = {
   title: string;
   shortDescription: string;
   longDescription: string;
   grades: number[];
-  term: Term;
   /** Department name; also stored on `courses.subject` for UI grouping. */
   subject: string;
   departmentId: string | null;
@@ -37,6 +38,20 @@ export type CourseInput = {
   /** OR-of-AND groups of course UUIDs / free text. */
   prereqOptions: string[][];
   coreqOptions: string[][];
+};
+
+/** A single course row: shared fields plus the term ids this offering covers. */
+export type CourseInput = CourseBaseInput & {
+  /** Term ids (from the `terms` table) covered by this row. */
+  termOptions: string[];
+};
+
+/**
+ * What the course form submits: shared fields plus one array of term ids per
+ * offering. Each offering becomes its own `courses` row.
+ */
+export type CourseFormSubmit = CourseBaseInput & {
+  offerings: string[][];
 };
 
 type Result<T = void> = { data?: T; error?: string };
@@ -187,6 +202,127 @@ export async function deleteSchool(schoolId: string): Promise<Result> {
     return {};
   } catch (err) {
     return { error: toMessage(err, "Failed to delete school") };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Terms
+// ---------------------------------------------------------------------------
+
+export async function fetchTerms(schoolId: string): Promise<Term[]> {
+  const { data, error } = await supabase
+    .from("terms")
+    .select("id, name, position, created_at")
+    .eq("school_id", schoolId)
+    .order("position", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((row, index) => ({
+    id: row.id,
+    name: row.name,
+    position: row.position ?? index,
+  }));
+}
+
+/** Creates a term with the given name; position is appended to the end. */
+export async function createTerm(
+  schoolId: string,
+  name: string,
+): Promise<Result<Term>> {
+  try {
+    const trimmed = name.trim();
+    if (!trimmed) return { error: "Term name is required." };
+
+    const { data: existing } = await supabase
+      .from("terms")
+      .select("position")
+      .eq("school_id", schoolId);
+    const nextPosition =
+      (existing ?? []).reduce(
+        (max, row) => Math.max(max, row.position ?? 0),
+        -1,
+      ) + 1;
+
+    const { data, error } = await supabase
+      .from("terms")
+      .insert({
+        school_id: schoolId,
+        name: trimmed,
+        position: nextPosition,
+      })
+      .select("id, name, position")
+      .single();
+    if (error) throw error;
+    return {
+      data: data
+        ? { id: data.id, name: data.name, position: data.position ?? nextPosition }
+        : undefined,
+    };
+  } catch (err) {
+    return { error: toMessage(err, "Failed to create term") };
+  }
+}
+
+export async function renameTerm(termId: string, name: string): Promise<Result> {
+  try {
+    const trimmed = name.trim();
+    if (!trimmed) return { error: "Term name is required." };
+    const { error } = await supabase
+      .from("terms")
+      .update({ name: trimmed })
+      .eq("id", termId);
+    if (error) throw error;
+    return {};
+  } catch (err) {
+    return { error: toMessage(err, "Failed to rename term") };
+  }
+}
+
+/**
+ * Deletes a term unless a course still uses it. A course "uses" a term when its
+ * `term_options` array contains the term id.
+ */
+export async function deleteTerm(
+  schoolId: string,
+  termId: string,
+): Promise<Result> {
+  try {
+    const { data: courses, error: coursesError } = await supabase
+      .from("courses")
+      .select("id, term_options")
+      .eq("school_id", schoolId);
+    if (coursesError) throw coursesError;
+
+    const inUse = (courses ?? []).some((c) =>
+      Array.isArray(c.term_options) && c.term_options.includes(termId),
+    );
+    if (inUse) {
+      return {
+        error: "This term is used by one or more courses and cannot be deleted.",
+      };
+    }
+
+    const { error } = await supabase.from("terms").delete().eq("id", termId);
+    if (error) throw error;
+    return {};
+  } catch (err) {
+    return { error: toMessage(err, "Failed to delete term") };
+  }
+}
+
+/** Persists the given term ordering by writing each term's array index as its position. */
+export async function reorderTerms(orderedTermIds: string[]): Promise<Result> {
+  try {
+    for (let i = 0; i < orderedTermIds.length; i += 1) {
+      const { error } = await supabase
+        .from("terms")
+        .update({ position: i })
+        .eq("id", orderedTermIds[i]);
+      if (error) throw error;
+    }
+    return {};
+  } catch (err) {
+    return { error: toMessage(err, "Failed to reorder terms") };
   }
 }
 
@@ -382,7 +518,10 @@ export async function createCourse(
       short_description: input.shortDescription.trim(),
       long_description: input.longDescription.trim(),
       grade: input.grades,
-      term: input.term,
+      // `term` is a legacy NOT NULL column; write an empty string so inserts
+      // succeed while term data lives entirely in `term_options`.
+      term: "",
+      term_options: input.termOptions,
       subject: input.subject,
       department_id: input.departmentId,
       teacher_id: teacherId,
@@ -412,7 +551,7 @@ export async function updateCourse(
         short_description: input.shortDescription.trim(),
         long_description: input.longDescription.trim(),
         grade: input.grades,
-        term: input.term,
+        term_options: input.termOptions,
         subject: input.subject,
         department_id: input.departmentId,
         teacher_id: teacherId,
@@ -428,6 +567,56 @@ export async function updateCourse(
   } catch (err) {
     return { error: toMessage(err, "Failed to update course") };
   }
+}
+
+/**
+ * Reconciles a logical course's offering-rows against the submitted form. Reuses
+ * `existingIds` rows for the first offerings (update in place), inserts rows for
+ * extra offerings, and deletes any leftover rows. Offerings with no terms are
+ * dropped; at least one valid offering is required.
+ */
+export async function saveCourseOfferings(
+  schoolId: string,
+  existingIds: string[],
+  submit: CourseFormSubmit,
+): Promise<Result> {
+  const offerings = submit.offerings
+    .map((o) => o.filter((id) => id))
+    .filter((o) => o.length > 0);
+  if (offerings.length === 0) {
+    return { error: "Select at least one term for this course." };
+  }
+
+  const base: CourseBaseInput = {
+    title: submit.title,
+    shortDescription: submit.shortDescription,
+    longDescription: submit.longDescription,
+    grades: submit.grades,
+    subject: submit.subject,
+    departmentId: submit.departmentId,
+    teacherName: submit.teacherName,
+    maxStudentCount: submit.maxStudentCount,
+    retakeable: submit.retakeable,
+    prereqOptions: submit.prereqOptions,
+    coreqOptions: submit.coreqOptions,
+  };
+
+  for (let i = 0; i < offerings.length; i += 1) {
+    const input: CourseInput = { ...base, termOptions: offerings[i] };
+    const existingId = existingIds[i];
+    const result = existingId
+      ? await updateCourse(existingId, schoolId, input)
+      : await createCourse(schoolId, input);
+    if (result.error) return { error: result.error };
+  }
+
+  // Delete rows that are no longer needed (form has fewer offerings than before).
+  for (let i = offerings.length; i < existingIds.length; i += 1) {
+    const result = await deleteCourse(existingIds[i], schoolId);
+    if (result.error) return { error: result.error };
+  }
+
+  return {};
 }
 
 export async function deleteCourse(

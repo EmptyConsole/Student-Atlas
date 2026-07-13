@@ -1,9 +1,12 @@
 import type { Course } from "../data/courses";
 
+/** A single offering-row of a logical course: its DB id and the terms it covers. */
+export type Offering = { courseId: string; termOptions: string[] };
+
 /**
- * A course as shown on the Courses page. Identical Fall + Spring rows are merged
- * into a single "group" item displayed as one "Both" card; everything else is a
- * standalone "single".
+ * A course as shown on the Courses page. Rows that are identical except for
+ * their `termOptions` are merged into one "group" with multiple offerings the
+ * student can pick between; a course with a single row stays a "single".
  */
 export type DisplayCourse =
   | { kind: "single"; course: Course }
@@ -11,20 +14,26 @@ export type DisplayCourse =
       kind: "group";
       id: string;
       representative: Course;
-      fallId: string;
-      springId: string;
+      offerings: Offering[];
     };
 
-/** Database course ids represented by a display item (one or two for a group). */
+/** Database course ids represented by a display item (one per offering row). */
 export function courseIdsInItem(item: DisplayCourse): string[] {
   return item.kind === "group"
-    ? [item.fallId, item.springId]
+    ? item.offerings.map((o) => o.courseId)
     : [item.course.id];
+}
+
+/** Term-id arrays for each offering-row of the item (one entry per course row). */
+export function offeringsOf(item: DisplayCourse): string[][] {
+  return item.kind === "group"
+    ? item.offerings.map((o) => o.termOptions)
+    : [item.course.termOptions];
 }
 
 /**
  * Signature of everything that must match for two rows to merge — every field
- * except `id` and `term`.
+ * except `id` and `termOptions`.
  */
 function signature(course: Course): string {
   return JSON.stringify({
@@ -46,11 +55,9 @@ export function repCourse(item: DisplayCourse): Course {
 }
 
 /**
- * Merge identical Fall + Spring course pairs into a single grouped item. A group
- * is only formed when a signature has exactly one `fall` and one `spring` row;
- * all other courses (including genuine single `both`/`all-year` rows) stay
- * standalone. Original course order is preserved by the position of the first
- * member of each group.
+ * Merge rows that share a signature into a single grouped item carrying one
+ * offering per row. Rows with a unique signature stay standalone. Original
+ * course order is preserved by the position of each group's first member.
  */
 export function buildDisplayCourses(courses: Course[]): DisplayCourse[] {
   const bySignature = new Map<string, Course[]>();
@@ -61,41 +68,26 @@ export function buildDisplayCourses(courses: Course[]): DisplayCourse[] {
     else bySignature.set(key, [course]);
   }
 
-  const grouped = new Set<string>();
-  const groupBySignature = new Map<string, DisplayCourse>();
-
-  for (const [key, bucket] of bySignature) {
-    const fall = bucket.filter((c) => c.term === "fall");
-    const spring = bucket.filter((c) => c.term === "spring");
-    if (fall.length === 1 && spring.length === 1 && bucket.length === 2) {
-      const fallCourse = fall[0];
-      const springCourse = spring[0];
-      const id = `group:${fallCourse.id}:${springCourse.id}`;
-      groupBySignature.set(key, {
-        kind: "group",
-        id,
-        representative: { ...fallCourse, id, term: "both" },
-        fallId: fallCourse.id,
-        springId: springCourse.id,
-      });
-      grouped.add(fallCourse.id);
-      grouped.add(springCourse.id);
-    }
-  }
-
   const result: DisplayCourse[] = [];
   const emitted = new Set<string>();
   for (const course of courses) {
-    if (grouped.has(course.id)) {
-      const key = signature(course);
-      if (!emitted.has(key)) {
-        emitted.add(key);
-        const group = groupBySignature.get(key);
-        if (group) result.push(group);
-      }
+    const key = signature(course);
+    const bucket = bySignature.get(key);
+    if (!bucket || bucket.length === 1) {
+      result.push({ kind: "single", course });
       continue;
     }
-    result.push({ kind: "single", course });
+    if (emitted.has(key)) continue;
+    emitted.add(key);
+    result.push({
+      kind: "group",
+      id: `group:${bucket.map((c) => c.id).join(":")}`,
+      representative: bucket[0],
+      offerings: bucket.map((c) => ({
+        courseId: c.id,
+        termOptions: c.termOptions,
+      })),
+    });
   }
 
   return result;

@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGroup } from "motion/react";
 import { LogOut, Pencil, Search, Trash2 } from "lucide-react";
 import { buildSubject, type Subject } from "../data/subjects";
-import { matchesSearch } from "../data/courses";
+import { matchesSearch, type Term } from "../data/courses";
 import { useCourses } from "../hooks/useCourses";
 import { useSubjects } from "../hooks/useSubjects";
+import { useTerms } from "../hooks/useTerms";
 import {
   buildDisplayCourses,
   courseIdsInItem,
@@ -13,18 +14,22 @@ import {
 } from "../utils/courseGrouping";
 import { DEFAULT_REQUIRED_RANKINGS } from "../utils/courseRanking";
 import {
-  createCourse,
   createDepartment,
   createSchool,
+  createTerm,
   deleteCourse,
   deleteDepartment,
   deleteSchool,
+  deleteTerm,
   fetchDepartments,
   fetchSchool,
-  updateCourse,
+  fetchTerms,
+  renameTerm,
+  reorderTerms,
+  saveCourseOfferings,
   updateDepartment,
   updateSchool,
-  type CourseInput,
+  type CourseFormSubmit,
   type DepartmentInput,
   type DepartmentRow,
   type SchoolInput,
@@ -37,6 +42,7 @@ import CourseFormModal from "./teacher/CourseFormModal";
 import DepartmentFormModal from "./teacher/DepartmentFormModal";
 import SchoolFormModal, {
   type SchoolFormInitial,
+  type TermDraft,
 } from "./teacher/SchoolFormModal";
 import ConfirmDeleteDialog from "./teacher/ConfirmDeleteDialog";
 import ModalShell from "./teacher/ModalShell";
@@ -78,7 +84,17 @@ function TeacherCatalog({
     reloadKey,
   );
   const { courses, loading: coursesLoading } = useCourses(school.id, reloadKey);
+  const { terms, termById } = useTerms(school.id, reloadKey);
   const [departments, setDepartments] = useState<DepartmentRow[]>([]);
+
+  // Term ids referenced by at least one course — used to block term deletion.
+  const usedTermIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const course of courses) {
+      for (const termId of course.termOptions) set.add(termId);
+    }
+    return set;
+  }, [courses]);
 
   const [search, setSearch] = useState("");
   const [activeSubject, setActiveSubject] = useState("");
@@ -89,6 +105,7 @@ function TeacherCatalog({
     useState<DepartmentModalState | null>(null);
   const [schoolModalInitial, setSchoolModalInitial] =
     useState<SchoolFormInitial | null>(null);
+  const [schoolModalTerms, setSchoolModalTerms] = useState<Term[]>([]);
   const [addSchoolOpen, setAddSchoolOpen] = useState(false);
   const [createdSchool, setCreatedSchool] = useState<UnlockedSchool | null>(
     null,
@@ -186,28 +203,12 @@ function TeacherCatalog({
 
   // --- Courses ----------------------------------------------------------------
   const handleSaveCourse = async (
-    input: CourseInput,
+    submit: CourseFormSubmit,
   ): Promise<{ error?: string }> => {
-    if (courseModal?.mode === "edit") {
-      const { item } = courseModal;
-      if (item.kind === "group") {
-        const fall = await updateCourse(item.fallId, school.id, {
-          ...input,
-          term: "fall",
-        });
-        if (fall.error) return { error: fall.error };
-        const spring = await updateCourse(item.springId, school.id, {
-          ...input,
-          term: "spring",
-        });
-        if (!spring.error) reload();
-        return { error: spring.error };
-      }
-      const result = await updateCourse(item.course.id, school.id, input);
-      if (!result.error) reload();
-      return { error: result.error };
-    }
-    const result = await createCourse(school.id, input);
+    // Existing offering rows to reconcile against (empty when adding).
+    const existingIds =
+      courseModal?.mode === "edit" ? courseIdsInItem(courseModal.item) : [];
+    const result = await saveCourseOfferings(school.id, existingIds, submit);
     if (!result.error) reload();
     return { error: result.error };
   };
@@ -238,7 +239,11 @@ function TeacherCatalog({
 
   // --- School -----------------------------------------------------------------
   const handleEditSchool = async () => {
-    const row = await fetchSchool(school.id);
+    const [row, termRows] = await Promise.all([
+      fetchSchool(school.id),
+      fetchTerms(school.id),
+    ]);
+    setSchoolModalTerms(termRows);
     setSchoolModalInitial({
       name: row?.name ?? school.name,
       website: row?.website ?? "",
@@ -249,29 +254,75 @@ function TeacherCatalog({
     });
   };
 
+  /**
+   * Applies the form's term drafts to Supabase: creates new terms, renames
+   * changed ones, deletes removed ones (guarded), then persists the ordering.
+   */
+  const reconcileTerms = async (
+    schoolId: string,
+    existing: Term[],
+    drafts: TermDraft[],
+  ): Promise<{ error?: string }> => {
+    const draftIds = new Set(
+      drafts.filter((d) => d.id).map((d) => d.id as string),
+    );
+    for (const term of existing) {
+      if (!draftIds.has(term.id)) {
+        const result = await deleteTerm(schoolId, term.id);
+        if (result.error) return { error: result.error };
+      }
+    }
+
+    const orderedIds: string[] = [];
+    for (const draft of drafts) {
+      if (draft.id) {
+        const prev = existing.find((t) => t.id === draft.id);
+        if (prev && prev.name !== draft.name) {
+          const result = await renameTerm(draft.id, draft.name);
+          if (result.error) return { error: result.error };
+        }
+        orderedIds.push(draft.id);
+      } else {
+        const result = await createTerm(schoolId, draft.name);
+        if (result.error) return { error: result.error };
+        if (result.data) orderedIds.push(result.data.id);
+      }
+    }
+
+    return reorderTerms(orderedIds);
+  };
+
   const handleSaveSchool = async (
     input: SchoolInput,
+    terms: TermDraft[],
   ): Promise<{ error?: string }> => {
     const result = await updateSchool(school.id, input);
-    if (!result.error) {
-      onSchoolUpdated(input.name.trim(), input.password);
-      reload();
-    }
-    return { error: result.error };
+    if (result.error) return { error: result.error };
+
+    const termsResult = await reconcileTerms(school.id, schoolModalTerms, terms);
+    if (termsResult.error) return { error: termsResult.error };
+
+    onSchoolUpdated(input.name.trim(), input.password);
+    reload();
+    return {};
   };
 
   const handleCreateSchool = async (
     input: SchoolInput,
+    terms: TermDraft[],
   ): Promise<{ error?: string }> => {
     const result = await createSchool(input);
     if (result.error) return { error: result.error };
-    if (result.data) {
-      setCreatedSchool({
-        id: result.data.id,
-        name: result.data.name,
-        password: input.password,
-      });
-    }
+    if (!result.data) return { error: "Failed to create school" };
+
+    const termsResult = await reconcileTerms(result.data.id, [], terms);
+    if (termsResult.error) return { error: termsResult.error };
+
+    setCreatedSchool({
+      id: result.data.id,
+      name: result.data.name,
+      password: input.password,
+    });
     return {};
   };
 
@@ -339,6 +390,7 @@ function TeacherCatalog({
       key={subject.name}
       subject={subject}
       items={itemsBySubject.get(subject.name) ?? []}
+      termById={termById}
       expandedId={expandedId}
       onToggleExpand={toggleExpand}
       editable={editableSubjectNames.has(subject.name)}
@@ -442,9 +494,8 @@ function TeacherCatalog({
           mode={courseModal.mode}
           departments={departments}
           courses={courses}
-          editingCourse={
-            courseModal.mode === "edit" ? repCourse(courseModal.item) : null
-          }
+          terms={terms}
+          editingItem={courseModal.mode === "edit" ? courseModal.item : null}
           onClose={() => setCourseModal(null)}
           onSave={handleSaveCourse}
         />
@@ -463,7 +514,12 @@ function TeacherCatalog({
         <SchoolFormModal
           mode="edit"
           initial={schoolModalInitial}
-          onClose={() => setSchoolModalInitial(null)}
+          initialTerms={schoolModalTerms}
+          usedTermIds={usedTermIds}
+          onClose={() => {
+            setSchoolModalInitial(null);
+            setSchoolModalTerms([]);
+          }}
           onSave={handleSaveSchool}
         />
       )}

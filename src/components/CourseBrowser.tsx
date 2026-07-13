@@ -2,7 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGroup } from "motion/react";
 import { Search } from "lucide-react";
 import type { Subject } from "../data/subjects";
-import { DEFAULT_FILTERS, matchesSearch, type Course, type Filters } from "../data/courses";
+import {
+  DEFAULT_FILTERS,
+  matchesSearch,
+  type Course,
+  type Filters,
+  type Term,
+} from "../data/courses";
 import type { UserProfile } from "../hooks/useProfile";
 import { buildDisplayCourses, repCourse, type DisplayCourse } from "../utils/courseGrouping";
 import FilterPanel from "./FilterPanel";
@@ -12,16 +18,13 @@ import SubjectSection from "./SubjectSection";
 type CourseBrowserProps = {
   courses: Course[];
   subjects: Subject[];
+  terms: Term[];
+  termById: Map<string, Term>;
   loading: boolean;
   error: string | null;
   profile: UserProfile;
   bookmarks: Set<string>;
   onToggleBookmark: (id: string) => void;
-  onApplyGroupBookmark: (
-    fallId: string,
-    springId: string,
-    selection: "fall" | "spring" | "both" | "clear",
-  ) => void;
   onUpdateCourseNote: (courseId: string, note: string) => void;
   activeSubject: string;
   onActiveSubjectChange: (name: string) => void;
@@ -30,12 +33,13 @@ type CourseBrowserProps = {
 function CourseBrowser({
   courses,
   subjects,
+  terms,
+  termById,
   loading,
   error,
   profile,
   bookmarks,
   onToggleBookmark,
-  onApplyGroupBookmark,
   onUpdateCourseNote,
   activeSubject,
   onActiveSubjectChange,
@@ -124,7 +128,7 @@ function CourseBrowser({
             className="h-12 w-full rounded-xl border border-main-400 bg-white pr-4 pl-11 text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500"
           />
         </div>
-        <FilterPanel filters={filters} onChange={setFilters} />
+        <FilterPanel filters={filters} onChange={setFilters} terms={terms} />
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pt-2 pb-10">
@@ -154,6 +158,7 @@ function CourseBrowser({
                   subject={subject}
                   items={itemsBySubject.get(subject.name) ?? []}
                   filters={filters}
+                  termById={termById}
                   completedCourses={profile.completedCourses}
                   expandedId={expandedId}
                   bookmarks={bookmarks}
@@ -161,7 +166,6 @@ function CourseBrowser({
                   collapseResetKey={collapseResetKey}
                   onToggleExpand={toggleExpand}
                   onToggleBookmark={onToggleBookmark}
-                  onApplyGroupBookmark={onApplyGroupBookmark}
                   onUpdateCourseNote={onUpdateCourseNote}
                 />
               ))}

@@ -1,15 +1,20 @@
 import { useMemo, useState } from "react";
+import { Plus, X } from "lucide-react";
 import {
   GRADE_COLORS,
   GRADES,
-  TERM_LABELS,
-  TERM_COLORS,
   reqOptionsToRaw,
+  termColor,
   type Course,
   type ReqOptions,
   type Term,
 } from "../../data/courses";
-import type { CourseInput, DepartmentRow } from "../../lib/teacher";
+import type { CourseFormSubmit, DepartmentRow } from "../../lib/teacher";
+import {
+  offeringsOf,
+  repCourse,
+  type DisplayCourse,
+} from "../../utils/courseGrouping";
 import ModalShell from "./ModalShell";
 import RequirementBuilder from "./RequirementBuilder";
 import {
@@ -24,21 +29,32 @@ type CourseFormModalProps = {
   mode: "add" | "edit";
   departments: DepartmentRow[];
   courses: Course[];
-  editingCourse?: Course | null;
+  terms: Term[];
+  editingItem?: DisplayCourse | null;
   onClose: () => void;
-  onSave: (input: CourseInput) => Promise<{ error?: string }>;
+  onSave: (input: CourseFormSubmit) => Promise<{ error?: string }>;
 };
-
-const TERMS: Term[] = ["fall", "spring", "both", "all-year"];
 
 function CourseFormModal({
   mode,
   departments,
   courses,
-  editingCourse,
+  terms,
+  editingItem,
   onClose,
   onSave,
 }: CourseFormModalProps) {
+  const editingCourse = editingItem ? repCourse(editingItem) : null;
+  const editingIds = useMemo(
+    () =>
+      editingItem
+        ? editingItem.kind === "group"
+          ? editingItem.offerings.map((o) => o.courseId)
+          : [editingItem.course.id]
+        : [],
+    [editingItem],
+  );
+
   const initialDepartmentId = useMemo(() => {
     if (!editingCourse) return departments[0]?.id ?? "";
     const match = departments.find((d) => d.name === editingCourse.subject);
@@ -53,7 +69,10 @@ function CourseFormModal({
     editingCourse?.longDescription ?? "",
   );
   const [grades, setGrades] = useState<number[]>(editingCourse?.grades ?? []);
-  const [term, setTerm] = useState<Term>(editingCourse?.term ?? "fall");
+  const [offerings, setOfferings] = useState<string[][]>(() => {
+    const initial = editingItem ? offeringsOf(editingItem) : [];
+    return initial.length > 0 ? initial.map((o) => [...o]) : [[]];
+  });
   const [departmentId, setDepartmentId] = useState(initialDepartmentId);
   const [teacherName, setTeacherName] = useState(editingCourse?.teacher ?? "");
   const [maxStudentCountInput, setMaxStudentCountInput] = useState(() => {
@@ -76,10 +95,10 @@ function CourseFormModal({
   const builderCourses = useMemo(
     () =>
       courses
-        .filter((c) => c.id !== editingCourse?.id)
+        .filter((c) => !editingIds.includes(c.id))
         .map((c) => ({ id: c.id, title: c.title }))
         .sort((a, b) => a.title.localeCompare(b.title)),
-    [courses, editingCourse],
+    [courses, editingIds],
   );
 
   const toggleGrade = (grade: number) =>
@@ -89,7 +108,27 @@ function CourseFormModal({
         : [...prev, grade].sort((a, b) => a - b),
     );
 
-  const canSave = title.trim().length > 0 && departmentId !== "";
+  const toggleTerm = (offeringIndex: number, termId: string) =>
+    setOfferings((prev) =>
+      prev.map((offering, i) => {
+        if (i !== offeringIndex) return offering;
+        return offering.includes(termId)
+          ? offering.filter((id) => id !== termId)
+          : [...offering, termId];
+      }),
+    );
+
+  const addOffering = () => setOfferings((prev) => [...prev, []]);
+
+  const removeOffering = (index: number) =>
+    setOfferings((prev) => prev.filter((_, i) => i !== index));
+
+  const hasValidOffering = offerings.some((o) => o.length > 0);
+  const canSave =
+    title.trim().length > 0 &&
+    departmentId !== "" &&
+    terms.length > 0 &&
+    hasValidOffering;
 
   const handleSave = async () => {
     if (!canSave || saving) return;
@@ -110,7 +149,6 @@ function CourseFormModal({
       shortDescription,
       longDescription,
       grades,
-      term,
       subject: department.name,
       departmentId,
       teacherName,
@@ -118,6 +156,7 @@ function CourseFormModal({
       retakeable,
       prereqOptions: reqOptionsToRaw(prereq),
       coreqOptions: reqOptionsToRaw(coreq),
+      offerings,
     });
     setSaving(false);
     if (result.error) setError(result.error);
@@ -247,29 +286,71 @@ function CourseFormModal({
         </div>
 
         <div>
-          <span className={labelClass}>Time of year</span>
-          <div className="flex flex-wrap gap-2">
-            {TERMS.map((t) => {
-              const active = term === t;
-              const { bg, fg } = TERM_COLORS[t];
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setTerm(t)}
-                  className="cursor-pointer rounded-full border-2 px-3 py-1 text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2"
-                  style={{
-                    backgroundColor: active ? bg : "transparent",
-                    color: active ? fg : "#6b7280",
-                    borderColor: bg,
-                  }}
-                >
-                  {TERM_LABELS[t]}
-                </button>
-              );
-            })}
-          </div>
+          <span className={labelClass}>Terms offered</span>
+          {terms.length === 0 ? (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              This school has no terms yet. Add at least one term in{" "}
+              <span className="font-semibold">Edit school</span> before creating
+              courses.
+            </div>
+          ) : (
+            <>
+              <p className="mb-2 text-xs text-gray-400">
+                Each row is one class offering. Pick every term it spans (e.g.
+                pick two terms for a year-long class). Use "Add another class"
+                for a separate offering that students rank independently.
+              </p>
+              <div className="flex flex-col gap-2">
+                {offerings.map((offering, index) => (
+                  <div
+                    key={index}
+                    className="flex items-start gap-2 rounded-xl border border-main-300 bg-white p-3"
+                  >
+                    <div className="flex flex-wrap gap-2">
+                      {terms.map((term) => {
+                        const active = offering.includes(term.id);
+                        const { bg, fg } = termColor(term.position);
+                        return (
+                          <button
+                            key={term.id}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => toggleTerm(index, term.id)}
+                            className="cursor-pointer rounded-full border-2 px-3 py-1 text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2"
+                            style={{
+                              backgroundColor: active ? bg : "transparent",
+                              color: active ? fg : "#6b7280",
+                              borderColor: bg,
+                            }}
+                          >
+                            {term.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {offerings.length > 1 && (
+                      <button
+                        type="button"
+                        aria-label="Remove this offering"
+                        onClick={() => removeOffering(index)}
+                        className="ml-auto shrink-0 cursor-pointer rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-50"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={addOffering}
+                className="mt-2 flex cursor-pointer items-center gap-1.5 rounded-lg border border-main-400 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-main-100"
+              >
+                <Plus className="h-4 w-4" />
+                Add another class
+              </button>
+            </>
+          )}
         </div>
 
         <RequirementBuilder

@@ -269,10 +269,14 @@ export async function syncStudentProfile(
 // Sync submitted course rankings → submitted_courses table
 // ---------------------------------------------------------------------------
 
+/**
+ * Persists the student's ranked courses. `columnOrders` is one ordered list of
+ * course ids per term column; each column's preference numbering restarts at 1,
+ * and a course that appears in multiple columns keeps its first occurrence.
+ */
 export async function syncSubmittedCourses(
   studentId: string,
-  fallOrder: string[],
-  springOrder: string[],
+  columnOrders: string[][],
   submitted: boolean,
 ): Promise<{ error?: string }> {
   const { error: deleteError } = await supabase
@@ -292,16 +296,12 @@ export async function syncSubmittedCourses(
     submitted: boolean;
   }[] = [];
 
-  for (const [i, course_id] of fallOrder.entries()) {
-    if (seen.has(course_id)) continue;
-    seen.add(course_id);
-    rows.push({ student_id: studentId, course_id, preference: i + 1, submitted });
-  }
-
-  for (const [i, course_id] of springOrder.entries()) {
-    if (seen.has(course_id)) continue;
-    seen.add(course_id);
-    rows.push({ student_id: studentId, course_id, preference: i + 1, submitted });
+  for (const order of columnOrders) {
+    for (const [i, course_id] of order.entries()) {
+      if (seen.has(course_id)) continue;
+      seen.add(course_id);
+      rows.push({ student_id: studentId, course_id, preference: i + 1, submitted });
+    }
   }
 
   if (rows.length > 0) {

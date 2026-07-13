@@ -4,9 +4,7 @@ import {
   DEFAULT_FILTERS,
   GRADE_COLORS,
   GRADES,
-  TERM_COLORS,
-  TERM_FILTERS,
-  TERM_LABELS,
+  termColor,
   type Filters,
   type Term,
 } from "../data/courses";
@@ -14,6 +12,8 @@ import {
 type FilterPanelProps = {
   filters: Filters;
   onChange: (filters: Filters) => void;
+  /** The school's terms, rendered as dynamic filter chips. */
+  terms: Term[];
 };
 
 function Chip({
@@ -55,7 +55,7 @@ function Chip({
 const YES_CHIP = { bg: "#c5ecc0", fg: "#357a3a" };
 const NO_CHIP = { bg: "#f7c8d2", fg: "#a83f57" };
 
-function FilterPanel({ filters, onChange }: FilterPanelProps) {
+function FilterPanel({ filters, onChange, terms }: FilterPanelProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -85,11 +85,11 @@ function FilterPanel({ filters, onChange }: FilterPanelProps) {
     onChange({ ...filters, grades });
   };
 
-  const toggleTerm = (term: Term) => {
-    const terms = new Set(filters.terms);
-    if (terms.has(term)) terms.delete(term);
-    else terms.add(term);
-    onChange({ ...filters, terms });
+  const toggleTerm = (termId: string) => {
+    const next = new Set(filters.terms);
+    if (next.has(termId)) next.delete(termId);
+    else next.add(termId);
+    onChange({ ...filters, terms: next });
   };
 
   const clearAll = () => onChange({ ...DEFAULT_FILTERS, grades: new Set(), terms: new Set() });
@@ -138,19 +138,26 @@ function FilterPanel({ filters, onChange }: FilterPanelProps) {
             ))}
           </div>
 
-          <h4 className="mt-4 mb-3 text-sm font-bold text-gray-700">Term</h4>
-          <div className="flex flex-wrap gap-2">
-            {TERM_FILTERS.map((term) => (
-              <Chip
-                key={term}
-                label={TERM_LABELS[term]}
-                active={filters.terms.has(term)}
-                bg={TERM_COLORS[term].bg}
-                fg={TERM_COLORS[term].fg}
-                onClick={() => toggleTerm(term)}
-              />
-            ))}
-          </div>
+          {terms.length > 0 && (
+            <>
+              <h4 className="mt-4 mb-3 text-sm font-bold text-gray-700">Term</h4>
+              <div className="flex flex-wrap gap-2">
+                {terms.map((term) => {
+                  const { bg, fg } = termColor(term.position);
+                  return (
+                    <Chip
+                      key={term.id}
+                      label={term.name}
+                      active={filters.terms.has(term.id)}
+                      bg={bg}
+                      fg={fg}
+                      onClick={() => toggleTerm(term.id)}
+                    />
+                  );
+                })}
+              </div>
+            </>
+          )}
 
           <h4 className="mt-4 mb-3 text-sm font-bold text-gray-700">
             Prerequisites

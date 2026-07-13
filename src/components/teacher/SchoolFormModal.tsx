@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import type { SchoolInput } from "../../lib/teacher";
+import type { Term } from "../../data/courses";
 import { DEFAULT_REQUIRED_RANKINGS } from "../../utils/courseRanking";
 import ModalShell from "./ModalShell";
 import {
@@ -18,16 +20,30 @@ export type SchoolFormInitial = {
   rankings: number;
 };
 
+/** An editable term row in the form. `id` present means it exists in Supabase. */
+export type TermDraft = { key: string; id?: string; name: string };
+
 type SchoolFormModalProps = {
   mode: "add" | "edit";
   initial?: SchoolFormInitial;
+  initialTerms?: Term[];
+  /** Term ids referenced by at least one course; those terms cannot be deleted. */
+  usedTermIds?: Set<string>;
   onClose: () => void;
-  onSave: (input: SchoolInput) => Promise<{ error?: string }>;
+  onSave: (input: SchoolInput, terms: TermDraft[]) => Promise<{ error?: string }>;
 };
+
+let draftCounter = 0;
+function newDraftKey(): string {
+  draftCounter += 1;
+  return `draft-${draftCounter}`;
+}
 
 function SchoolFormModal({
   mode,
   initial,
+  initialTerms,
+  usedTermIds,
   onClose,
   onSave,
 }: SchoolFormModalProps) {
@@ -39,28 +55,56 @@ function SchoolFormModal({
   const [rankings, setRankings] = useState(
     String(initial?.rankings ?? DEFAULT_REQUIRED_RANKINGS),
   );
+  const [terms, setTerms] = useState<TermDraft[]>(() =>
+    (initialTerms ?? []).map((t) => ({ key: newDraftKey(), id: t.id, name: t.name })),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const rankingsValue = Number.parseInt(rankings, 10);
+  const trimmedTerms = terms.filter((t) => t.name.trim().length > 0);
   const canSave =
     name.trim().length > 0 &&
     password.trim().length > 0 &&
     Number.isFinite(rankingsValue) &&
-    rankingsValue > 0;
+    rankingsValue > 0 &&
+    trimmedTerms.length > 0;
+
+  const addTerm = () =>
+    setTerms((prev) => [...prev, { key: newDraftKey(), name: "" }]);
+
+  const updateTermName = (key: string, value: string) =>
+    setTerms((prev) =>
+      prev.map((t) => (t.key === key ? { ...t, name: value } : t)),
+    );
+
+  const removeTerm = (key: string) =>
+    setTerms((prev) => prev.filter((t) => t.key !== key));
+
+  const moveTerm = (index: number, direction: -1 | 1) =>
+    setTerms((prev) => {
+      const next = [...prev];
+      const target = index + direction;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
 
   const handleSave = async () => {
     if (!canSave || saving) return;
     setSaving(true);
     setError(null);
-    const result = await onSave({
-      name,
-      website,
-      city,
-      state: stateField,
-      password,
-      rankings: rankingsValue,
-    });
+    const result = await onSave(
+      {
+        name,
+        website,
+        city,
+        state: stateField,
+        password,
+        rankings: rankingsValue,
+      },
+      trimmedTerms.map((t) => ({ ...t, name: t.name.trim() })),
+    );
     setSaving(false);
     if (result.error) setError(result.error);
     else onClose();
@@ -183,6 +227,72 @@ function SchoolFormModal({
           <p className="mt-1.5 text-xs text-gray-400">
             How many ranked courses each student must submit per term.
           </p>
+        </div>
+
+        <div>
+          <span className={labelClass}>Terms</span>
+          <p className="mb-2 text-xs text-gray-400">
+            Terms are the columns students rank courses in (e.g. Fall, Spring,
+            Quarter 1). At least one term is required.
+          </p>
+          <div className="flex flex-col gap-2">
+            {terms.map((term, index) => {
+              const locked = Boolean(term.id && usedTermIds?.has(term.id));
+              return (
+                <div key={term.key} className="flex items-center gap-2">
+                  <div className="flex flex-col">
+                    <button
+                      type="button"
+                      aria-label="Move term up"
+                      disabled={index === 0}
+                      onClick={() => moveTerm(index, -1)}
+                      className="cursor-pointer rounded p-0.5 text-gray-400 transition-colors hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Move term down"
+                      disabled={index === terms.length - 1}
+                      onClick={() => moveTerm(index, 1)}
+                      className="cursor-pointer rounded p-0.5 text-gray-400 transition-colors hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={term.name}
+                    onChange={(e) => updateTermName(term.key, e.target.value)}
+                    placeholder={`Term ${index + 1}`}
+                    className={`${inputClass} flex-1`}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Delete term"
+                    title={
+                      locked
+                        ? "This term is used by a course and cannot be deleted"
+                        : "Delete term"
+                    }
+                    disabled={locked}
+                    onClick={() => removeTerm(term.key)}
+                    className="shrink-0 cursor-pointer rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={addTerm}
+            className="mt-2 flex cursor-pointer items-center gap-1.5 rounded-lg border border-main-400 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-main-100"
+          >
+            <Plus className="h-4 w-4" />
+            Add term
+          </button>
         </div>
 
         {error && <p className="text-sm font-medium text-red-600">{error}</p>}

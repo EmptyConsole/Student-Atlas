@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type Course } from "../data/courses";
+import { type Course, type Term } from "../data/courses";
 import { type Subject } from "../data/subjects";
 import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
 import {
@@ -11,12 +11,11 @@ import { useSchoolRankings } from "../hooks/useSchoolRankings";
 import {
   applyReorder,
   buildInitialModel,
-  courseIds,
-  deriveColumns,
+  columnIds,
+  linkedCourseIds,
+  linkedIdSet,
   mergeModelWithBookmarks,
   validateRanking,
-  yearLongCourseIds,
-  yearLongIdSet,
 } from "../utils/courseRanking";
 import RankingAlignedGrid from "./RankingAlignedGrid";
 import SubmitConfirmDialog from "./SubmitConfirmDialog";
@@ -24,6 +23,8 @@ import SubmitConfirmDialog from "./SubmitConfirmDialog";
 type RegisterPageProps = {
   courses: Course[];
   subjects: Subject[];
+  terms: Term[];
+  termById: Map<string, Term>;
   profile: UserProfile;
   bookmarks: Set<string>;
   studentId: string | null;
@@ -34,6 +35,8 @@ type RegisterPageProps = {
 function RegisterPage({
   courses,
   subjects,
+  terms,
+  termById,
   profile,
   bookmarks,
   studentId,
@@ -43,17 +46,21 @@ function RegisterPage({
   const profileComplete = isProfileComplete(profile);
   const grade = profile.grade ?? 9;
   const { requiredRankings } = useSchoolRankings(profile.schoolId);
-  const [model, setModel] = useState(() => buildInitialModel(bookmarks, courses));
 
-  // Reconcile the ranked lists when bookmarks change, preserving the user's
-  // existing order for courses that remain bookmarked.
-  const [prevBookmarks, setPrevBookmarks] = useState(bookmarks);
-  if (bookmarks !== prevBookmarks) {
-    setPrevBookmarks(bookmarks);
-    setModel((prev) => mergeModelWithBookmarks(bookmarks, prev, courses));
+  const termIds = useMemo(() => terms.map((t) => t.id), [terms]);
+  const [model, setModel] = useState(() =>
+    buildInitialModel(bookmarks, courses, termIds),
+  );
+
+  // Reconcile the ranked lists when bookmarks (or the term list) change,
+  // preserving the user's existing order for courses that remain bookmarked.
+  const termKey = termIds.join(",");
+  const [prevKey, setPrevKey] = useState({ bookmarks, termKey });
+  if (prevKey.bookmarks !== bookmarks || prevKey.termKey !== termKey) {
+    setPrevKey({ bookmarks, termKey });
+    setModel((prev) => mergeModelWithBookmarks(bookmarks, prev, courses, termIds));
   }
 
-  const { fallRows, springRows } = useMemo(() => deriveColumns(model), [model]);
   const [appealsNotes, setAppealsNotes] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -70,27 +77,31 @@ function RegisterPage({
     [subjects],
   );
 
-  const { valid, fallCount, springCount } = validateRanking(
-    fallRows,
-    springRows,
-    requiredRankings,
+  const { valid, counts } = validateRanking(model, termIds, requiredRankings);
+
+  const linkedSet = useMemo(
+    () => linkedIdSet(bookmarks, courses),
+    [bookmarks, courses],
+  );
+  const linkedIds = useMemo(
+    () => linkedCourseIds(model, termIds, linkedSet),
+    [model, termIds, linkedSet],
   );
 
-  const yearLongIds = useMemo(
-    () => yearLongCourseIds(bookmarks, model.fallOrder, model.springOrder, courses),
-    [bookmarks, model.fallOrder, model.springOrder, courses],
+  // Per-term ranked ids capped at the required count (what actually submits).
+  const submittedColumns = useMemo(
+    () => termIds.map((termId) => columnIds(model, termId).slice(0, requiredRankings)),
+    [model, termIds, requiredRankings],
   );
-
-  const yearLongSet = useMemo(() => yearLongIdSet(bookmarks, courses), [bookmarks, courses]);
 
   const handleReorder = useCallback(
-    (column: "fall" | "spring", newOrder: string[]) => {
-      setModel((prev) => applyReorder(prev, column, newOrder, yearLongSet));
+    (termId: string, newOrder: string[]) => {
+      setModel((prev) => applyReorder(prev, termId, newOrder, termIds, linkedSet));
     },
-    [yearLongSet],
+    [termIds, linkedSet],
   );
 
-  const handleDragStateChange = useCallback((_active: boolean) => {
+  const handleDragStateChange = useCallback(() => {
     // Drag state is tracked inside RankingAlignedGrid for connector updates.
   }, []);
 
@@ -114,15 +125,13 @@ function RegisterPage({
 
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     draftTimerRef.current = setTimeout(() => {
-      const fall = courseIds(fallRows).slice(0, requiredRankings);
-      const spring = courseIds(springRows).slice(0, requiredRankings);
-      void syncSubmittedCourses(studentId, fall, spring, false);
+      void syncSubmittedCourses(studentId, submittedColumns, false);
     }, 600);
 
     return () => {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     };
-  }, [model, hasSubmitted, studentId, fallRows, springRows, requiredRankings]);
+  }, [hasSubmitted, studentId, submittedColumns]);
 
   const handleConfirmSubmit = async () => {
     if (!studentId) {
@@ -134,12 +143,10 @@ function RegisterPage({
     setSubmitting(true);
     setSubmitError(null);
 
-    const fallSubmitted = courseIds(fallRows).slice(0, requiredRankings);
-    const springSubmitted = courseIds(springRows).slice(0, requiredRankings);
     const noteValue = appealsNotes.trim() || null;
 
     const [coursesResult, notesResult] = await Promise.all([
-      syncSubmittedCourses(studentId, fallSubmitted, springSubmitted, true),
+      syncSubmittedCourses(studentId, submittedColumns, true),
       syncSubmittedNotes(studentId, noteValue),
     ]);
 
@@ -174,10 +181,10 @@ function RegisterPage({
         <div className="mb-6 rounded-xl border border-main-300 bg-main-100 px-4 py-3 text-sm leading-relaxed text-gray-700">
           <p>
             Only your <strong>bookmarked courses</strong> appear here. Drag to
-            rank — your <strong>top {requiredRankings}</strong> in each column
+            rank — your <strong>top {requiredRankings}</strong> in each term
             (numbered <strong>1–{requiredRankings}</strong>) are what gets
-            submitted. Courses below the line are alternates only. All-year
-            courses stay on the same row in both columns.
+            submitted. Courses below the line are alternates only. Courses that
+            span multiple terms stay on the same row across those columns.
           </p>
         </div>
 
@@ -208,11 +215,13 @@ function RegisterPage({
         >
           <RankingAlignedGrid
             model={model}
+            terms={terms}
+            termById={termById}
             requiredRankings={requiredRankings}
             courseById={courseById}
             subjectByName={subjectByName}
             bookmarks={bookmarks}
-            yearLongIds={yearLongIds}
+            linkedIds={linkedIds}
             courseNotes={profile.courseNotes}
             onReorder={handleReorder}
             onDragStateChange={handleDragStateChange}
@@ -240,9 +249,9 @@ function RegisterPage({
         <div className="mt-8 flex flex-col items-start gap-3">
           {!valid && (
             <p className="text-sm text-gray-500">
-              Bookmark at least {requiredRankings} fall-eligible and{" "}
-              {requiredRankings} spring-eligible courses to submit. Currently:
-              Fall {fallCount}, Spring {springCount}.
+              Bookmark at least {requiredRankings} courses eligible for each
+              term to submit. Currently:{" "}
+              {terms.map((t) => `${t.name} ${counts[t.id] ?? 0}`).join(", ")}.
             </p>
           )}
           {submitError && (
@@ -272,8 +281,10 @@ function RegisterPage({
       <SubmitConfirmDialog
         open={confirmOpen}
         grade={grade}
-        fallCount={fallCount}
-        springCount={springCount}
+        termCounts={terms.map((t) => ({
+          label: t.name,
+          count: (counts[t.id] ?? 0),
+        }))}
         submitting={submitting}
         onCancel={() => {
           if (!submitting) setConfirmOpen(false);

@@ -5,15 +5,18 @@ import {
   formatGrades,
   formatMaxStudentCount,
   formatRequirementOptions,
-  TERM_COLORS,
-  TERM_LABELS,
   type Course,
+  type Term,
 } from "../data/courses";
 import CourseRequirements from "./CourseRequirements";
+import TermBadges from "./TermBadges";
 
 type TeacherCourseCardProps = {
   course: Course;
   subject: Subject;
+  /** Term-id arrays for each offering-row of this course, for badges. */
+  offerings: string[][];
+  termById: Map<string, Term>;
   expanded: boolean;
   onToggleExpand: () => void;
   onEdit: () => void;
@@ -34,12 +37,13 @@ function MetaBadge({ label, bg, fg }: { label: string; bg: string; fg: string })
 function TeacherCourseCard({
   course,
   subject,
+  offerings,
+  termById,
   expanded,
   onToggleExpand,
   onEdit,
   onDelete,
 }: TeacherCourseCardProps) {
-  const term = TERM_COLORS[course.term];
   const prereqLabel = formatRequirementOptions(course.prereqOptions);
   const coreqLabel = formatRequirementOptions(course.coreqOptions);
 
@@ -104,11 +108,7 @@ function TeacherCourseCard({
                   fg={subject.accent}
                 />
               )}
-              <MetaBadge
-                label={TERM_LABELS[course.term]}
-                bg={term.bg}
-                fg={term.fg}
-              />
+              <TermBadges offerings={offerings} termById={termById} />
             </div>
 
             <button
@@ -147,11 +147,7 @@ function TeacherCourseCard({
             bg={subject.color}
             fg={subject.accent}
           />
-          <MetaBadge
-            label={TERM_LABELS[course.term]}
-            bg={term.bg}
-            fg={term.fg}
-          />
+          <TermBadges offerings={offerings} termById={termById} />
         </div>
 
         {expanded && (

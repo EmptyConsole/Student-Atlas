@@ -2,22 +2,21 @@ import { useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Bookmark } from "lucide-react";
 import { REQUIREMENTS_KEY, type Subject } from "../data/subjects";
-import type { Course } from "../data/courses";
-import { buildDisplayCourses, repCourse } from "../utils/courseGrouping";
+import type { Course, Term } from "../data/courses";
+import {
+  buildDisplayCourses,
+  repCourse,
+} from "../utils/courseGrouping";
 import RequirementsBookmark from "./RequirementsBookmark";
-import SplitBookmark, { type SplitBookmarkState } from "./SplitBookmark";
 import SubjectBookmark from "./SubjectBookmark";
+import TermBadges from "./TermBadges";
 
 type SidebarProps = {
   courses: Course[];
   subjects: Subject[];
+  termById: Map<string, Term>;
   bookmarks: Set<string>;
   onToggleBookmark: (id: string) => void;
-  onApplyGroupBookmark: (
-    fallId: string,
-    springId: string,
-    selection: "fall" | "spring" | "both" | "clear",
-  ) => void;
   activeSubject: string;
   onSelectSubject: (name: string) => void;
 };
@@ -25,53 +24,53 @@ type SidebarProps = {
 type BookmarkEntry = {
   id: string;
   title: string;
+  termOptions?: string[];
   subject: string;
-  state: SplitBookmarkState;
   onRemove: () => void;
 };
 
 function Sidebar({
   courses,
   subjects,
+  termById,
   bookmarks,
   onToggleBookmark,
-  onApplyGroupBookmark,
   activeSubject,
   onSelectSubject,
 }: SidebarProps) {
   const activeItemRef = useRef<HTMLLIElement>(null);
 
-  // Bookmarked display items (Fall/Spring duplicates merged) grouped by subject.
+  // Bookmarked offerings grouped by subject (one entry per bookmarked row).
   const entriesBySubject = useMemo(() => {
     const map = new Map<string, BookmarkEntry[]>();
     for (const subject of subjects) map.set(subject.name, []);
     for (const item of buildDisplayCourses(courses)) {
       const course = repCourse(item);
       if (item.kind === "group") {
-        const fall = bookmarks.has(item.fallId);
-        const spring = bookmarks.has(item.springId);
-        if (!fall && !spring) continue;
-        map.get(course.subject)?.push({
-          id: item.id,
-          title: course.title,
-          subject: course.subject,
-          state: fall && spring ? "both" : fall ? "fall" : "spring",
-          onRemove: () =>
-            onApplyGroupBookmark(item.fallId, item.springId, "clear"),
-        });
+        for (const offering of item.offerings) {
+          if (!bookmarks.has(offering.courseId)) continue;
+          map.get(course.subject)?.push({
+            id: offering.courseId,
+            title: course.title,
+            termOptions: offering.termOptions,
+            subject: course.subject,
+            onRemove: () => onToggleBookmark(offering.courseId),
+          });
+        }
       } else {
         if (!bookmarks.has(course.id)) continue;
         map.get(course.subject)?.push({
           id: course.id,
           title: course.title,
+          termOptions:
+            course.termOptions.length > 0 ? course.termOptions : undefined,
           subject: course.subject,
-          state: "both",
           onRemove: () => onToggleBookmark(course.id),
         });
       }
     }
     return map;
-  }, [courses, subjects, bookmarks, onToggleBookmark, onApplyGroupBookmark]);
+  }, [courses, subjects, termById, bookmarks, onToggleBookmark]);
 
   const handleSelectRequirements = () => {
     onSelectSubject(REQUIREMENTS_KEY);
@@ -168,28 +167,29 @@ function Sidebar({
                                 className="shrink-0 cursor-pointer rounded p-0.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
                                 style={{ color: subject.accent }}
                               >
-                                {entry.state === "both" ? (
-                                  <Bookmark
-                                    className="h-3.5 w-3.5"
-                                    fill={subject.accent}
-                                  />
-                                ) : (
-                                  <SplitBookmark
-                                    state={entry.state}
-                                    color={subject.accent}
-                                    size={14}
-                                  />
-                                )}
+                                <Bookmark
+                                  className="h-3.5 w-3.5"
+                                  fill={subject.accent}
+                                />
                               </button>
                               <button
                                 type="button"
                                 onClick={() =>
                                   handleBookmarkSelect(entry.id, subject.name)
                                 }
-                                className="min-w-0 flex-1 cursor-pointer truncate text-left text-xs font-medium focus:outline-none focus-visible:ring-2"
+                                className="min-w-0 flex-1 cursor-pointer text-left text-xs font-medium focus:outline-none focus-visible:ring-2"
                                 style={{ color: subject.accent }}
                               >
-                                {entry.title}
+                                <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                                  <span className="truncate">{entry.title}</span>
+                                  {entry.termOptions &&
+                                    entry.termOptions.length > 0 && (
+                                      <TermBadges
+                                        offerings={[entry.termOptions]}
+                                        termById={termById}
+                                      />
+                                    )}
+                                </span>
                               </button>
                             </div>
                           </motion.li>

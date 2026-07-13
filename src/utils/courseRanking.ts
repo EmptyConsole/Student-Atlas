@@ -1,49 +1,51 @@
-import { type Course, type Term } from "../data/courses";
+import { type Course } from "../data/courses";
 
 /** Matches `schools.rankings` default when a school row is unavailable. */
 export const DEFAULT_REQUIRED_RANKINGS = 8;
-
-/** Internal padding token so both columns share row indices for all-year courses. */
-export const ALIGN_PAD = "__align_pad__";
-
-export type RankingColumnKey = "fall" | "spring";
 
 export type RankingRow =
   | { kind: "course"; id: string }
   | { kind: "spacer" };
 
-/** Per-column course order. All-year courses share the same index in both columns. */
+/**
+ * Per-term course order, keyed by term id. A course that spans multiple terms
+ * ("linked") appears in each of those term's orders and is kept at the same
+ * visual row across them by {@link deriveAlignedRows}.
+ */
 export type RankingModel = {
-  fallOrder: string[];
-  springOrder: string[];
+  orders: Record<string, string[]>;
 };
 
+/** One aligned display row: a cell (course or spacer) per term column. */
 export type AlignedDisplayRow = {
-  fall: RankingRow;
-  spring: RankingRow;
+  cells: Record<string, RankingRow>;
 };
 
-/** Only all-year courses are linked across columns. "both" is independent. */
-export function isLinked(term: Term): boolean {
-  return term === "all-year";
+/** A course is "linked" (spans columns) when it covers more than one term. */
+export function isLinkedCourse(course: Course): boolean {
+  return course.termOptions.length > 1;
 }
 
-export function isFallEligible(term: Term): boolean {
-  return term === "fall" || term === "both" || term === "all-year";
+/** True if the course can be ranked in the given term column. */
+export function eligibleForTerm(course: Course, termId: string): boolean {
+  return course.termOptions.includes(termId);
 }
 
-export function isSpringEligible(term: Term): boolean {
-  return term === "spring" || term === "both" || term === "all-year";
-}
-
-export function bookmarkedCourses(bookmarks: Set<string>, courses: Course[]): Course[] {
+export function bookmarkedCourses(
+  bookmarks: Set<string>,
+  courses: Course[],
+): Course[] {
   return courses.filter((course) => bookmarks.has(course.id));
 }
 
-export function yearLongIdSet(bookmarks: Set<string>, courses: Course[]): Set<string> {
+/** Ids of bookmarked courses that span more than one term. */
+export function linkedIdSet(
+  bookmarks: Set<string>,
+  courses: Course[],
+): Set<string> {
   return new Set(
     bookmarkedCourses(bookmarks, courses)
-      .filter((course) => isLinked(course.term))
+      .filter(isLinkedCourse)
       .map((course) => course.id),
   );
 }
@@ -52,109 +54,78 @@ function sortByTitle(courses: Course[]): Course[] {
   return [...courses].sort((a, b) => a.title.localeCompare(b.title));
 }
 
-function isPlaceholderId(id: string): boolean {
-  return id.startsWith("ph-fall-") || id.startsWith("ph-spring-");
-}
-
-export function isAlignPad(id: string): boolean {
-  return id === ALIGN_PAD;
-}
-
-function isRenderableId(id: string): boolean {
-  return !isPlaceholderId(id) && !isAlignPad(id);
-}
-
-export function realCourseIds(order: string[]): string[] {
-  return order.filter(isRenderableId);
-}
-
 /**
- * After one column is edited, place each shared all-year course in the other
- * column at the same index. Remaining courses keep their relative order.
+ * Puts the linked courses of every column into one consistent global order so
+ * they never "cross" between columns (which would make alignment impossible).
+ * Regular (single-term) courses keep their positions; only linked entries are
+ * permuted. The `priorityTerm` column defines the canonical linked order.
  */
-export function syncYearLongPositions(
-  editedOrder: string[],
-  otherOrder: string[],
-  yearLongSet: Set<string>,
-): string[] {
-  const otherRegular = realCourseIds(otherOrder).filter((id) => !yearLongSet.has(id));
-
-  const slotByYearLong = new Map<string, number>();
-  for (let i = 0; i < editedOrder.length; i += 1) {
-    const id = editedOrder[i];
-    if (yearLongSet.has(id)) {
-      slotByYearLong.set(id, i);
+function syncLinkedAcross(
+  orders: Record<string, string[]>,
+  termIds: string[],
+  linkedSet: Set<string>,
+  priorityTerm: string,
+): Record<string, string[]> {
+  // Canonical global order of linked ids: priority column first, then any
+  // linked ids seen only in other columns.
+  const globalLinked: string[] = [];
+  const seen = new Set<string>();
+  const pushLinked = (id: string) => {
+    if (linkedSet.has(id) && !seen.has(id)) {
+      seen.add(id);
+      globalLinked.push(id);
     }
-  }
-
-  const slotCount = Math.max(
-    editedOrder.length,
-    otherRegular.length + slotByYearLong.size,
-  );
-
-  const slots: (string | null)[] = new Array(slotCount).fill(null);
-
-  for (const [id, idx] of slotByYearLong) {
-    if (otherOrder.includes(id) || yearLongSet.has(id)) {
-      slots[idx] = id;
-    }
-  }
-
-  let regularIdx = 0;
-  for (let i = 0; i < slotCount; i += 1) {
-    if (slots[i] === null) {
-      if (regularIdx < otherRegular.length) {
-        slots[i] = otherRegular[regularIdx];
-        regularIdx += 1;
-      } else {
-        slots[i] = ALIGN_PAD;
-      }
-    }
-  }
-
-  const result = slots.map((id) => id ?? ALIGN_PAD);
-  while (result.length > 0 && isAlignPad(result[result.length - 1])) {
-    result.pop();
-  }
-  return result;
-}
-
-function alignModel(
-  model: RankingModel,
-  yearLongSet: Set<string>,
-): RankingModel {
-  if (yearLongSet.size === 0) return model;
-  return {
-    fallOrder: model.fallOrder,
-    springOrder: syncYearLongPositions(
-      model.fallOrder,
-      model.springOrder,
-      yearLongSet,
-    ),
   };
+  for (const id of orders[priorityTerm] ?? []) pushLinked(id);
+  for (const termId of termIds) {
+    for (const id of orders[termId] ?? []) pushLinked(id);
+  }
+
+  const next: Record<string, string[]> = {};
+  for (const termId of termIds) {
+    const order = orders[termId] ?? [];
+    const present = globalLinked.filter((id) => order.includes(id));
+    let idx = 0;
+    next[termId] = order.map((id) =>
+      linkedSet.has(id) ? present[idx++] ?? id : id,
+    );
+  }
+  return next;
 }
 
-export function buildInitialModel(bookmarks: Set<string>, courses: Course[]): RankingModel {
+export function buildInitialModel(
+  bookmarks: Set<string>,
+  courses: Course[],
+  termIds: string[],
+): RankingModel {
   const eligible = bookmarkedCourses(bookmarks, courses);
-  const yearLongSet = yearLongIdSet(bookmarks, courses);
-  const fallOrder = sortByTitle(
-    eligible.filter((course) => isFallEligible(course.term)),
-  ).map((course) => course.id);
-  const springOrder = sortByTitle(
-    eligible.filter((course) => isSpringEligible(course.term)),
-  ).map((course) => course.id);
-  return alignModel({ fallOrder, springOrder }, yearLongSet);
+  const linked = linkedIdSet(bookmarks, courses);
+  const orders: Record<string, string[]> = {};
+  for (const termId of termIds) {
+    orders[termId] = sortByTitle(
+      eligible.filter((course) => eligibleForTerm(course, termId)),
+    ).map((course) => course.id);
+  }
+  return {
+    orders: termIds.length
+      ? syncLinkedAcross(orders, termIds, linked, termIds[0])
+      : orders,
+  };
 }
 
 export function mergeModelWithBookmarks(
   bookmarks: Set<string>,
   prevModel: RankingModel,
   courses: Course[],
+  termIds: string[],
 ): RankingModel {
   const eligible = bookmarkedCourses(bookmarks, courses);
-  const yearLongSet = yearLongIdSet(bookmarks, courses);
+  const linked = linkedIdSet(bookmarks, courses);
 
-  const mergeColumn = (prevOrder: string[], columnCourses: Course[]): string[] => {
+  const mergeColumn = (
+    prevOrder: string[],
+    columnCourses: Course[],
+  ): string[] => {
     const eligibleIds = new Set(columnCourses.map((course) => course.id));
     const kept = prevOrder.filter((id) => eligibleIds.has(id));
     const keptSet = new Set(kept);
@@ -164,89 +135,143 @@ export function mergeModelWithBookmarks(
     return [...kept, ...added];
   };
 
-  return alignModel(
-    {
-      fallOrder: mergeColumn(
-        prevModel.fallOrder,
-        eligible.filter((course) => isFallEligible(course.term)),
-      ),
-      springOrder: mergeColumn(
-        prevModel.springOrder,
-        eligible.filter((course) => isSpringEligible(course.term)),
-      ),
-    },
-    yearLongSet,
-  );
-}
-
-export function applyReorder(
-  model: RankingModel,
-  column: RankingColumnKey,
-  newOrder: string[],
-  yearLongSet: Set<string>,
-): RankingModel {
-  const order = newOrder.filter(isRenderableId);
-
-  if (column === "fall") {
-    return {
-      fallOrder: order,
-      springOrder: syncYearLongPositions(order, model.springOrder, yearLongSet),
-    };
+  const orders: Record<string, string[]> = {};
+  for (const termId of termIds) {
+    orders[termId] = mergeColumn(
+      prevModel.orders[termId] ?? [],
+      eligible.filter((course) => eligibleForTerm(course, termId)),
+    );
   }
-
   return {
-    fallOrder: syncYearLongPositions(order, model.fallOrder, yearLongSet),
-    springOrder: order,
+    orders: termIds.length
+      ? syncLinkedAcross(orders, termIds, linked, termIds[0])
+      : orders,
   };
 }
 
-/** Row-aligned fall/spring cells for a shared grid (spacers pad the shorter side). */
-export function deriveAlignedRows(model: RankingModel): AlignedDisplayRow[] {
-  const rowCount = Math.max(model.fallOrder.length, model.springOrder.length);
+/** Applies a drag reorder of one term column, keeping linked courses aligned. */
+export function applyReorder(
+  model: RankingModel,
+  termId: string,
+  newOrder: string[],
+  termIds: string[],
+  linkedSet: Set<string>,
+): RankingModel {
+  const orders: Record<string, string[]> = { ...model.orders, [termId]: newOrder };
+  return {
+    orders: syncLinkedAcross(orders, termIds, linkedSet, termId),
+  };
+}
+
+/**
+ * Builds row-aligned cells across all term columns. Linked courses are emitted
+ * on a shared row in every column they belong to; regular courses fill the
+ * remaining rows. Padding spacers keep columns the same height.
+ */
+export function deriveAlignedRows(
+  model: RankingModel,
+  termIds: string[],
+  linkedSet: Set<string>,
+): AlignedDisplayRow[] {
+  const orders = model.orders;
+  const pointers: Record<string, number> = {};
+  for (const termId of termIds) pointers[termId] = 0;
+
+  const remaining = () =>
+    termIds.some((termId) => pointers[termId] < (orders[termId]?.length ?? 0));
+
   const rows: AlignedDisplayRow[] = [];
+  const totalItems = termIds.reduce(
+    (sum, termId) => sum + (orders[termId]?.length ?? 0),
+    0,
+  );
+  let guard = 0;
+  const maxIter = totalItems + termIds.length + 5;
 
-  for (let i = 0; i < rowCount; i += 1) {
-    const fallId = model.fallOrder[i];
-    const springId = model.springOrder[i];
+  while (remaining() && guard < maxIter * 2) {
+    guard += 1;
 
-    rows.push({
-      fall:
-        fallId && isRenderableId(fallId)
-          ? { kind: "course", id: fallId }
-          : { kind: "spacer" },
-      spring:
-        springId && isRenderableId(springId)
-          ? { kind: "course", id: springId }
-          : { kind: "spacer" },
-    });
+    const heads: Record<string, string | undefined> = {};
+    for (const termId of termIds) {
+      heads[termId] = orders[termId]?.[pointers[termId]];
+    }
+
+    const isReady = (id: string) => {
+      const cols = termIds.filter((termId) =>
+        (orders[termId] ?? []).includes(id),
+      );
+      return cols.length > 0 && cols.every((termId) => heads[termId] === id);
+    };
+
+    const cells: Record<string, RankingRow> = {};
+    const advanceIds = new Set<string>();
+    let advancedAny = false;
+
+    for (const termId of termIds) {
+      const head = heads[termId];
+      if (head === undefined) {
+        cells[termId] = { kind: "spacer" };
+        continue;
+      }
+      if (linkedSet.has(head)) {
+        if (isReady(head)) {
+          cells[termId] = { kind: "course", id: head };
+          advanceIds.add(head);
+          advancedAny = true;
+        } else {
+          // A linked course not yet at the head of all its columns waits.
+          cells[termId] = { kind: "spacer" };
+        }
+      } else {
+        cells[termId] = { kind: "course", id: head };
+        advanceIds.add(head);
+        advancedAny = true;
+      }
+    }
+
+    // Break a rare deadlock (crossed linked orders) by forcing progress.
+    if (!advancedAny) {
+      for (const termId of termIds) {
+        const head = heads[termId];
+        if (head !== undefined) {
+          cells[termId] = { kind: "course", id: head };
+          advanceIds.add(head);
+        }
+      }
+    }
+
+    for (const termId of termIds) {
+      const head = heads[termId];
+      if (head !== undefined && advanceIds.has(head)) {
+        pointers[termId] += 1;
+      }
+    }
+
+    rows.push({ cells });
   }
 
   return rows;
 }
 
-export function deriveColumns(model: RankingModel): {
-  fallRows: RankingRow[];
-  springRows: RankingRow[];
-} {
-  return {
-    fallRows: realCourseIds(model.fallOrder).map((id) => ({ kind: "course", id })),
-    springRows: realCourseIds(model.springOrder).map((id) => ({ kind: "course", id })),
-  };
+/** Course ids ranked in a term column, in order. */
+export function columnIds(model: RankingModel, termId: string): string[] {
+  return model.orders[termId] ?? [];
 }
 
-export function yearLongCourseIds(
-  bookmarks: Set<string>,
-  fallOrder: string[],
-  springOrder: string[],
-  courses: Course[],
+/** Linked (spanning) course ids, listed once, in first-seen column order. */
+export function linkedCourseIds(
+  model: RankingModel,
+  termIds: string[],
+  linkedSet: Set<string>,
 ): string[] {
-  const linkedSet = yearLongIdSet(bookmarks, courses);
   const seen = new Set<string>();
   const ids: string[] = [];
-  for (const id of [...fallOrder, ...springOrder]) {
-    if (linkedSet.has(id) && !seen.has(id)) {
-      seen.add(id);
-      ids.push(id);
+  for (const termId of termIds) {
+    for (const id of model.orders[termId] ?? []) {
+      if (linkedSet.has(id) && !seen.has(id)) {
+        seen.add(id);
+        ids.push(id);
+      }
     }
   }
   return ids;
@@ -258,16 +283,21 @@ export function courseIds(rows: RankingRow[]): string[] {
     .map((row) => row.id);
 }
 
+/**
+ * Valid when every term column has at least `requiredRankings` courses. Returns
+ * per-term counts for messaging.
+ */
 export function validateRanking(
-  fallRows: RankingRow[],
-  springRows: RankingRow[],
+  model: RankingModel,
+  termIds: string[],
   requiredRankings: number = DEFAULT_REQUIRED_RANKINGS,
-): { valid: boolean; fallCount: number; springCount: number } {
-  const fallCount = courseIds(fallRows).length;
-  const springCount = courseIds(springRows).length;
-  return {
-    valid: fallCount >= requiredRankings && springCount >= requiredRankings,
-    fallCount,
-    springCount,
-  };
+): { valid: boolean; counts: Record<string, number> } {
+  const counts: Record<string, number> = {};
+  let valid = termIds.length > 0;
+  for (const termId of termIds) {
+    const count = (model.orders[termId] ?? []).length;
+    counts[termId] = count;
+    if (count < requiredRankings) valid = false;
+  }
+  return { valid, counts };
 }

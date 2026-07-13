@@ -218,6 +218,7 @@ export type Database = {
           teacher_id: string | null
           term: string
           term_id: string | null
+          term_options: string[] | null
           title: string
         }
         Insert: {
@@ -240,6 +241,7 @@ export type Database = {
           teacher_id?: string | null
           term: string
           term_id?: string | null
+          term_options?: string[] | null
           title: string
         }
         Update: {
@@ -262,6 +264,7 @@ export type Database = {
           teacher_id?: string | null
           term?: string
           term_id?: string | null
+          term_options?: string[] | null
           title?: string
         }
         Relationships: [
@@ -600,30 +603,27 @@ export type Database = {
           end_date: string | null
           id: string
           name: string
+          position: number | null
           school_id: string
-          season: string
           start_date: string | null
-          year: number
         }
         Insert: {
           created_at?: string
           end_date?: string | null
           id?: string
           name: string
+          position?: number | null
           school_id: string
-          season: string
           start_date?: string | null
-          year: number
         }
         Update: {
           created_at?: string
           end_date?: string | null
           id?: string
           name?: string
+          position?: number | null
           school_id?: string
-          season?: string
           start_date?: string | null
-          year?: number
         }
         Relationships: [
           {

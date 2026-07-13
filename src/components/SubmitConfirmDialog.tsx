@@ -4,8 +4,8 @@ import { motion } from "motion/react";
 type SubmitConfirmDialogProps = {
   open: boolean;
   grade: number;
-  fallCount: number;
-  springCount: number;
+  /** One entry per term: its name and how many courses are ranked in it. */
+  termCounts: { label: string; count: number }[];
   submitting?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -14,8 +14,7 @@ type SubmitConfirmDialogProps = {
 function SubmitConfirmDialog({
   open,
   grade,
-  fallCount,
-  springCount,
+  termCounts,
   submitting = false,
   onCancel,
   onConfirm,
@@ -65,14 +64,12 @@ function SubmitConfirmDialog({
           <li>
             <span className="font-semibold">Grade:</span> {grade}
           </li>
-          <li>
-            <span className="font-semibold">Fall courses ranked:</span>{" "}
-            {fallCount}
-          </li>
-          <li>
-            <span className="font-semibold">Spring courses ranked:</span>{" "}
-            {springCount}
-          </li>
+          {termCounts.map((term) => (
+            <li key={term.label}>
+              <span className="font-semibold">{term.label} courses ranked:</span>{" "}
+              {term.count}
+            </li>
+          ))}
         </ul>
 
         <div className="mt-6 flex justify-end gap-3">

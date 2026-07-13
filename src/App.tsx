@@ -7,6 +7,7 @@ import RegisterPage from "./components/RegisterPage";
 import { useProfile, type UserProfile } from "./hooks/useProfile";
 import { useCourses } from "./hooks/useCourses";
 import { useSubjects } from "./hooks/useSubjects";
+import { useTerms } from "./hooks/useTerms";
 import {
   submitProfile,
   loginByEmail,
@@ -91,6 +92,9 @@ function App() {
   // Subjects (sections + sidebar tabs) come from the Supabase `departments`
   // table so the catalog reflects whatever is configured there.
   const { subjects } = useSubjects(profile.schoolId);
+
+  // Terms drive term badges, filter chips, and the Register columns.
+  const { terms, termById } = useTerms(profile.schoolId);
 
   // Default the active subject to the first one once departments load.
   useEffect(() => {
@@ -251,22 +255,6 @@ function App() {
     });
   };
 
-  // Sets the exact bookmark selection for a grouped Fall/Spring course.
-  const applyGroupBookmark = (
-    fallId: string,
-    springId: string,
-    selection: "fall" | "spring" | "both" | "clear",
-  ) => {
-    setBookmarks((prev) => {
-      const next = new Set(prev);
-      next.delete(fallId);
-      next.delete(springId);
-      if (selection === "fall" || selection === "both") next.add(fallId);
-      if (selection === "spring" || selection === "both") next.add(springId);
-      return next;
-    });
-  };
-
   if (!onboarded) {
     return (
       <div className="flex h-screen flex-col overflow-hidden font-sans">
@@ -291,21 +279,22 @@ function App() {
           <Sidebar
             courses={courses}
             subjects={subjects}
+            termById={termById}
             bookmarks={bookmarks}
             onToggleBookmark={toggleBookmark}
-            onApplyGroupBookmark={applyGroupBookmark}
             activeSubject={activeSubject}
             onSelectSubject={setActiveSubject}
           />
           <CourseBrowser
             courses={courses}
             subjects={subjects}
+            terms={terms}
+            termById={termById}
             loading={coursesLoading}
             error={coursesError}
             profile={profile}
             bookmarks={bookmarks}
             onToggleBookmark={toggleBookmark}
-            onApplyGroupBookmark={applyGroupBookmark}
             onUpdateCourseNote={updateCourseNote}
             activeSubject={activeSubject}
             onActiveSubjectChange={setActiveSubject}
@@ -329,6 +318,8 @@ function App() {
         <RegisterPage
           courses={courses}
           subjects={subjects}
+          terms={terms}
+          termById={termById}
           profile={profile}
           bookmarks={bookmarks}
           studentId={studentId}

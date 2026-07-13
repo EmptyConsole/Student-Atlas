@@ -6,14 +6,20 @@ import type { CourseCompletion } from "../hooks/useProfile";
 import {
   matchesFilters,
   type Filters,
+  type Term,
 } from "../data/courses";
-import { repCourse, type DisplayCourse } from "../utils/courseGrouping";
+import {
+  offeringsOf,
+  repCourse,
+  type DisplayCourse,
+} from "../utils/courseGrouping";
 import CourseCard, { type BookmarkControl } from "./CourseCard";
 
 type SubjectSectionProps = {
   subject: Subject;
   items: DisplayCourse[];
   filters: Filters;
+  termById: Map<string, Term>;
   completedCourses: Record<string, CourseCompletion | null>;
   expandedId: string | null;
   bookmarks: Set<string>;
@@ -21,11 +27,6 @@ type SubjectSectionProps = {
   collapseResetKey: string;
   onToggleExpand: (id: string) => void;
   onToggleBookmark: (id: string) => void;
-  onApplyGroupBookmark: (
-    fallId: string,
-    springId: string,
-    selection: "fall" | "spring" | "both" | "clear",
-  ) => void;
   onUpdateCourseNote: (courseId: string, note: string) => void;
 };
 
@@ -33,6 +34,7 @@ function SubjectSection({
   subject,
   items,
   filters,
+  termById,
   completedCourses,
   expandedId,
   bookmarks,
@@ -40,7 +42,6 @@ function SubjectSection({
   collapseResetKey,
   onToggleExpand,
   onToggleBookmark,
-  onApplyGroupBookmark,
   onUpdateCourseNote,
 }: SubjectSectionProps) {
   const [collapsed, setCollapsed] = useState(false);
@@ -129,21 +130,22 @@ function SubjectSection({
               <AnimatePresence initial={false}>
                 {ordered.map(({ item, passes }) => {
                   const course = repCourse(item);
-                  // Grouped cards key notes on the fall UUID so they persist.
+                  // Grouped cards key notes on the first offering's UUID so
+                  // they persist across renders.
                   const noteId =
-                    item.kind === "group" ? item.fallId : course.id;
+                    item.kind === "group"
+                      ? item.offerings[0].courseId
+                      : course.id;
                   const bookmark: BookmarkControl =
                     item.kind === "group"
                       ? {
                           kind: "group",
-                          fall: bookmarks.has(item.fallId),
-                          spring: bookmarks.has(item.springId),
-                          onSelect: (selection) =>
-                            onApplyGroupBookmark(
-                              item.fallId,
-                              item.springId,
-                              selection,
-                            ),
+                          offerings: item.offerings.map((o) => ({
+                            courseId: o.courseId,
+                            termOptions: o.termOptions,
+                            bookmarked: bookmarks.has(o.courseId),
+                          })),
+                          onToggle: onToggleBookmark,
                         }
                       : {
                           kind: "single",
@@ -155,6 +157,8 @@ function SubjectSection({
                       key={course.id}
                       course={course}
                       subject={subject}
+                      offerings={offeringsOf(item)}
+                      termById={termById}
                       dimmed={!passes}
                       expanded={expandedId === course.id}
                       bookmark={bookmark}

@@ -19,7 +19,7 @@ export function useSchoolRankings(schoolId: string | null) {
       return;
     }
 
-    async function fetchRankings() {
+    async function fetchRankings(schoolId: string) {
       try {
         setLoading(true);
 
@@ -51,7 +51,7 @@ export function useSchoolRankings(schoolId: string | null) {
       }
     }
 
-    void fetchRankings();
+    void fetchRankings(schoolId);
 
     return () => {
       isMounted = false;

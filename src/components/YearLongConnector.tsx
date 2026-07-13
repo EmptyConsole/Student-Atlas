@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Subject } from "../data/subjects";
 
-type ConnectorPoint = {
+type Segment = {
   x1: number;
   y1: number;
   x2: number;
@@ -10,6 +10,8 @@ type ConnectorPoint = {
 
 type YearLongConnectorProps = {
   courseId: string;
+  /** Ordered term-column ids this course spans (2 or more). */
+  columnKeys: string[];
   containerEl: HTMLDivElement | null;
   subject: Subject;
   layoutKey: string;
@@ -17,51 +19,62 @@ type YearLongConnectorProps = {
 
 function findRowEl(
   containerEl: HTMLDivElement,
-  column: "fall" | "spring",
+  columnKey: string,
   courseId: string,
 ): HTMLElement | null {
   return containerEl.querySelector(
-    `[data-ranking-column="${column}"] [data-course-id="${courseId}"]`,
+    `[data-ranking-column="${columnKey}"] [data-course-id="${courseId}"]`,
   );
 }
 
+/**
+ * Draws dashed connectors between a spanning course's aligned rows across each
+ * pair of adjacent term columns it belongs to.
+ */
 function YearLongConnector({
   courseId,
+  columnKeys,
   containerEl,
   subject,
   layoutKey,
 }: YearLongConnectorProps) {
-  const [point, setPoint] = useState<ConnectorPoint | null>(null);
+  const [segments, setSegments] = useState<Segment[]>([]);
   const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!containerEl) {
-      setPoint(null);
+    if (!containerEl || columnKeys.length < 2) {
+      setSegments([]);
       return;
     }
 
     const measure = () => {
-      const fallRow = findRowEl(containerEl, "fall", courseId);
-      const springRow = findRowEl(containerEl, "spring", courseId);
-      if (!fallRow || !springRow) {
-        setPoint(null);
-        return;
+      const containerRect = containerEl.getBoundingClientRect();
+      const next: Segment[] = [];
+
+      for (let i = 0; i < columnKeys.length - 1; i += 1) {
+        const leftRow = findRowEl(containerEl, columnKeys[i], courseId);
+        const rightRow = findRowEl(containerEl, columnKeys[i + 1], courseId);
+        if (!leftRow || !rightRow) continue;
+
+        const leftRect = leftRow.getBoundingClientRect();
+        const rightRect = rightRow.getBoundingClientRect();
+        const y =
+          (leftRect.top +
+            leftRect.height / 2 +
+            rightRect.top +
+            rightRect.height / 2) /
+            2 -
+          containerRect.top;
+
+        next.push({
+          x1: leftRect.right - containerRect.left,
+          y1: y,
+          x2: rightRect.left - containerRect.left,
+          y2: y,
+        });
       }
 
-      const containerRect = containerEl.getBoundingClientRect();
-      const fallRect = fallRow.getBoundingClientRect();
-      const springRect = springRow.getBoundingClientRect();
-
-      const y1 = fallRect.top + fallRect.height / 2 - containerRect.top;
-      const y2 = springRect.top + springRect.height / 2 - containerRect.top;
-      const y = (y1 + y2) / 2;
-
-      setPoint({
-        x1: fallRect.right - containerRect.left,
-        y1: y,
-        x2: springRect.left - containerRect.left,
-        y2: y,
-      });
+      setSegments(next);
     };
 
     const loop = () => {
@@ -81,27 +94,29 @@ function YearLongConnector({
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure, true);
     };
-  }, [courseId, containerEl, layoutKey]);
+  }, [courseId, columnKeys, containerEl, layoutKey]);
 
-  if (!point) return null;
-
-  const path = `M ${point.x1} ${point.y1} L ${point.x2} ${point.y2}`;
+  if (segments.length === 0) return null;
 
   return (
     <svg
       className="pointer-events-none absolute inset-0 z-[2] overflow-visible"
       aria-hidden="true"
     >
-      <path
-        d={path}
-        fill="none"
-        stroke={subject.accent}
-        strokeWidth={2}
-        strokeDasharray="6 4"
-        opacity={0.75}
-      />
-      <circle cx={point.x1} cy={point.y1} r={4} fill={subject.accent} />
-      <circle cx={point.x2} cy={point.y2} r={4} fill={subject.accent} />
+      {segments.map((point, index) => (
+        <g key={index}>
+          <path
+            d={`M ${point.x1} ${point.y1} L ${point.x2} ${point.y2}`}
+            fill="none"
+            stroke={subject.accent}
+            strokeWidth={2}
+            strokeDasharray="6 4"
+            opacity={0.75}
+          />
+          <circle cx={point.x1} cy={point.y1} r={4} fill={subject.accent} />
+          <circle cx={point.x2} cy={point.y2} r={4} fill={subject.accent} />
+        </g>
+      ))}
     </svg>
   );
 }

@@ -2,12 +2,14 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 import type { Subject } from "../data/subjects";
-import { repCourse, type DisplayCourse } from "../utils/courseGrouping";
+import type { Term } from "../data/courses";
+import { offeringsOf, repCourse, type DisplayCourse } from "../utils/courseGrouping";
 import TeacherCourseCard from "./TeacherCourseCard";
 
 type TeacherSubjectSectionProps = {
   subject: Subject;
   items: DisplayCourse[];
+  termById: Map<string, Term>;
   expandedId: string | null;
   /** When false, the department edit/delete controls are hidden (ungrouped courses). */
   editable?: boolean;
@@ -21,6 +23,7 @@ type TeacherSubjectSectionProps = {
 function TeacherSubjectSection({
   subject,
   items,
+  termById,
   expandedId,
   editable = true,
   onToggleExpand,
@@ -118,6 +121,8 @@ function TeacherSubjectSection({
                       key={course.id}
                       course={course}
                       subject={subject}
+                      offerings={offeringsOf(item)}
+                      termById={termById}
                       expanded={expandedId === course.id}
                       onToggleExpand={() => onToggleExpand(course.id)}
                       onEdit={() => onEditCourse(item)}

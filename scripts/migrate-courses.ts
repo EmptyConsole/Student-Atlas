@@ -115,45 +115,39 @@ async function getOrCreateTerms(schoolId: string) {
   const currentYear = new Date().getFullYear();
 
   const terms = [
-    { season: "fall", name: "Fall", year: currentYear },
-    { season: "spring", name: "Spring", year: currentYear + 1 },
-    { season: "both", name: "Fall & Spring", year: currentYear },
-    { season: "all-year", name: "All Year", year: currentYear },
+    { key: "fall", name: `Fall ${currentYear}`, position: 0 },
+    { key: "spring", name: `Spring ${currentYear + 1}`, position: 1 },
   ];
 
   console.log(`\nCreating terms...`);
 
   for (const termDef of terms) {
-    // Check if term already exists
     const { data: existingTerm, error: fetchError } = await supabase
       .from("terms")
       .select("id")
       .eq("school_id", schoolId)
-      .eq("season", termDef.season)
-      .eq("year", termDef.year)
+      .eq("name", termDef.name)
       .limit(1);
 
     if (fetchError) {
-      console.error(`Error fetching term ${termDef.season}:`, fetchError);
+      console.error(`Error fetching term ${termDef.key}:`, fetchError);
       throw fetchError;
     }
 
     if (existingTerm && existingTerm.length > 0) {
       console.log(
-        `Term already exists: ${termDef.name} ${termDef.year} (${existingTerm[0].id})`
+        `Term already exists: ${termDef.name} (${existingTerm[0].id})`,
       );
-      termMap.set(termDef.season, existingTerm[0].id);
+      termMap.set(termDef.key, existingTerm[0].id);
       continue;
     }
 
-    // Create new term
     const { data: newTerm, error: insertError } = await supabase
       .from("terms")
       .insert({
         school_id: schoolId,
-        name: `${termDef.name} ${termDef.year}`,
-        season: termDef.season,
-        year: termDef.year,
+        name: termDef.name,
+        position: termDef.position,
         start_date: null,
         end_date: null,
       })
@@ -161,14 +155,12 @@ async function getOrCreateTerms(schoolId: string) {
       .single();
 
     if (insertError) {
-      console.error(`Error creating term ${termDef.season}:`, insertError);
+      console.error(`Error creating term ${termDef.key}:`, insertError);
       throw insertError;
     }
 
-    console.log(
-      `Created term: ${termDef.name} ${termDef.year} (${newTerm.id})`
-    );
-    termMap.set(termDef.season, newTerm.id);
+    console.log(`Created term: ${termDef.name} (${newTerm.id})`);
+    termMap.set(termDef.key, newTerm.id);
   }
 
   return termMap;
@@ -243,9 +235,13 @@ async function migrateCourses() {
       // Get or create the teacher
       const teacherId = await getOrCreateTeacher(schoolId, course.teacher);
 
-      // Get department and term IDs
+      // Get department and term IDs. `termOptions` holds pseudo term keys
+      // (e.g. "fall") that map to real term ids via termMap.
       const departmentId = departmentMap.get(course.subject);
-      const termId = termMap.get(course.term);
+      const termOptionIds = course.termOptions
+        .map((key) => termMap.get(key))
+        .filter((id): id is string => Boolean(id));
+      const termId = termOptionIds[0];
 
       // Check if course already exists
       const { data: existingCourse, error: fetchError } = await supabase
@@ -278,7 +274,8 @@ async function migrateCourses() {
           short_description: course.shortDescription,
           long_description: course.longDescription,
           grade: course.grades,
-          term: course.term,
+          term: "",
+          term_options: termOptionIds,
           teacher_id: teacherId,
           department_id: departmentId || null,
           term_id: termId || null,

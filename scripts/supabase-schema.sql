@@ -18,11 +18,11 @@ CREATE TABLE public.courses (
   short_description text NOT NULL,
   long_description text NOT NULL,
   grade ARRAY NOT NULL,
-  term text NOT NULL,
+  term text NOT NULL, -- legacy: superseded by term_options; kept for back-compat, no longer read/written by the frontend
   subject text NOT NULL,
   school_id uuid NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
-  term_id uuid,
+  term_id uuid, -- legacy: superseded by term_options; kept for back-compat
   teacher_id uuid,
   department_id uuid,
   retakeable boolean NOT NULL DEFAULT false,
@@ -33,6 +33,7 @@ CREATE TABLE public.courses (
   prereq_options ARRAY,
   coreq_options ARRAY,
   max_student_count smallint NOT NULL DEFAULT '-1'::smallint,
+  term_options ARRAY, -- array of terms.id uuids; the source of truth for a course's term(s)
   CONSTRAINT courses_pkey PRIMARY KEY (id),
   CONSTRAINT courses_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
   CONSTRAINT courses_term_id_fkey FOREIGN KEY (term_id) REFERENCES public.terms(id),
@@ -121,10 +122,9 @@ CREATE TABLE public.terms (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   school_id uuid NOT NULL,
   name text NOT NULL,
-  season text NOT NULL,
-  year smallint NOT NULL,
   start_date date,
   end_date date,
+  position smallint,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT terms_pkey PRIMARY KEY (id),
   CONSTRAINT terms_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)

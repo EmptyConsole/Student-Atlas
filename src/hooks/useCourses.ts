@@ -130,11 +130,9 @@ export function useCourses(schoolId: string | null, reloadKey?: number) {
               teacher,
               maxStudentCount: supabaseCourse.max_student_count ?? -1,
               retakeable: supabaseCourse.retakeable ?? false,
-              term: supabaseCourse.term as
-                | "fall"
-                | "spring"
-                | "both"
-                | "all-year",
+              termOptions: Array.isArray(supabaseCourse.term_options)
+                ? supabaseCourse.term_options
+                : [],
               shortDescription: supabaseCourse.short_description,
               longDescription: supabaseCourse.long_description,
             };

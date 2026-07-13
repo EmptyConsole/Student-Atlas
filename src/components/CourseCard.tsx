@@ -7,29 +7,37 @@ import {
   formatGrades,
   formatMaxStudentCount,
   formatRequirementOptions,
-  TERM_COLORS,
-  TERM_LABELS,
   type Course,
+  type Term,
 } from "../data/courses";
-import SplitBookmark, { type SplitBookmarkState } from "./SplitBookmark";
 import CourseRequirements from "./CourseRequirements";
+import TermBadges from "./TermBadges";
+
+/** One selectable offering in a grouped course's bookmark popup. */
+export type BookmarkOffering = {
+  courseId: string;
+  termOptions: string[];
+  bookmarked: boolean;
+};
 
 /**
- * Bookmark behavior for a card. `single` is a plain toggle; `group` exposes the
- * Fall/Spring/Both selection popup for merged courses.
+ * Bookmark behavior for a card. `single` is a plain toggle; `group` exposes a
+ * popup that lets the student bookmark any subset of the course's offerings.
  */
 export type BookmarkControl =
   | { kind: "single"; bookmarked: boolean; onToggle: () => void }
   | {
       kind: "group";
-      fall: boolean;
-      spring: boolean;
-      onSelect: (selection: "fall" | "spring" | "both" | "clear") => void;
+      offerings: BookmarkOffering[];
+      onToggle: (courseId: string) => void;
     };
 
 type CourseCardProps = {
   course: Course;
   subject: Subject;
+  /** Term-id arrays for each offering-row, for the term badges. */
+  offerings: string[][];
+  termById: Map<string, Term>;
   dimmed: boolean;
   expanded: boolean;
   bookmark: BookmarkControl;
@@ -58,27 +66,31 @@ function MetaBadge({
 }
 
 function GroupBookmarkButton({
-  fall,
-  spring,
+  offerings,
   accent,
-  onSelect,
+  termById,
+  onToggle,
 }: {
-  fall: boolean;
-  spring: boolean;
+  offerings: BookmarkOffering[];
   accent: string;
-  onSelect: (selection: "fall" | "spring" | "both" | "clear") => void;
+  termById: Map<string, Term>;
+  onToggle: (courseId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  // Fixed-position anchor (escapes the card's overflow-hidden via a portal).
   const [coords, setCoords] = useState<{ top: number; right: number } | null>(
     null,
   );
 
-  const current: SplitBookmarkState =
-    fall && spring ? "both" : fall ? "fall" : spring ? "spring" : "none";
+  const bookmarkedCount = offerings.filter((o) => o.bookmarked).length;
+  const fillState =
+    bookmarkedCount === 0
+      ? "none"
+      : bookmarkedCount === offerings.length
+        ? "all"
+        : "partial";
 
   useEffect(() => {
     if (!open) return;
@@ -86,10 +98,7 @@ function GroupBookmarkButton({
     const updateCoords = () => {
       const rect = buttonRef.current?.getBoundingClientRect();
       if (rect) {
-        setCoords({
-          top: rect.top,
-          right: window.innerWidth - rect.right,
-        });
+        setCoords({ top: rect.top, right: window.innerWidth - rect.right });
       }
     };
     updateCoords();
@@ -118,37 +127,6 @@ function GroupBookmarkButton({
     };
   }, [open]);
 
-  const choose = (option: "fall" | "spring" | "both") => {
-    // Fall/Spring toggle their own term additively (fall + spring -> both);
-    // Both selects everything, or clears when already both.
-    let nextFall = fall;
-    let nextSpring = spring;
-    if (option === "fall") nextFall = !fall;
-    else if (option === "spring") nextSpring = !spring;
-    else {
-      const makeBoth = !(fall && spring);
-      nextFall = makeBoth;
-      nextSpring = makeBoth;
-    }
-
-    const selection =
-      nextFall && nextSpring
-        ? "both"
-        : nextFall
-          ? "fall"
-          : nextSpring
-            ? "spring"
-            : "clear";
-    onSelect(selection);
-    setOpen(false);
-  };
-
-  const options: { id: "fall" | "spring" | "both"; label: string }[] = [
-    { id: "fall", label: "Fall" },
-    { id: "spring", label: "Spring" },
-    { id: "both", label: "Both" },
-  ];
-
   return (
     <div ref={containerRef} className="relative">
       <button
@@ -156,7 +134,7 @@ function GroupBookmarkButton({
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Choose terms to bookmark"
+        aria-label="Choose offerings to bookmark"
         onClick={(e) => {
           e.stopPropagation();
           setOpen((o) => !o);
@@ -164,7 +142,11 @@ function GroupBookmarkButton({
         className="cursor-pointer rounded-full p-1.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
         style={{ color: accent }}
       >
-        <SplitBookmark state={current} color={accent} size={20} />
+        <Bookmark
+          className="h-5 w-5"
+          fill={fillState === "none" ? "none" : accent}
+          style={{ opacity: fillState === "partial" ? 0.5 : 1 }}
+        />
       </button>
 
       {open &&
@@ -182,33 +164,27 @@ function GroupBookmarkButton({
               transform: "translateY(calc(-100% - 0.5rem))",
             }}
           >
-            {options.map((option) => {
-              const active =
-                option.id === "fall"
-                  ? fall
-                  : option.id === "spring"
-                    ? spring
-                    : fall && spring;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={active}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    choose(option.id);
-                  }}
-                  className="cursor-pointer rounded-lg px-3 py-1.5 text-left text-sm font-semibold whitespace-nowrap transition-colors hover:opacity-90"
-                  style={{
-                    backgroundColor: active ? accent : "transparent",
-                    color: active ? "#ffffff" : accent,
-                  }}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
+            {offerings.map((offering) => (
+              <button
+                key={offering.courseId}
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={offering.bookmarked}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggle(offering.courseId);
+                }}
+                className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-left transition-colors hover:opacity-90"
+                style={{
+                  backgroundColor: offering.bookmarked ? accent : "transparent",
+                }}
+              >
+                <TermBadges
+                  offerings={[offering.termOptions]}
+                  termById={termById}
+                />
+              </button>
+            ))}
           </div>,
           document.body,
         )}
@@ -219,6 +195,8 @@ function GroupBookmarkButton({
 function CourseCard({
   course,
   subject,
+  offerings,
+  termById,
   dimmed,
   expanded,
   bookmark,
@@ -226,7 +204,6 @@ function CourseCard({
   onToggleExpand,
   onNoteChange,
 }: CourseCardProps) {
-  const term = TERM_COLORS[course.term];
   const hasNote = note.trim().length > 0;
   const prereqLabel = formatRequirementOptions(course.prereqOptions);
   const coreqLabel = formatRequirementOptions(course.coreqOptions);
@@ -297,11 +274,7 @@ function CourseCard({
                   fg={subject.accent}
                 />
               )}
-              <MetaBadge
-                label={TERM_LABELS[course.term]}
-                bg={term.bg}
-                fg={term.fg}
-              />
+              <TermBadges offerings={offerings} termById={termById} />
             </div>
 
             {bookmark.kind === "single" ? (
@@ -325,10 +298,10 @@ function CourseCard({
               </button>
             ) : (
               <GroupBookmarkButton
-                fall={bookmark.fall}
-                spring={bookmark.spring}
+                offerings={bookmark.offerings}
                 accent={subject.accent}
-                onSelect={bookmark.onSelect}
+                termById={termById}
+                onToggle={bookmark.onToggle}
               />
             )}
           </div>
@@ -353,11 +326,7 @@ function CourseCard({
             bg={subject.color}
             fg={subject.accent}
           />
-          <MetaBadge
-            label={TERM_LABELS[course.term]}
-            bg={term.bg}
-            fg={term.fg}
-          />
+          <TermBadges offerings={offerings} termById={termById} />
         </div>
 
         {expanded && (
