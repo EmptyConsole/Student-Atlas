@@ -5,19 +5,28 @@ type TermBadgesProps = {
   offerings: string[][];
   termById: Map<string, Term>;
   className?: string;
+  /** When false, badges stay on one line (for clipping / marquee). Default true. */
+  wrap?: boolean;
 };
 
 /**
  * Renders a course's term(s) as colored badges. Terms within one offering are
  * separated by "+"; multiple offerings are separated by "/".
  */
-function TermBadges({ offerings, termById, className }: TermBadgesProps) {
+function TermBadges({
+  offerings,
+  termById,
+  className,
+  wrap = true,
+}: TermBadgesProps) {
   const valid = offerings.filter((o) => o.length > 0);
   if (valid.length === 0) return null;
 
   return (
     <span
-      className={`inline-flex flex-wrap items-center gap-1.5 ${className ?? ""}`}
+      className={`inline-flex items-center gap-1.5 ${
+        wrap ? "flex-wrap" : "flex-nowrap"
+      } ${className ?? ""}`}
     >
       {valid.map((offering, index) => (
         <span key={index} className="inline-flex items-center gap-1.5">

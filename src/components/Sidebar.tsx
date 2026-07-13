@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Bookmark } from "lucide-react";
 import { REQUIREMENTS_KEY, type Subject } from "../data/subjects";
@@ -6,11 +6,11 @@ import type { Course, Term } from "../data/courses";
 import {
   buildDisplayCourses,
   repCourse,
-  type Offering,
 } from "../utils/courseGrouping";
-import MarqueeText from "./MarqueeText";
+import MarqueeText, { Marquee } from "./MarqueeText";
 import RequirementsBookmark from "./RequirementsBookmark";
 import SubjectBookmark from "./SubjectBookmark";
+import TermBadges from "./TermBadges";
 
 type SidebarProps = {
   courses: Course[];
@@ -25,8 +25,8 @@ type SidebarProps = {
 type BookmarkEntry = {
   scrollId: string;
   title: string;
-  /** Shown for multi-row courses; lists bookmarked offering term(s). */
-  termLabel?: string;
+  /** Bookmarked offering rows for multi-row courses (term badges). */
+  offerings?: string[][];
   subject: string;
   onRemove: () => void;
 };
@@ -41,25 +41,58 @@ function offeringSortKey(
   return positions[0] ?? 999;
 }
 
-function termNamesForOffering(
-  termOptions: string[],
-  termById: Map<string, Term>,
-): string {
-  return termOptions
-    .map((id) => termById.get(id)?.name ?? "?")
-    .join(" + ");
-}
+function BookmarkRow({
+  entry,
+  accent,
+  termById,
+  onSelect,
+}: {
+  entry: BookmarkEntry;
+  accent: string;
+  termById: Map<string, Term>;
+  onSelect: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
 
-/** Label for bookmarked rows of a grouped course, e.g. "Trimester 2" or "T1 / T3". */
-function bookmarkedTermLabel(
-  offerings: Offering[],
-  bookmarks: Set<string>,
-  termById: Map<string, Term>,
-): string {
-  return offerings
-    .filter((o) => bookmarks.has(o.courseId))
-    .map((o) => termNamesForOffering(o.termOptions, termById))
-    .join(" / ");
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="flex w-full items-start gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-white/60"
+    >
+      <button
+        type="button"
+        onClick={entry.onRemove}
+        aria-label={`Remove ${entry.title} bookmark`}
+        className="mt-0.5 shrink-0 cursor-pointer rounded p-0.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
+        style={{ color: accent }}
+      >
+        <Bookmark className="h-3.5 w-3.5" fill={accent} />
+      </button>
+      <button
+        type="button"
+        onClick={onSelect}
+        className="min-w-0 flex-1 cursor-pointer text-left focus:outline-none focus-visible:ring-2"
+        style={{ color: accent }}
+      >
+        <MarqueeText
+          text={entry.title}
+          active={hovered}
+          className="text-xs font-medium"
+        />
+        {entry.offerings && entry.offerings.length > 0 && (
+          <Marquee active={hovered} className="mt-0.5">
+            <TermBadges
+              offerings={entry.offerings}
+              termById={termById}
+              wrap={false}
+              className="scale-90 origin-left"
+            />
+          </Marquee>
+        )}
+      </button>
+    </div>
+  );
 }
 
 function Sidebar({
@@ -86,24 +119,19 @@ function Sidebar({
             offeringSortKey(a.termOptions, termById) -
             offeringSortKey(b.termOptions, termById),
         );
-        if (!sortedOfferings.some((o) => bookmarks.has(o.courseId))) continue;
-
-        const termLabel = bookmarkedTermLabel(
-          sortedOfferings,
-          bookmarks,
-          termById,
+        const bookmarkedOfferings = sortedOfferings.filter((o) =>
+          bookmarks.has(o.courseId),
         );
+        if (bookmarkedOfferings.length === 0) continue;
 
         map.get(course.subject)?.push({
           scrollId: course.id,
           title: course.title,
-          termLabel,
+          offerings: bookmarkedOfferings.map((o) => o.termOptions),
           subject: course.subject,
           onRemove: () => {
-            for (const offering of sortedOfferings) {
-              if (bookmarks.has(offering.courseId)) {
-                onToggleBookmark(offering.courseId);
-              }
+            for (const offering of bookmarkedOfferings) {
+              onToggleBookmark(offering.courseId);
             }
           },
         });
@@ -208,42 +236,17 @@ function Sidebar({
                             }}
                             className="flex items-center gap-1.5"
                           >
-                            <div className="flex w-full items-start gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-white/60">
-                              <button
-                                type="button"
-                                onClick={entry.onRemove}
-                                aria-label={`Remove ${entry.title} bookmark`}
-                                className="mt-0.5 shrink-0 cursor-pointer rounded p-0.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
-                                style={{ color: subject.accent }}
-                              >
-                                <Bookmark
-                                  className="h-3.5 w-3.5"
-                                  fill={subject.accent}
-                                />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleBookmarkSelect(
-                                    entry.scrollId,
-                                    subject.name,
-                                  )
-                                }
-                                className="min-w-0 flex-1 cursor-pointer text-left focus:outline-none focus-visible:ring-2"
-                                style={{ color: subject.accent }}
-                              >
-                                <MarqueeText
-                                  text={entry.title}
-                                  className="text-xs font-medium"
-                                />
-                                {entry.termLabel && (
-                                  <MarqueeText
-                                    text={entry.termLabel}
-                                    className="text-[10px] font-medium opacity-70"
-                                  />
-                                )}
-                              </button>
-                            </div>
+                            <BookmarkRow
+                              entry={entry}
+                              accent={subject.accent}
+                              termById={termById}
+                              onSelect={() =>
+                                handleBookmarkSelect(
+                                  entry.scrollId,
+                                  subject.name,
+                                )
+                              }
+                            />
                           </motion.li>
                         ))}
                       </AnimatePresence>

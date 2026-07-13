@@ -11,6 +11,7 @@ import {
   type Term,
 } from "../data/courses";
 import CourseRequirements from "./CourseRequirements";
+import MarqueeText from "./MarqueeText";
 import TermBadges from "./TermBadges";
 
 /** One selectable offering in a grouped course's bookmark popup. */
@@ -50,17 +51,31 @@ function MetaBadge({
   label,
   bg,
   fg,
+  /** Cap width; marquee when `marqueeActive`, otherwise truncate. */
+  capped = false,
+  marqueeActive = false,
 }: {
   label: string;
   bg: string;
   fg: string;
+  capped?: boolean;
+  marqueeActive?: boolean;
 }) {
   return (
     <span
-      className="rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap"
+      title={capped && !marqueeActive ? label : undefined}
+      className={
+        capped
+          ? "inline-block max-w-[28rem] overflow-hidden rounded-full px-2.5 py-0.5 text-xs font-semibold"
+          : "rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap"
+      }
       style={{ backgroundColor: bg, color: fg }}
     >
-      {label}
+      {capped ? (
+        <MarqueeText text={label} active={marqueeActive} />
+      ) : (
+        label
+      )}
     </span>
   );
 }
@@ -207,12 +222,15 @@ function CourseCard({
   const hasNote = note.trim().length > 0;
   const prereqLabel = formatRequirementOptions(course.prereqOptions);
   const coreqLabel = formatRequirementOptions(course.coreqOptions);
+  const [hovered, setHovered] = useState(false);
 
   return (
     <motion.div
       id={`course-${course.id}`}
       layout
       transition={{ type: "spring", stiffness: 350, damping: 32 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       className={`scroll-mt-4 overflow-hidden rounded-2xl border shadow-sm transition-opacity duration-300 ${
         dimmed ? "opacity-45" : "opacity-100"
       }`}
@@ -237,7 +255,7 @@ function CourseCard({
         style={{ outlineColor: subject.accent }}
       >
         <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <ChevronDown
               className="h-5 w-5 shrink-0 transition-transform duration-200"
               style={{
@@ -246,10 +264,14 @@ function CourseCard({
               }}
             />
             <h3
-              className="truncate text-xl leading-tight font-bold"
+              className="min-w-0 flex-1"
               style={{ color: subject.accent }}
             >
-              {course.title}
+              <MarqueeText
+                text={course.title}
+                active={hovered}
+                className="text-xl leading-tight font-bold"
+              />
             </h3>
           </div>
 
@@ -265,6 +287,8 @@ function CourseCard({
                   label={`Prereq: ${prereqLabel}`}
                   bg="#ffffff"
                   fg={subject.accent}
+                  capped
+                  marqueeActive={hovered}
                 />
               )}
               {coreqLabel && (
@@ -272,6 +296,8 @@ function CourseCard({
                   label={`Coreq: ${coreqLabel}`}
                   bg="#ffffff"
                   fg={subject.accent}
+                  capped
+                  marqueeActive={hovered}
                 />
               )}
               <TermBadges offerings={offerings} termById={termById} />
