@@ -23,6 +23,5 @@
   "include": ["vite.config.ts",
   "vite.local-api.ts",
   "scripts/**/*.ts",
-  "api/**/*.ts",
-  "server/**/*.ts"]
+  "api/**/*.ts"]
 }

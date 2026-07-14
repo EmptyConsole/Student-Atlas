@@ -1,16 +1,12 @@
 // Vercel serverless function: verify a 6-digit email verification code.
+// Self-contained (no imports outside api/) so Vercel's function bundler includes everything.
 
-import {
-  createServiceClient,
-  hashCode,
-  isPurpose,
-  isValidEmail,
-  json,
-  MAX_ATTEMPTS,
-  missingEmailVerificationEnv,
-  normalizeEmail,
-  type EmailVerificationPurpose,
-} from "../server/emailVerification";
+import { createHash } from "crypto";
+import { createClient } from "@supabase/supabase-js";
+
+const MAX_ATTEMPTS = 5;
+
+type EmailVerificationPurpose = "signup" | "login" | "email_change";
 
 type Payload = {
   email?: string;
@@ -18,23 +14,49 @@ type Payload = {
   code?: string;
 };
 
+function json(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isPurpose(value: unknown): value is EmailVerificationPurpose {
+  return value === "signup" || value === "login" || value === "email_change";
+}
+
+function hashCode(code: string, email: string, purpose: string): string {
+  const pepper =
+    process.env.EMAIL_OTP_PEPPER || process.env.RESEND_API_KEY || "email-otp-pepper";
+  return createHash("sha256")
+    .update(`${pepper}:${purpose}:${email}:${code}`)
+    .digest("hex");
+}
+
 export async function POST(request: Request): Promise<Response> {
-  const missing = missingEmailVerificationEnv().filter(
-    (name) => name !== "RESEND_API_KEY",
-  );
+  const missing: string[] = [];
+  if (!process.env.VITE_SUPABASE_URL) missing.push("VITE_SUPABASE_URL");
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
   if (missing.length > 0) {
     return json(
-      {
-        error: `Server is missing required environment variables: ${missing.join(", ")}`,
-      },
+      { error: `Server is missing required environment variables: ${missing.join(", ")}` },
       500,
     );
   }
 
-  const supabase = createServiceClient();
-  if (!supabase) {
-    return json({ error: "Server is missing required environment variables" }, 500);
-  }
+  const supabaseUrl = (process.env.VITE_SUPABASE_URL ?? "").replace(/\/$/, "");
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const supabase = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   let payload: Payload;
   try {
@@ -46,7 +68,7 @@ export async function POST(request: Request): Promise<Response> {
   if (!isPurpose(payload.purpose)) {
     return json({ error: "Invalid purpose" }, 400);
   }
-  const purpose: EmailVerificationPurpose = payload.purpose;
+  const purpose = payload.purpose;
 
   const email = normalizeEmail(payload.email ?? "");
   if (!email || !isValidEmail(email)) {
