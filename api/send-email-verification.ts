@@ -9,6 +9,7 @@ import {
   isPurpose,
   isValidEmail,
   json,
+  missingEmailVerificationEnv,
   normalizeEmail,
   sendVerificationEmail,
   type EmailVerificationPurpose,
@@ -20,8 +21,18 @@ type Payload = {
 };
 
 export async function POST(request: Request): Promise<Response> {
+  const missing = missingEmailVerificationEnv();
+  if (missing.length > 0) {
+    return json(
+      {
+        error: `Server is missing required environment variables: ${missing.join(", ")}`,
+      },
+      500,
+    );
+  }
+
   const supabase = createServiceClient();
-  if (!supabase || !process.env.RESEND_API_KEY) {
+  if (!supabase) {
     return json({ error: "Server is missing required environment variables" }, 500);
   }
 

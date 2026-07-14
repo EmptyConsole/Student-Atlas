@@ -57,6 +57,15 @@ export function createServiceClient(): SupabaseClient | null {
   });
 }
 
+/** Lists which server env vars are missing for the OTP APIs. */
+export function missingEmailVerificationEnv(): string[] {
+  const missing: string[] = [];
+  if (!process.env.VITE_SUPABASE_URL) missing.push("VITE_SUPABASE_URL");
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+  if (!process.env.RESEND_API_KEY) missing.push("RESEND_API_KEY");
+  return missing;
+}
+
 export function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")

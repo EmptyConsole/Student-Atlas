@@ -21,6 +21,8 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["vite.config.ts",
+  "vite.local-api.ts",
   "scripts/**/*.ts",
-  "api/**/*.ts"]
+  "api/**/*.ts",
+  "server/**/*.ts"]
 }
