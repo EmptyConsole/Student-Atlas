@@ -18,11 +18,11 @@ CREATE TABLE public.courses (
   short_description text NOT NULL,
   long_description text NOT NULL,
   grade ARRAY NOT NULL,
-  term text NOT NULL, -- legacy: superseded by term_options; kept for back-compat, no longer read/written by the frontend
+  term text NOT NULL,
   subject text NOT NULL,
   school_id uuid NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
-  term_id uuid, -- legacy: superseded by term_options; kept for back-compat
+  term_id uuid,
   teacher_id uuid,
   department_id uuid,
   retakeable boolean NOT NULL DEFAULT false,
@@ -33,7 +33,7 @@ CREATE TABLE public.courses (
   prereq_options ARRAY,
   coreq_options ARRAY,
   max_student_count smallint NOT NULL DEFAULT '-1'::smallint,
-  term_options ARRAY, -- array of terms.id uuids; the source of truth for a course's term(s)
+  term_options ARRAY,
   CONSTRAINT courses_pkey PRIMARY KEY (id),
   CONSTRAINT courses_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
   CONSTRAINT courses_term_id_fkey FOREIGN KEY (term_id) REFERENCES public.terms(id),
@@ -124,8 +124,8 @@ CREATE TABLE public.terms (
   name text NOT NULL,
   start_date date,
   end_date date,
-  position smallint,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  position smallint,
   CONSTRAINT terms_pkey PRIMARY KEY (id),
   CONSTRAINT terms_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );
@@ -169,4 +169,15 @@ CREATE TABLE public.submitted_notes (
   note text,
   CONSTRAINT submitted_notes_pkey PRIMARY KEY (id),
   CONSTRAINT submitted_notes_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
+);
+CREATE TABLE public.email_verification_codes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  email text NOT NULL,
+  purpose text NOT NULL CHECK (purpose = ANY (ARRAY['signup'::text, 'login'::text, 'email_change'::text])),
+  code_hash text NOT NULL,
+  attempts smallint NOT NULL DEFAULT 0,
+  expires_at timestamp with time zone NOT NULL,
+  consumed_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT email_verification_codes_pkey PRIMARY KEY (id)
 );
