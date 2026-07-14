@@ -3,7 +3,8 @@ import { type Course, type Term } from "../data/courses";
 import { type Subject } from "../data/subjects";
 import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
 import {
-  loadSubmittedStatus,
+  loadSubmittedCourses,
+  loadSubmittedNotes,
   sendRankingsEmail,
   syncSubmittedCourses,
   syncSubmittedNotes,
@@ -12,6 +13,7 @@ import { useSchoolRankings } from "../hooks/useSchoolRankings";
 import {
   applyReorder,
   buildInitialModel,
+  buildModelFromPreferences,
   columnIds,
   linkedCourseIds,
   linkedIdSet,
@@ -31,7 +33,12 @@ type RegisterPageProps = {
   studentId: string | null;
   onNavigateToProfile?: () => void;
   onToggleBookmark: (courseId: string) => void;
+  onUnsavedChange?: (dirty: boolean) => void;
 };
+
+function snapshotColumns(columns: string[][]): string {
+  return JSON.stringify(columns);
+}
 
 function RegisterPage({
   courses,
@@ -43,6 +50,7 @@ function RegisterPage({
   studentId,
   onNavigateToProfile,
   onToggleBookmark,
+  onUnsavedChange,
 }: RegisterPageProps) {
   const profileComplete = isProfileComplete(profile);
   const grade = profile.grade ?? 9;
@@ -63,11 +71,16 @@ function RegisterPage({
   }
 
   const [appealsNotes, setAppealsNotes] = useState("");
+  const [savedNotes, setSavedNotes] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [hydrated, setHydrated] = useState(!studentId);
+  const [savedEpoch, setSavedEpoch] = useState(0);
+
+  const savedColumnsRef = useRef(snapshotColumns([]));
+  const skipNextDraftSave = useRef(false);
 
   const courseById = useMemo(
     () => new Map(courses.map((course) => [course.id, course])),
@@ -95,6 +108,67 @@ function RegisterPage({
     [model, termIds, requiredRankings],
   );
 
+  const coursesReady = courses.length > 0 && termIds.length > 0;
+
+  // Restore official submitted=true rankings (and note) when opening Register.
+  useEffect(() => {
+    if (!studentId) {
+      setHydrated(true);
+      return;
+    }
+    if (!coursesReady) return;
+
+    let cancelled = false;
+    setHydrated(false);
+
+    void (async () => {
+      const [coursesRes, notesRes] = await Promise.all([
+        loadSubmittedCourses(studentId),
+        loadSubmittedNotes(studentId),
+      ]);
+      if (cancelled) return;
+
+      const preferenceByCourseId = new Map<string, number>();
+      for (const row of coursesRes.rankings) {
+        if (preferenceByCourseId.has(row.course_id)) continue;
+        preferenceByCourseId.set(
+          row.course_id,
+          row.preference ?? Number.MAX_SAFE_INTEGER,
+        );
+      }
+
+      const nextModel =
+        preferenceByCourseId.size > 0
+          ? buildModelFromPreferences(
+              bookmarks,
+              courses,
+              termIds,
+              preferenceByCourseId,
+            )
+          : buildInitialModel(bookmarks, courses, termIds);
+
+      const cols = termIds.map((termId) =>
+        columnIds(nextModel, termId).slice(0, requiredRankings),
+      );
+      const note = notesRes.note ?? "";
+
+      setModel(nextModel);
+      setAppealsNotes(note);
+      setSavedNotes(note);
+      savedColumnsRef.current = snapshotColumns(cols);
+      skipNextDraftSave.current = true;
+      setSavedEpoch((n) => n + 1);
+      setHydrated(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Only re-hydrate when the student/catalog readiness changes — not on every
+    // bookmark tweak (those are merged into the live model instead).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId, coursesReady, requiredRankings, termKey]);
+
   const handleReorder = useCallback(
     (termId: string, newOrder: string[]) => {
       setModel((prev) => applyReorder(prev, termId, newOrder, termIds, linkedSet));
@@ -106,33 +180,52 @@ function RegisterPage({
     // Drag state is tracked inside RankingAlignedGrid for connector updates.
   }, []);
 
-  // Determine initial mode: locked once a submitted=true row exists, otherwise
-  // the page stays in draft mode and auto-saves reorders.
-  useEffect(() => {
-    if (!studentId) return;
-    let cancelled = false;
-    loadSubmittedStatus(studentId).then(({ hasSubmitted: locked }) => {
-      if (!cancelled && locked) setHasSubmitted(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [studentId]);
-
-  // Auto-save the in-progress draft on every reorder while not yet submitted.
+  // Auto-save draft rankings (submitted=false). Leaves any official
+  // submitted=true rows intact until the student confirms submit.
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (hasSubmitted || !studentId) return;
+    if (!hydrated || !studentId) return;
+
+    if (skipNextDraftSave.current) {
+      skipNextDraftSave.current = false;
+      return;
+    }
 
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    const cols = submittedColumns;
     draftTimerRef.current = setTimeout(() => {
-      void syncSubmittedCourses(studentId, submittedColumns, false);
+      void syncSubmittedCourses(studentId, cols, false).then(({ error }) => {
+        if (!error) {
+          savedColumnsRef.current = snapshotColumns(cols);
+          setSavedEpoch((n) => n + 1);
+        }
+      });
     }, 600);
 
     return () => {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     };
-  }, [hasSubmitted, studentId, submittedColumns]);
+  }, [hydrated, studentId, submittedColumns]);
+
+  const columnsDirty =
+    hydrated && snapshotColumns(submittedColumns) !== savedColumnsRef.current;
+  const notesDirty = hydrated && appealsNotes.trim() !== savedNotes.trim();
+  // savedEpoch is bumped after hydrate / draft save / submit so this re-evaluates.
+  const hasUnsaved = savedEpoch >= 0 && (columnsDirty || notesDirty);
+
+  useEffect(() => {
+    onUnsavedChange?.(hasUnsaved);
+  }, [hasUnsaved, onUnsavedChange]);
+
+  useEffect(() => {
+    if (!hasUnsaved) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasUnsaved]);
 
   const handleConfirmSubmit = async () => {
     if (!studentId) {
@@ -145,9 +238,10 @@ function RegisterPage({
     setSubmitError(null);
 
     const noteValue = appealsNotes.trim() || null;
+    const cols = submittedColumns;
 
     const [coursesResult, notesResult] = await Promise.all([
-      syncSubmittedCourses(studentId, submittedColumns, true),
+      syncSubmittedCourses(studentId, cols, true),
       syncSubmittedNotes(studentId, noteValue),
     ]);
 
@@ -166,12 +260,14 @@ function RegisterPage({
       studentId,
       terms.map((term, i) => ({
         termName: term.name,
-        courseIds: submittedColumns[i] ?? [],
+        courseIds: cols[i] ?? [],
       })),
       noteValue,
     );
 
-    setHasSubmitted(true);
+    savedColumnsRef.current = snapshotColumns(cols);
+    setSavedNotes(noteValue ?? "");
+    setSavedEpoch((n) => n + 1);
     setSubmitted(true);
   };
 

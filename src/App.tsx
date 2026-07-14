@@ -4,6 +4,7 @@ import Sidebar from "./components/Sidebar";
 import CourseBrowser from "./components/CourseBrowser";
 import ProfilePage from "./components/ProfilePage";
 import RegisterPage from "./components/RegisterPage";
+import RegisterUnsavedDialog from "./components/RegisterUnsavedDialog";
 import { useProfile, type UserProfile } from "./hooks/useProfile";
 import { useCourses } from "./hooks/useCourses";
 import { useSubjects } from "./hooks/useSubjects";
@@ -70,6 +71,8 @@ function App() {
   const [activeView, setActiveView] = useState<AppView>("courses");
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
   const [activeSubject, setActiveSubject] = useState<string>("");
+  const [registerDirty, setRegisterDirty] = useState(false);
+  const [pendingNav, setPendingNav] = useState<AppView | null>(null);
 
   const {
     profile,
@@ -255,6 +258,14 @@ function App() {
     });
   };
 
+  const handleNavigate = (view: AppView) => {
+    if (activeView === "register" && registerDirty && view !== "register") {
+      setPendingNav(view);
+      return;
+    }
+    setActiveView(view);
+  };
+
   if (!onboarded) {
     return (
       <div className="flex h-screen flex-col overflow-hidden font-sans">
@@ -273,7 +284,7 @@ function App() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden font-sans">
-      <Header activeView={activeView} onNavigate={setActiveView} />
+      <Header activeView={activeView} onNavigate={handleNavigate} />
       {activeView === "courses" && (
         <div className="flex flex-1 overflow-hidden">
           <Sidebar
@@ -324,10 +335,23 @@ function App() {
           profile={profile}
           bookmarks={bookmarks}
           studentId={studentId}
-          onNavigateToProfile={() => setActiveView("profile")}
+          onNavigateToProfile={() => handleNavigate("profile")}
           onToggleBookmark={toggleBookmark}
+          onUnsavedChange={setRegisterDirty}
         />
       )}
+
+      <RegisterUnsavedDialog
+        open={pendingNav !== null}
+        onStay={() => setPendingNav(null)}
+        onLeave={() => {
+          if (pendingNav) {
+            setRegisterDirty(false);
+            setActiveView(pendingNav);
+            setPendingNav(null);
+          }
+        }}
+      />
     </div>
   );
 }

@@ -113,6 +113,49 @@ export function buildInitialModel(
   };
 }
 
+/**
+ * Like {@link buildInitialModel}, but courses present in `preferenceByCourseId`
+ * are ordered by preference (ascending) ahead of unranked bookmarks (title order).
+ * Used to restore an official `submitted_courses` ranking into the register UI.
+ */
+export function buildModelFromPreferences(
+  bookmarks: Set<string>,
+  courses: Course[],
+  termIds: string[],
+  preferenceByCourseId: ReadonlyMap<string, number>,
+): RankingModel {
+  if (preferenceByCourseId.size === 0) {
+    return buildInitialModel(bookmarks, courses, termIds);
+  }
+
+  const eligible = bookmarkedCourses(bookmarks, courses);
+  const linked = linkedIdSet(bookmarks, courses);
+  const orders: Record<string, string[]> = {};
+
+  for (const termId of termIds) {
+    const column = eligible.filter((course) => eligibleForTerm(course, termId));
+    const withPref = column.filter((course) =>
+      preferenceByCourseId.has(course.id),
+    );
+    const withoutPref = column.filter(
+      (course) => !preferenceByCourseId.has(course.id),
+    );
+    withPref.sort(
+      (a, b) =>
+        (preferenceByCourseId.get(a.id) ?? 0) -
+        (preferenceByCourseId.get(b.id) ?? 0),
+    );
+    withoutPref.sort((a, b) => a.title.localeCompare(b.title));
+    orders[termId] = [...withPref, ...withoutPref].map((course) => course.id);
+  }
+
+  return {
+    orders: termIds.length
+      ? syncLinkedAcross(orders, termIds, linked, termIds[0])
+      : orders,
+  };
+}
+
 export function mergeModelWithBookmarks(
   bookmarks: Set<string>,
   prevModel: RankingModel,

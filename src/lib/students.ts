@@ -270,19 +270,76 @@ export async function syncStudentProfile(
 // ---------------------------------------------------------------------------
 
 /**
+ * Loads the student's official rankings (`submitted = true`), ordered by
+ * preference ascending. Used to restore the Register page on open.
+ */
+export async function loadSubmittedCourses(
+  studentId: string,
+): Promise<{
+  rankings: { course_id: string; preference: number | null }[];
+  error?: string;
+}> {
+  const { data, error } = await supabase
+    .from("submitted_courses")
+    .select("course_id, preference")
+    .eq("student_id", studentId)
+    .eq("submitted", true)
+    .order("preference", { ascending: true });
+
+  if (error) {
+    return { rankings: [], error: error.message };
+  }
+
+  return { rankings: data ?? [] };
+}
+
+/**
+ * Loads the student's latest submission note, if any.
+ */
+export async function loadSubmittedNotes(
+  studentId: string,
+): Promise<{ note: string; error?: string }> {
+  const { data, error } = await supabase
+    .from("submitted_notes")
+    .select("note")
+    .eq("student_id", studentId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    return { note: "", error: error.message };
+  }
+
+  return { note: data?.note?.trim() ? data.note : "" };
+}
+
+/**
  * Persists the student's ranked courses. `columnOrders` is one ordered list of
  * course ids per term column; each column's preference numbering restarts at 1,
  * and a course that appears in multiple columns keeps its first occurrence.
+ *
+ * Draft saves (`submitted: false`) replace only draft rows so an official
+ * submitted snapshot can coexist. Final submit (`submitted: true`) deletes all
+ * of the student's rows (draft + prior submitted) then inserts the new official
+ * set.
  */
 export async function syncSubmittedCourses(
   studentId: string,
   columnOrders: string[][],
   submitted: boolean,
 ): Promise<{ error?: string }> {
-  const { error: deleteError } = await supabase
+  let deleteQuery = supabase
     .from("submitted_courses")
     .delete()
     .eq("student_id", studentId);
+
+  // Draft: keep submitted=true rows. Final submit: wipe drafts + old official.
+  if (!submitted) {
+    deleteQuery = deleteQuery.eq("submitted", false);
+  }
+
+  const { error: deleteError } = await deleteQuery;
 
   if (deleteError) {
     return { error: deleteError.message };
@@ -341,27 +398,6 @@ export async function sendRankingsEmail(
   } catch (err) {
     console.error("Failed to send rankings email:", err);
   }
-}
-
-// ---------------------------------------------------------------------------
-// Load submission status → decide draft vs. locked mode on the Register page
-// ---------------------------------------------------------------------------
-
-export async function loadSubmittedStatus(
-  studentId: string,
-): Promise<{ hasSubmitted: boolean; error?: string }> {
-  const { data, error } = await supabase
-    .from("submitted_courses")
-    .select("submitted")
-    .eq("student_id", studentId)
-    .eq("submitted", true)
-    .limit(1);
-
-  if (error) {
-    return { hasSubmitted: false, error: error.message };
-  }
-
-  return { hasSubmitted: (data?.length ?? 0) > 0 };
 }
 
 // ---------------------------------------------------------------------------

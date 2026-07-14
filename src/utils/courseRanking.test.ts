@@ -3,6 +3,7 @@ import type { Course } from "../data/courses";
 import {
   applyReorder,
   buildInitialModel,
+  buildModelFromPreferences,
   columnIds,
   deriveAlignedRows,
   linkedCourseIds,
@@ -51,6 +52,21 @@ describe("buildInitialModel", () => {
     const model = buildInitialModel(bookmarks, COURSES, TERM_IDS);
     expect(model.orders.fall).toEqual(["A1", "f1", "f2"]);
     expect(model.orders.spring).toEqual(["A1", "s1"]);
+  });
+});
+
+describe("buildModelFromPreferences", () => {
+  it("orders bookmarked courses by preference ahead of title-sorted remainder", () => {
+    const bookmarks = new Set(["f2", "f1", "s1", "A1"]);
+    const prefs = new Map<string, number>([
+      ["f2", 1],
+      ["A1", 2],
+      ["s1", 1],
+    ]);
+    const model = buildModelFromPreferences(bookmarks, COURSES, TERM_IDS, prefs);
+    expect(model.orders.fall).toEqual(["f2", "A1", "f1"]);
+    expect(model.orders.spring[0]).toBe("s1");
+    expect(model.orders.spring).toContain("A1");
   });
 });
 
