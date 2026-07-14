@@ -4,6 +4,7 @@ import { type Subject } from "../data/subjects";
 import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
 import {
   loadSubmittedStatus,
+  sendRankingsEmail,
   syncSubmittedCourses,
   syncSubmittedNotes,
 } from "../lib/students";
@@ -158,6 +159,17 @@ function RegisterPage({
       setSubmitError(combinedError);
       return;
     }
+
+    // Email the student a copy of their rankings (non-blocking; the
+    // submission already succeeded even if the email fails).
+    void sendRankingsEmail(
+      studentId,
+      terms.map((term, i) => ({
+        termName: term.name,
+        courseIds: submittedColumns[i] ?? [],
+      })),
+      noteValue,
+    );
 
     setHasSubmitted(true);
     setSubmitted(true);

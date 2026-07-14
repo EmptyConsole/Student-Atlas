@@ -315,6 +315,35 @@ export async function syncSubmittedCourses(
 }
 
 // ---------------------------------------------------------------------------
+// Email the student a copy of their submitted rankings (Vercel fn → Resend)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fire-and-forget confirmation email. `columns` mirrors what was submitted:
+ * one ordered list of course ids per term, with the term's display name.
+ * Failures are logged but never surface to the student — the submission
+ * itself already succeeded.
+ */
+export async function sendRankingsEmail(
+  studentId: string,
+  columns: { termName: string; courseIds: string[] }[],
+  note: string | null,
+): Promise<void> {
+  try {
+    const res = await fetch("/api/send-elective-registration", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId, columns, note }),
+    });
+    if (!res.ok) {
+      console.error("Failed to send rankings email:", await res.text());
+    }
+  } catch (err) {
+    console.error("Failed to send rankings email:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Load submission status → decide draft vs. locked mode on the Register page
 // ---------------------------------------------------------------------------
 
