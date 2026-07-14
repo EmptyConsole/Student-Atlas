@@ -3,8 +3,15 @@ import { GRADE_COLORS, GRADES } from "../data/courses";
 import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
 import { useSchools } from "../hooks/useSchools";
 import { useSchoolPrereqCourses } from "../hooks/useSchoolPrereqCourses";
+import {
+  sendEmailVerification,
+  verifyEmailCode,
+  type EmailVerificationPurpose,
+} from "../lib/students";
 import type { ProfileSection } from "./ProfileSidebar";
 import SchoolPicker from "./SchoolPicker";
+
+const RESEND_COOLDOWN_SEC = 45;
 
 type ProfileContentProps = {
   profile: UserProfile;
@@ -16,6 +23,15 @@ type ProfileContentProps = {
   onLoginByEmail?: (email: string) => Promise<{ error?: string }>;
   hasUnsavedChanges?: boolean;
   onSaveChanges?: () => Promise<{ error?: string }>;
+  /** Saved email from last successful save; used to detect email changes. */
+  savedEmail?: string | null;
+};
+
+type PendingVerification = {
+  purpose: EmailVerificationPurpose;
+  email: string;
+  /** Continues create / login / save after a successful OTP check. */
+  onVerified: () => Promise<{ error?: string }>;
 };
 
 function RequiredFieldLabel({
@@ -109,6 +125,7 @@ function ProfileContent({
   onLoginByEmail,
   hasUnsavedChanges = false,
   onSaveChanges,
+  savedEmail = null,
 }: ProfileContentProps) {
   const { schools, loading: schoolsLoading, error: schoolsError } = useSchools();
   const { courseTitles, loading: prereqLoading } = useSchoolPrereqCourses(
@@ -122,11 +139,102 @@ function ProfileContent({
   const [loggingIn, setLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
+  const [pendingVerification, setPendingVerification] =
+    useState<PendingVerification | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [sendingCode, setSendingCode] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  const clearVerification = () => {
+    setPendingVerification(null);
+    setOtpCode("");
+    setVerifyError(null);
+    setResendCooldown(0);
+    setSendingCode(false);
+    setVerifyingCode(false);
+  };
+
+  const startVerification = async (
+    purpose: EmailVerificationPurpose,
+    email: string,
+    onVerified: () => Promise<{ error?: string }>,
+  ): Promise<{ error?: string }> => {
+    setSendingCode(true);
+    setVerifyError(null);
+    const result = await sendEmailVerification(email, purpose);
+    setSendingCode(false);
+    if (result.error) return { error: result.error };
+
+    setPendingVerification({ purpose, email, onVerified });
+    setOtpCode("");
+    setResendCooldown(RESEND_COOLDOWN_SEC);
+    return {};
+  };
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = window.setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendCooldown]);
+
+  const handleVerifyEmail = async () => {
+    if (!pendingVerification || verifyingCode) return;
+    setVerifyingCode(true);
+    setVerifyError(null);
+
+    const check = await verifyEmailCode(
+      pendingVerification.email,
+      pendingVerification.purpose,
+      otpCode,
+    );
+    if (check.error) {
+      setVerifyError(check.error);
+      setVerifyingCode(false);
+      return;
+    }
+
+    const result = await pendingVerification.onVerified();
+    if (result.error) {
+      setVerifyError(result.error);
+      setVerifyingCode(false);
+      return;
+    }
+
+    const wasEmailChange = pendingVerification.purpose === "email_change";
+    clearVerification();
+    setLoggingIn(false);
+    setSubmitting(false);
+    setSaving(false);
+    if (wasEmailChange) setJustSaved(true);
+  };
+
+  const handleResendCode = async () => {
+    if (!pendingVerification || sendingCode || resendCooldown > 0) return;
+    setSendingCode(true);
+    setVerifyError(null);
+    const result = await sendEmailVerification(
+      pendingVerification.email,
+      pendingVerification.purpose,
+    );
+    setSendingCode(false);
+    if (result.error) {
+      setVerifyError(result.error);
+      return;
+    }
+    setOtpCode("");
+    setResendCooldown(RESEND_COOLDOWN_SEC);
+  };
+
   const handleLoginByEmailSubmit = async () => {
     if (!onLoginByEmail || loggingIn) return;
     setLoggingIn(true);
     setLoginError(null);
-    const result = await onLoginByEmail(loginEmail);
+    const email = loginEmail.trim();
+    const result = await startVerification("login", email, () =>
+      onLoginByEmail(email),
+    );
     if (result.error) {
       setLoginError(result.error);
       setLoggingIn(false);
@@ -151,7 +259,9 @@ function ProfileContent({
     if (!onSubmit || !canSubmit || submitting) return;
     setSubmitting(true);
     setSubmitError(null);
-    const result = await onSubmit();
+    const result = await startVerification("signup", profile.email.trim(), () =>
+      onSubmit(),
+    );
     if (result.error) {
       setSubmitError(result.error);
       setSubmitting(false);
@@ -162,6 +272,23 @@ function ProfileContent({
     if (!onSaveChanges || !hasUnsavedChanges || saving) return;
     setSaving(true);
     setSaveError(null);
+
+    const nextEmail = profile.email.trim();
+    const emailChanged =
+      savedEmail != null &&
+      nextEmail.toLowerCase() !== savedEmail.trim().toLowerCase();
+
+    if (emailChanged) {
+      const result = await startVerification("email_change", nextEmail, () =>
+        onSaveChanges(),
+      );
+      if (result.error) {
+        setSaveError(result.error);
+        setSaving(false);
+      }
+      return;
+    }
+
     const result = await onSaveChanges();
     setSaving(false);
     if (result.error) {
@@ -221,6 +348,93 @@ function ProfileContent({
   const inputClass =
     "h-11 w-full rounded-xl border border-main-400 bg-white px-4 text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500";
 
+  if (pendingVerification) {
+    return (
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pt-6 pb-10">
+        <div className="mx-auto flex max-w-2xl flex-col gap-6">
+          <h2 className="text-2xl font-bold text-gray-800">Verify Email</h2>
+          <p className="text-sm text-gray-600">
+            We sent a 6-digit code to{" "}
+            <span className="font-semibold text-gray-800">
+              {pendingVerification.email}
+            </span>
+            . Enter it below to continue.
+          </p>
+          <div>
+            <label
+              htmlFor="email-otp"
+              className="mb-1.5 block text-sm font-semibold text-gray-700"
+            >
+              Verification code
+            </label>
+            <input
+              id="email-otp"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={otpCode}
+              onChange={(e) =>
+                setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void handleVerifyEmail();
+              }}
+              placeholder="000000"
+              className={`${inputClass} tracking-[0.35em]`}
+              autoFocus
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => void handleVerifyEmail()}
+              disabled={otpCode.length !== 6 || verifyingCode}
+              className={`h-11 w-full rounded-xl text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
+                otpCode.length === 6 && !verifyingCode
+                  ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
+                  : "cursor-not-allowed bg-gray-300"
+              }`}
+            >
+              {verifyingCode ? "Verifying..." : "Verify Email"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleResendCode()}
+              disabled={sendingCode || resendCooldown > 0}
+              className={`h-11 w-full rounded-xl text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
+                !sendingCode && resendCooldown === 0
+                  ? "cursor-pointer border border-main-400 bg-white text-gray-700 hover:bg-main-100"
+                  : "cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400"
+              }`}
+            >
+              {sendingCode
+                ? "Sending..."
+                : resendCooldown > 0
+                  ? `Resend code in ${resendCooldown}s`
+                  : "Resend code"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                clearVerification();
+                setLoggingIn(false);
+                setSubmitting(false);
+                setSaving(false);
+              }}
+              className="h-11 w-full cursor-pointer rounded-xl text-base font-semibold text-gray-500 transition-colors hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
+            >
+              Cancel
+            </button>
+            {verifyError && (
+              <p className="text-sm font-medium text-red-600">{verifyError}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pt-6 pb-10">
       <div className="mx-auto flex max-w-2xl flex-col gap-12">
@@ -245,6 +459,7 @@ function ProfileContent({
                     setMode((m) => (m === "create" ? "login" : "create"));
                     setLoginError(null);
                     setLoginEmail("");
+                    clearVerification();
                   }}
                   className="h-11 shrink-0 cursor-pointer rounded-xl bg-[#4169e1] px-5 text-base font-semibold text-white shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-[#3557c7] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
                 >
@@ -278,15 +493,15 @@ function ProfileContent({
                 <div className="flex flex-col gap-2">
                   <button
                     type="button"
-                    onClick={handleLoginByEmailSubmit}
-                    disabled={!loginEmail.trim() || loggingIn}
+                    onClick={() => void handleLoginByEmailSubmit()}
+                    disabled={!loginEmail.trim() || loggingIn || sendingCode}
                     className={`h-11 w-full rounded-xl text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
-                      loginEmail.trim() && !loggingIn
+                      loginEmail.trim() && !loggingIn && !sendingCode
                         ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
                         : "cursor-not-allowed bg-gray-300"
                     }`}
                   >
-                    {loggingIn ? "Logging In..." : "Log In"}
+                    {loggingIn || sendingCode ? "Sending code..." : "Log In"}
                   </button>
                   {loginError && (
                     <p className="text-sm font-medium text-red-600">{loginError}</p>
@@ -391,15 +606,17 @@ function ProfileContent({
                   <div className="flex flex-col gap-2">
                     <button
                       type="button"
-                      onClick={handleSubmit}
-                      disabled={!canSubmit || submitting}
+                      onClick={() => void handleSubmit()}
+                      disabled={!canSubmit || submitting || sendingCode}
                       className={`h-11 w-full rounded-xl text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
-                        canSubmit && !submitting
+                        canSubmit && !submitting && !sendingCode
                           ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
                           : "cursor-not-allowed bg-gray-300"
                       }`}
                     >
-                      {submitting ? "Creating Account..." : "Create Account"}
+                      {submitting || sendingCode
+                        ? "Sending code..."
+                        : "Create Account"}
                     </button>
                     {submitError && (
                       <p className="text-sm font-medium text-red-600">
@@ -419,15 +636,15 @@ function ProfileContent({
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={handleSave}
-                  disabled={!hasUnsavedChanges || saving}
+                  onClick={() => void handleSave()}
+                  disabled={!hasUnsavedChanges || saving || sendingCode}
                   className={`h-11 rounded-xl px-6 text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
-                    hasUnsavedChanges && !saving
+                    hasUnsavedChanges && !saving && !sendingCode
                       ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
                       : "cursor-not-allowed bg-gray-300"
                   }`}
                 >
-                  {saving ? "Saving..." : "Save Changes"}
+                  {saving || sendingCode ? "Saving..." : "Save Changes"}
                 </button>
                 {hasUnsavedChanges ? (
                   <span className="text-sm font-medium text-gray-500">

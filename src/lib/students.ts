@@ -421,6 +421,53 @@ export async function syncSubmittedNotes(
 }
 
 // ---------------------------------------------------------------------------
+// Email OTP verification (Vercel fn → Resend)
+// ---------------------------------------------------------------------------
+
+export type EmailVerificationPurpose = "signup" | "login" | "email_change";
+
+export async function sendEmailVerification(
+  email: string,
+  purpose: EmailVerificationPurpose,
+): Promise<{ error?: string }> {
+  try {
+    const res = await fetch("/api/send-email-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim(), purpose }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) {
+      return { error: body.error ?? "Failed to send verification code." };
+    }
+    return {};
+  } catch {
+    return { error: "Failed to send verification code. Please try again." };
+  }
+}
+
+export async function verifyEmailCode(
+  email: string,
+  purpose: EmailVerificationPurpose,
+  code: string,
+): Promise<{ error?: string }> {
+  try {
+    const res = await fetch("/api/verify-email-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim(), purpose, code: code.trim() }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) {
+      return { error: body.error ?? "Verification failed." };
+    }
+    return {};
+  } catch {
+    return { error: "Verification failed. Please try again." };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Log in by email — look up an existing student and hydrate their data
 // ---------------------------------------------------------------------------
 
@@ -438,7 +485,7 @@ export async function loginByEmail(email: string): Promise<LoginByEmailResult> {
     const { data, error } = await supabase
       .from("students")
       .select("id, name, email, grade, school_id")
-      .eq("email", trimmed)
+      .ilike("email", trimmed)
       .limit(1);
 
     if (error) throw error;

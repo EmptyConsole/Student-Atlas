@@ -13,6 +13,7 @@ type ProfilePageProps = {
   onLoginByEmail?: (email: string) => Promise<{ error?: string }>;
   hasUnsavedChanges?: boolean;
   onSaveChanges?: () => Promise<{ error?: string }>;
+  savedEmail?: string | null;
 };
 
 function ProfilePage({
@@ -25,6 +26,7 @@ function ProfilePage({
   onLoginByEmail,
   hasUnsavedChanges = false,
   onSaveChanges,
+  savedEmail = null,
 }: ProfilePageProps) {
   const [activeSection, setActiveSection] = useState<ProfileSection>("profile");
 
@@ -48,6 +50,7 @@ function ProfilePage({
           onLoginByEmail={onLoginByEmail}
           hasUnsavedChanges={hasUnsavedChanges}
           onSaveChanges={onSaveChanges}
+          savedEmail={savedEmail}
         />
       </main>
     </div>

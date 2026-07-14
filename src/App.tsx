@@ -312,6 +312,7 @@ function App() {
           onDeleteAccount={handleDeleteAccount}
           hasUnsavedChanges={hasUnsavedChanges}
           onSaveChanges={handleSaveProfileChanges}
+          savedEmail={savedProfile?.email ?? null}
         />
       )}
       {activeView === "register" && (
