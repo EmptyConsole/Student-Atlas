@@ -46,10 +46,15 @@ function SubjectSection({
 }: SubjectSectionProps) {
   const [collapsed, setCollapsed] = useState(false);
 
-  const decorated = items.map((item) => ({
-    item,
-    passes: matchesFilters(repCourse(item), filters, completedCourses),
-  }));
+  const decorated = items.map((item) => {
+    const rep = repCourse(item);
+    // A group passes when any offering covers all selected terms (linked
+    // multi-term rows), not only the representative's termOptions.
+    const passes = offeringsOf(item).some((termOptions) =>
+      matchesFilters({ ...rep, termOptions }, filters, completedCourses),
+    );
+    return { item, passes };
+  });
 
   const passCount = decorated.filter((d) => d.passes).length;
 

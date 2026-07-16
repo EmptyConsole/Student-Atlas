@@ -101,7 +101,10 @@ export type CourseCompletion = "prereq" | "coreq";
 
 export type Filters = {
   grades: Set<number>;
-  /** Selected term ids; a course matches when any of its termOptions is selected. */
+  /**
+   * Selected term ids; a course matches when its termOptions include every
+   * selected term (AND). Empty set = no term constraint.
+   */
   terms: Set<string>;
   sortByPrerequisites: boolean;
 };
@@ -158,7 +161,9 @@ export function matchesFilters(
     if (!gradeOk) return false;
   }
   if (filters.terms.size > 0) {
-    const termOk = course.termOptions.some((t) => filters.terms.has(t));
+    const termOk = [...filters.terms].every((t) =>
+      course.termOptions.includes(t),
+    );
     if (!termOk) return false;
   }
   if (filters.sortByPrerequisites && !meetsPrerequisites(course, completedCourses)) {
