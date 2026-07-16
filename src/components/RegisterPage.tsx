@@ -3,6 +3,7 @@ import { type Course, type Term } from "../data/courses";
 import { type Subject } from "../data/subjects";
 import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
 import {
+  loadDraftCourses,
   loadSubmittedCourses,
   loadSubmittedNotes,
   sendRankingsEmail,
@@ -81,6 +82,10 @@ function RegisterPage({
 
   const savedColumnsRef = useRef(snapshotColumns([]));
   const skipNextDraftSave = useRef(false);
+  /** Draft persist/restore only applies before the first official submit. */
+  const neverSubmittedRef = useRef(true);
+  const submittedColumnsRef = useRef<string[][]>([]);
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const courseById = useMemo(
     () => new Map(courses.map((course) => [course.id, course])),
@@ -107,10 +112,12 @@ function RegisterPage({
     () => termIds.map((termId) => columnIds(model, termId).slice(0, requiredRankings)),
     [model, termIds, requiredRankings],
   );
+  submittedColumnsRef.current = submittedColumns;
 
   const coursesReady = courses.length > 0 && termIds.length > 0;
 
-  // Restore official submitted=true rankings (and note) when opening Register.
+  // Restore rankings when opening Register: official first, else draft if
+  // the student has never submitted.
   useEffect(() => {
     if (!studentId) {
       setHydrated(true);
@@ -122,14 +129,19 @@ function RegisterPage({
     setHydrated(false);
 
     void (async () => {
-      const [coursesRes, notesRes] = await Promise.all([
+      const [officialRes, draftRes, notesRes] = await Promise.all([
         loadSubmittedCourses(studentId),
+        loadDraftCourses(studentId),
         loadSubmittedNotes(studentId),
       ]);
       if (cancelled) return;
 
+      const hasOfficial = officialRes.rankings.length > 0;
+      neverSubmittedRef.current = !hasOfficial;
+      const rankings = hasOfficial ? officialRes.rankings : draftRes.rankings;
+
       const preferenceByCourseId = new Map<string, number>();
-      for (const row of coursesRes.rankings) {
+      for (const row of rankings) {
         if (preferenceByCourseId.has(row.course_id)) continue;
         preferenceByCourseId.set(
           row.course_id,
@@ -180,11 +192,10 @@ function RegisterPage({
     // Drag state is tracked inside RankingAlignedGrid for connector updates.
   }, []);
 
-  // Auto-save draft rankings (submitted=false). Leaves any official
-  // submitted=true rows intact until the student confirms submit.
-  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Auto-save draft rankings (submitted=false) only before the first official
+  // submit. A separate unmount effect flushes any pending debounce on leave.
   useEffect(() => {
-    if (!hydrated || !studentId) return;
+    if (!hydrated || !studentId || !neverSubmittedRef.current) return;
 
     if (skipNextDraftSave.current) {
       skipNextDraftSave.current = false;
@@ -194,6 +205,7 @@ function RegisterPage({
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     const cols = submittedColumns;
     draftTimerRef.current = setTimeout(() => {
+      draftTimerRef.current = null;
       void syncSubmittedCourses(studentId, cols, false).then(({ error }) => {
         if (!error) {
           savedColumnsRef.current = snapshotColumns(cols);
@@ -203,9 +215,28 @@ function RegisterPage({
     }, 600);
 
     return () => {
-      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+      if (draftTimerRef.current) {
+        clearTimeout(draftTimerRef.current);
+        draftTimerRef.current = null;
+      }
     };
   }, [hydrated, studentId, submittedColumns]);
+
+  // Flush pending draft when leaving Register (only if never officially submitted).
+  useEffect(() => {
+    return () => {
+      if (!studentId || !neverSubmittedRef.current) return;
+      const hadPending = draftTimerRef.current !== null;
+      if (draftTimerRef.current) {
+        clearTimeout(draftTimerRef.current);
+        draftTimerRef.current = null;
+      }
+      // Only write if a debounced save was waiting — avoids wiping a restored
+      // draft during Strict Mode remount or when nothing changed.
+      if (!hadPending) return;
+      void syncSubmittedCourses(studentId, submittedColumnsRef.current, false);
+    };
+  }, [studentId]);
 
   const columnsDirty =
     hydrated && snapshotColumns(submittedColumns) !== savedColumnsRef.current;
@@ -268,6 +299,7 @@ function RegisterPage({
     savedColumnsRef.current = snapshotColumns(cols);
     setSavedNotes(noteValue ?? "");
     setSavedEpoch((n) => n + 1);
+    neverSubmittedRef.current = false;
     setSubmitted(true);
   };
 

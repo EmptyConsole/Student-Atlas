@@ -294,6 +294,30 @@ export async function loadSubmittedCourses(
 }
 
 /**
+ * Loads draft rankings (`submitted = false`) for students who have never
+ * officially submitted. Restored on Register when no submitted=true rows exist.
+ */
+export async function loadDraftCourses(
+  studentId: string,
+): Promise<{
+  rankings: { course_id: string; preference: number | null }[];
+  error?: string;
+}> {
+  const { data, error } = await supabase
+    .from("submitted_courses")
+    .select("course_id, preference")
+    .eq("student_id", studentId)
+    .eq("submitted", false)
+    .order("preference", { ascending: true });
+
+  if (error) {
+    return { rankings: [], error: error.message };
+  }
+
+  return { rankings: data ?? [] };
+}
+
+/**
  * Loads the student's latest submission note, if any.
  */
 export async function loadSubmittedNotes(
