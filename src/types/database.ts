@@ -689,6 +689,14 @@ export type Database = {
         }
         Returns: number[][]
       }
+      apply_elective_assignments: {
+        Args: {
+          p_school_id: string
+          p_rosters: Json
+          p_times: Json
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

@@ -1,24 +1,30 @@
--- The Nueva School — 500-student seed
+-- The Nueva School — 500-student seed (rewrite)
 --
--- Caps every Nueva course at max_student_count = 20, then generates 500 test
--- students with grade-appropriate profiles, completed prerequisites, bookmarks,
--- and believable 8-per-term submitted rankings.
+-- Deletes every prior Nueva test student (email '%test@gmail.com'), then
+-- inserts 500 fresh students with:
+--   • grade-appropriate cores + completed prerequisites
+--   • archetyped elective preferences (stem / humanities / arts / balanced)
+--   • exactly 8 ranked courses per term column (Fall + Spring)
+--   • every submitted_courses row has submitted = true
+--   • every ranked course is also bookmarked
+--
+-- Caps every Nueva course at max_student_count = 20 and sets schools.rankings = 8.
 --
 -- Naming:
 --   name  = "One Test", "Two Test", ... "FiveHundred Test"
---   email = onetest@gmail.com, twotest@gmail.com, ... fivehundredtest@gmail.com
+--   email = onetest@gmail.com ... fivehundredtest@gmail.com
 --
 -- Prerequisites (catalog already on the term_options model):
 --   nueva-school.sql → nueva-arts.sql → nueva-prereq-options.sql
 --   → nueva-term-options.sql
 --
--- Idempotent: deletes prior Nueva students whose email matches '%test@gmail.com'
--- (and their junction rows) before re-inserting. Wrapped in a transaction.
+-- Idempotent. Wrapped in a transaction. Aborts if any student lacks a full
+-- submitted ranking set.
 
 BEGIN;
 
 ----------------------------------------------------------------------
--- 0. Resolve school + terms; abort loudly on a half-migrated catalog
+-- 0. Resolve school + terms; abort on a half-migrated catalog
 ----------------------------------------------------------------------
 DO $$
 DECLARE
@@ -44,7 +50,7 @@ BEGIN
 
   IF v_term_count <> 2 THEN
     RAISE EXCEPTION
-      'Expected exactly 2 Nueva terms (Fall + Spring after term_options migration); found %. Run nueva-term-options.sql first.',
+      'Expected exactly 2 Nueva terms (Fall + Spring); found %. Run nueva-term-options.sql first.',
       v_term_count;
   END IF;
 
@@ -94,7 +100,7 @@ BEGIN
 END $$;
 
 ----------------------------------------------------------------------
--- 1. Cap courses + ensure 8 rankings per term
+-- 1. Cap courses + rankings policy
 ----------------------------------------------------------------------
 UPDATE courses AS c
 SET max_student_count = 20
@@ -107,7 +113,7 @@ FROM _nueva_ctx ctx
 WHERE s.id = ctx.school_id;
 
 ----------------------------------------------------------------------
--- 2. Idempotent cleanup of prior generated test students
+-- 2. Wipe prior generated test students (+ assignment leftovers)
 ----------------------------------------------------------------------
 DO $$
 DECLARE
@@ -139,6 +145,37 @@ BEGIN
   DELETE FROM submitted_notes
   WHERE student_id IN (SELECT id FROM _wipe_students);
 
+  -- Drop any roster entries that still name wiped students.
+  UPDATE courses c
+  SET students = (
+    SELECT CASE
+      WHEN cardinality(kept) = 0 THEN NULL
+      ELSE kept
+    END
+    FROM (
+      SELECT array_agg(entry) FILTER (
+        WHERE entry IS NOT NULL AND entry <> ''
+      ) AS kept
+      FROM (
+        SELECT
+          CASE
+            WHEN split_part(e, '|', 2) = '' THEN e
+            ELSE
+              split_part(e, '|', 1) || '|' || COALESCE((
+                SELECT string_agg(uid, ',')
+                FROM unnest(string_to_array(split_part(e, '|', 2), ',')) AS uid
+                WHERE btrim(uid) <> ''
+                  AND btrim(uid)::uuid NOT IN (SELECT id FROM _wipe_students)
+              ), '')
+          END AS entry
+        FROM unnest(COALESCE(c.students, ARRAY[]::text[])) AS e
+      ) rewritten
+      WHERE split_part(entry, '|', 2) <> '' OR position('|' IN entry) = 0
+    ) q
+  )
+  WHERE c.school_id = v_school_id
+    AND c.students IS NOT NULL;
+
   DELETE FROM students
   WHERE id IN (SELECT id FROM _wipe_students);
 END $$;
@@ -146,7 +183,6 @@ END $$;
 ----------------------------------------------------------------------
 -- 3. Helpers (pg_temp)
 ----------------------------------------------------------------------
-
 CREATE OR REPLACE FUNCTION pg_temp.numword(n int) RETURNS text AS $fn$
 DECLARE
   ones text[] := ARRAY[
@@ -163,9 +199,7 @@ BEGIN
   IF n < 1 OR n > 500 THEN
     RAISE EXCEPTION 'numword only supports 1..500, got %', n;
   END IF;
-  IF n < 20 THEN
-    RETURN ones[n + 1];
-  END IF;
+  IF n < 20 THEN RETURN ones[n + 1]; END IF;
   IF n < 100 THEN
     t := n / 10; o := n % 10;
     IF o = 0 THEN RETURN tens[t + 1]; END IF;
@@ -215,7 +249,6 @@ BEGIN
 END;
 $fn$ LANGUAGE plpgsql STABLE;
 
--- Offering of a title for a specific term (for split "both" courses).
 CREATE OR REPLACE FUNCTION pg_temp.course_id_for_term(p_title text, p_term_id uuid) RETURNS uuid AS $fn$
 DECLARE
   v_school_id uuid;
@@ -237,9 +270,7 @@ BEGIN
 END;
 $fn$ LANGUAGE plpgsql STABLE;
 
--- Evaluate prereq_options DNF like src/data/courses.ts meetsOptions.
--- Free-text elements never auto-pass unless p_allow_override is true
--- (in which case free-text elements are treated as satisfied).
+-- Evaluate prereq_options DNF. Free-text never auto-passes unless override.
 CREATE OR REPLACE FUNCTION pg_temp.prereq_met(
   p_course_id uuid,
   p_completed_titles text[],
@@ -252,8 +283,9 @@ DECLARE
   v_elem text;
   v_title text;
   v_group_ok boolean;
-  v_any_group boolean := false;
+  v_any_group boolean;
   v_is_uuid boolean;
+  v_had_content boolean := false;
 BEGIN
   SELECT prereq_options INTO v_opts FROM courses WHERE id = p_course_id;
 
@@ -267,10 +299,9 @@ BEGIN
 
     FOR v_and IN 1 .. COALESCE(array_length(v_opts, 2), 0) LOOP
       v_elem := v_opts[v_or][v_and];
-      IF v_elem IS NULL OR v_elem = '' THEN
-        CONTINUE;
-      END IF;
+      IF v_elem IS NULL OR v_elem = '' THEN CONTINUE; END IF;
       v_any_group := true;
+      v_had_content := true;
 
       v_is_uuid := (v_elem ~ '^[0-9a-fA-F-]{36}$');
       v_title := NULL;
@@ -288,7 +319,6 @@ BEGIN
           EXIT;
         END IF;
       ELSE
-        -- Free text
         IF NOT p_allow_override THEN
           v_group_ok := false;
           EXIT;
@@ -299,20 +329,10 @@ BEGIN
     IF v_any_group AND v_group_ok THEN
       RETURN true;
     END IF;
-    -- Reset for next OR group: track whether this OR index had content
   END LOOP;
 
-  -- Re-scan: if every OR group was empty/padding, treat as no prereqs.
-  FOR v_or IN 1 .. array_length(v_opts, 1) LOOP
-    FOR v_and IN 1 .. COALESCE(array_length(v_opts, 2), 0) LOOP
-      v_elem := v_opts[v_or][v_and];
-      IF v_elem IS NOT NULL AND v_elem <> '' THEN
-        RETURN false;
-      END IF;
-    END LOOP;
-  END LOOP;
-
-  RETURN true;
+  IF NOT v_had_content THEN RETURN true; END IF;
+  RETURN false;
 END;
 $fn$ LANGUAGE plpgsql STABLE;
 
@@ -339,21 +359,6 @@ BEGIN
     'Anatomy and Physiology','Modern Physics','Environmental Earth Science',
     'Marine Environments'
   ) THEN RETURN 2.2; END IF;
-
-  IF p_title IN (
-    'Adv. Clay Sculpture','Steel Drum Band','Number Theory','Semiconductor Processes',
-    'Complex Analysis','Differential Equations','Abstract Algebra',
-    'Geometries Beyond Euclid','Adv. Topics in Japanese',
-    'Chinese Literature & Advanced Research',
-    'Hit Harmonics: Studio Recording from Idea to Record','Groove Workshop',
-    'Sound Experience','Film & Stage Prop Making','Film and Stage Costume Making',
-    'Creature Comforts','All About Wearables','Architecture of Unbreakable Homes',
-    'Sensory Neuroscience','Mechanisms of Cancer','Immunology','Drug Design',
-    'Chemistry Consulting','Economic Thesis Seminar','Models of Group Decisions',
-    'Advanced Probability','Math and Philosophy for Human Flourishing',
-    'Core Mathematics Intensive X','Core Mathematics Intensive Y','Algebra Techniques',
-    'Adv. Studio Art'
-  ) THEN RETURN 0.45; END IF;
 
   IF p_dept IN ('Science','Math','Computer Science','English') THEN RETURN 1.4; END IF;
   IF p_dept IN ('History','Economics','Interdisciplinary') THEN RETURN 1.2; END IF;
@@ -388,7 +393,7 @@ END;
 $fn$ LANGUAGE plpgsql IMMUTABLE;
 
 ----------------------------------------------------------------------
--- 4. Catalog + per-student picks scratch table
+-- 4. Catalog + picks scratch
 ----------------------------------------------------------------------
 CREATE TEMP TABLE _catalog ON COMMIT DROP AS
 SELECT
@@ -424,7 +429,7 @@ CREATE TEMP TABLE _picks (
 ) ON COMMIT DROP;
 
 ----------------------------------------------------------------------
--- 5. Generate 500 students
+-- 5. Generate 500 students with full submitted rankings
 ----------------------------------------------------------------------
 DO $$
 DECLARE
@@ -451,7 +456,6 @@ DECLARE
   v_cid uuid;
   v_des double precision;
   v_kind text;
-  v_dept text;
   v_allow boolean;
 
   v_slots_ay int;
@@ -483,6 +487,8 @@ DECLARE
 
   v_eng_fall text;
   v_eng_spring text;
+  v_n_fall int;
+  v_n_spring int;
   rec RECORD;
 BEGIN
   SELECT school_id, fall_id, spring_id
@@ -490,18 +496,11 @@ BEGIN
   FROM _nueva_ctx;
 
   FOR i IN 1..500 LOOP
-    ------------------------------------------------------------------
-    -- Identity + grade + archetype
-    ------------------------------------------------------------------
     v_name  := pg_temp.numword(i) || ' Test';
     v_email := lower(pg_temp.numword(i)) || 'test@gmail.com';
 
-    v_r := pg_temp.rnd(i, 'grade');
-    IF v_r < 0.25 THEN v_grade := 9;
-    ELSIF v_r < 0.50 THEN v_grade := 10;
-    ELSIF v_r < 0.75 THEN v_grade := 11;
-    ELSE v_grade := 12;
-    END IF;
+    -- Even grade split with deterministic jitter (≈125 each).
+    v_grade := 9 + ((i - 1) % 4);
     v_grad_year := 2027 + (12 - v_grade);
 
     v_r := pg_temp.rnd(i, 'archetype');
@@ -511,19 +510,16 @@ BEGIN
     ELSE v_archetype := 'balanced';
     END IF;
 
-    INSERT INTO students (name, email, grade, school_id, graduation_year)
-    VALUES (v_name, v_email, v_grade, v_school_id, v_grad_year)
+    INSERT INTO students (name, email, grade, school_id, graduation_year, times_taken)
+    VALUES (v_name, v_email, v_grade, v_school_id, v_grad_year, NULL)
     RETURNING id INTO v_student_id;
 
     ------------------------------------------------------------------
-    -- Math placement
+    -- Math / language placement
     ------------------------------------------------------------------
     v_r := pg_temp.rnd(i, 'math');
     IF v_grade = 9 THEN
-      IF v_r < 0.60 THEN v_math_title := 'Math 1';
-      ELSIF v_r < 0.90 THEN v_math_title := 'Math 2';
-      ELSE v_math_title := 'Math 1';
-      END IF;
+      v_math_title := CASE WHEN v_r < 0.70 THEN 'Math 1' ELSE 'Math 2' END;
     ELSIF v_grade = 10 THEN
       IF v_r < 0.40 THEN v_math_title := 'Math 2';
       ELSIF v_r < 0.80 THEN v_math_title := 'Math 3';
@@ -544,9 +540,6 @@ BEGIN
       END IF;
     END IF;
 
-    ------------------------------------------------------------------
-    -- Language
-    ------------------------------------------------------------------
     v_r := pg_temp.rnd(i, 'langfam');
     IF v_r < 0.45 THEN v_lang_family := 'Spanish';
     ELSIF v_r < 0.75 THEN v_lang_family := 'Chinese';
@@ -589,24 +582,29 @@ BEGIN
     END IF;
 
     ------------------------------------------------------------------
-    -- Completed prerequisites (prior years)
+    -- Completed prerequisites
     ------------------------------------------------------------------
     v_completed := ARRAY[]::text[];
 
     IF v_grade >= 10 THEN
-      v_completed := v_completed || ARRAY['English 9','History 9 - World to 1500','Social Emotional Learning 9','Chemistry'];
+      v_completed := v_completed || ARRAY[
+        'English 9','History 9 - World to 1500','Social Emotional Learning 9','Chemistry'
+      ];
     END IF;
     IF v_grade >= 11 THEN
-      v_completed := v_completed || ARRAY['English 10','History 10 - Modern World','Social Emotional Learning 10','Biology'];
+      v_completed := v_completed || ARRAY[
+        'English 10','History 10 - Modern World','Social Emotional Learning 10','Biology'
+      ];
     END IF;
     IF v_grade >= 12 THEN
-      v_completed := v_completed || ARRAY['English 11','History 11 - US History','Social Emotional Learning 11'];
+      v_completed := v_completed || ARRAY[
+        'English 11','History 11 - US History','Social Emotional Learning 11'
+      ];
       IF pg_temp.rnd(i, 'physdone') < 0.55 THEN
         v_completed := array_append(v_completed, 'Physics');
       END IF;
     END IF;
 
-    -- Math chain below current placement
     IF v_math_title <> 'Math 1' THEN
       v_completed := array_append(v_completed, 'Math 1');
     END IF;
@@ -631,7 +629,6 @@ BEGIN
       v_completed := array_append(v_completed, 'Calculus');
     END IF;
 
-    -- Language chain
     IF v_lang_family = 'Spanish' THEN
       IF v_lang_level >= 2 THEN v_completed := array_append(v_completed, 'Spanish 1'); END IF;
       IF v_lang_level >= 3 THEN v_completed := array_append(v_completed, 'Spanish 2'); END IF;
@@ -684,28 +681,11 @@ BEGIN
       END IF;
     END LOOP;
 
-    -- Corequisites currently taking: mark current math as enrolled when a
-    -- coreq-linked companion is also in play (Algebra Techniques ⇄ Math 1).
-    IF v_grade = 9 AND v_math_title = 'Math 1' AND pg_temp.rnd(i, 'algtech') < 0.12 THEN
-      v_cid := pg_temp.course_id_by_title('Algebra Techniques');
-      IF v_cid IS NOT NULL THEN
-        INSERT INTO enrolled_courses (course_id, student_id)
-        VALUES (v_cid, v_student_id);
-      END IF;
-      v_cid := pg_temp.course_id_by_title('Math 1');
-      IF v_cid IS NOT NULL THEN
-        INSERT INTO enrolled_courses (course_id, student_id)
-        VALUES (v_cid, v_student_id);
-      END IF;
-    END IF;
-
     ------------------------------------------------------------------
-    -- Build picks (cores + electives)
+    -- Build picks: cores first, then scored electives
     ------------------------------------------------------------------
     DELETE FROM _picks;
 
-    -- Local function-like: add title as core
-    -- Grade-specific cores
     IF v_grade = 9 THEN
       FOREACH v_title IN ARRAY ARRAY[
         'English 9','History 9 - World to 1500','Chemistry',
@@ -717,8 +697,8 @@ BEGIN
         SELECT CASE WHEN is_allyear THEN 'allyear'
                     WHEN is_fall_only THEN 'fall'
                     ELSE 'spring' END,
-               base_weight, dept
-        INTO v_kind, v_des, v_dept
+               base_weight
+        INTO v_kind, v_des
         FROM _catalog WHERE id = v_cid;
         INSERT INTO _picks (course_id, title, kind, desire, is_core)
         VALUES (v_cid, v_title, v_kind, 1000.0 + v_des, true)
@@ -759,7 +739,6 @@ BEGIN
         ON CONFLICT (course_id) DO NOTHING;
       END LOOP;
     ELSE
-      -- Grade 12: math, language, Senior Block, SEL 12, English electives
       FOREACH v_title IN ARRAY ARRAY[v_math_title, v_lang_title] LOOP
         v_cid := pg_temp.course_id_by_title(v_title);
         IF v_cid IS NULL THEN CONTINUE; END IF;
@@ -785,11 +764,16 @@ BEGIN
         'Social Emotional Learning 12: The Good Life', v_spring_id);
       IF v_cid IS NOT NULL THEN
         INSERT INTO _picks (course_id, title, kind, desire, is_core)
-        VALUES (v_cid, 'Social Emotional Learning 12: The Good Life', 'spring', 1100.0, true)
+        VALUES (
+          v_cid,
+          'Social Emotional Learning 12: The Good Life',
+          'spring',
+          1100.0,
+          true
+        )
         ON CONFLICT (course_id) DO NOTHING;
       END IF;
 
-      -- English 12 electives (one fall, one spring)
       v_eng_fall := (ARRAY[
         'Irish Literature','Memoir and Adaptation','Monstrosity',
         'War and Conflict in Literature'
@@ -813,7 +797,6 @@ BEGIN
       END IF;
     END IF;
 
-    -- Electives: score all eligible courses, take top by weighted random desire
     FOR rec IN
       SELECT c.id, c.title, c.dept, c.base_weight,
              CASE WHEN c.is_allyear THEN 'allyear'
@@ -836,21 +819,20 @@ BEGIN
              * pg_temp.arch_mult(v_archetype, rec.dept)
              * (0.55 + 0.90 * pg_temp.rnd(i, 'des:' || rec.id::text));
 
-      -- Soft boost popular electives further for stem/arts alignment already in arch_mult
       INSERT INTO _picks (course_id, title, kind, desire, is_core)
       VALUES (rec.id, rec.title, rec.kind, v_des, false)
       ON CONFLICT (course_id) DO NOTHING;
     END LOOP;
 
-    -- Ensure filler no-prereq courses exist if pools are thin
+    -- Guaranteed fillers so every student can always reach 8+8.
     FOREACH v_title IN ARRAY ARRAY[
       'Free Block','Creative Writing','Intro to Speech and Debate',
       'Mixed Media','Dance','Groove Workshop','Intro to Music Production',
       'What Is Philosophy?','Existentialism','Environmental Earth Science',
       'Marine Environments','Building Toys','The Art of Repair',
-      'Intro to CAD','Cinema Studies','Irish Literature'
+      'Intro to CAD','Cinema Studies','Irish Literature','Journalism',
+      'Intro to Psychology','Intro to Drawing','Intro to Photography'
     ] LOOP
-      -- Add fall and/or spring offerings as needed later; for now add by title prefer
       FOR rec IN
         SELECT c.id,
                CASE WHEN c.is_allyear THEN 'allyear'
@@ -863,16 +845,37 @@ BEGIN
           AND NOT EXISTS (SELECT 1 FROM _picks p WHERE p.course_id = c.id)
           AND NOT (c.title = ANY (v_completed))
       LOOP
-        IF pg_temp.prereq_met(rec.id, v_completed, false) THEN
-          INSERT INTO _picks (course_id, title, kind, desire, is_core)
-          VALUES (rec.id, rec.title, rec.kind, 0.3 + rec.base_weight * 0.2, false)
-          ON CONFLICT (course_id) DO NOTHING;
-        END IF;
+        INSERT INTO _picks (course_id, title, kind, desire, is_core)
+        VALUES (rec.id, rec.title, rec.kind, 0.25 + rec.base_weight * 0.15, false)
+        ON CONFLICT (course_id) DO NOTHING;
       END LOOP;
     END LOOP;
 
+    -- Last-resort pad: any grade-eligible course, ignore prereqs.
+    SELECT COUNT(*) INTO v_avail_f FROM _picks WHERE kind IN ('allyear', 'fall');
+    SELECT COUNT(*) INTO v_avail_s FROM _picks WHERE kind IN ('allyear', 'spring');
+    IF v_avail_f < 8 OR v_avail_s < 8 THEN
+      FOR rec IN
+        SELECT c.id, c.title,
+               CASE WHEN c.is_allyear THEN 'allyear'
+                    WHEN c.is_fall_only THEN 'fall'
+                    ELSE 'spring' END AS kind,
+               c.base_weight
+        FROM _catalog c
+        WHERE v_grade = ANY (c.grade)
+          AND (c.is_allyear OR c.is_fall_only OR c.is_spring_only)
+          AND NOT EXISTS (SELECT 1 FROM _picks p WHERE p.course_id = c.id)
+        ORDER BY c.base_weight DESC, c.title
+        LIMIT 40
+      LOOP
+        INSERT INTO _picks (course_id, title, kind, desire, is_core)
+        VALUES (rec.id, rec.title, rec.kind, 0.05 + rec.base_weight * 0.01, false)
+        ON CONFLICT (course_id) DO NOTHING;
+      END LOOP;
+    END IF;
+
     ------------------------------------------------------------------
-    -- Decide slot counts: A all-year + (8-A) fall-only + (8-A) spring-only
+    -- Slot plan: A all-year + (8-A) fall-only + (8-A) spring-only
     ------------------------------------------------------------------
     SELECT COUNT(*) INTO v_avail_ay FROM _picks WHERE kind = 'allyear';
     SELECT COUNT(*) INTO v_avail_f  FROM _picks WHERE kind = 'fall';
@@ -880,37 +883,14 @@ BEGIN
 
     v_min_ay := GREATEST(0, 8 - v_avail_f, 8 - v_avail_s);
     v_max_ay := LEAST(8, v_avail_ay);
-
     IF v_min_ay > v_max_ay THEN
-      -- Not enough courses — pad with any remaining catalog rows (ignore prereq)
-      FOR rec IN
-        SELECT c.id, c.title,
-               CASE WHEN c.is_allyear THEN 'allyear'
-                    WHEN c.is_fall_only THEN 'fall'
-                    ELSE 'spring' END AS kind
-        FROM _catalog c
-        WHERE v_grade = ANY (c.grade)
-          AND NOT EXISTS (SELECT 1 FROM _picks p WHERE p.course_id = c.id)
-        ORDER BY c.base_weight DESC
-        LIMIT 30
-      LOOP
-        INSERT INTO _picks (course_id, title, kind, desire, is_core)
-        VALUES (rec.id, rec.title, rec.kind, 0.05, false)
-        ON CONFLICT (course_id) DO NOTHING;
-      END LOOP;
-      SELECT COUNT(*) INTO v_avail_ay FROM _picks WHERE kind = 'allyear';
-      SELECT COUNT(*) INTO v_avail_f  FROM _picks WHERE kind = 'fall';
-      SELECT COUNT(*) INTO v_avail_s  FROM _picks WHERE kind = 'spring';
-      v_min_ay := GREATEST(0, 8 - v_avail_f, 8 - v_avail_s);
-      v_max_ay := LEAST(8, v_avail_ay);
+      v_min_ay := v_max_ay;
     END IF;
 
-    -- Prefer keeping as many core all-year courses as possible
     SELECT COUNT(*) INTO v_slots_ay
     FROM _picks WHERE kind = 'allyear' AND is_core;
-
     v_slots_ay := GREATEST(v_min_ay, LEAST(v_max_ay, v_slots_ay));
-    -- If cores alone leave us short on semester electives, reduce A
+
     WHILE v_slots_ay > v_min_ay
       AND (v_avail_f < 8 - v_slots_ay OR v_avail_s < 8 - v_slots_ay)
     LOOP
@@ -919,9 +899,6 @@ BEGIN
     v_slots_ay := GREATEST(v_min_ay, LEAST(v_max_ay, v_slots_ay));
     v_slots_sem := 8 - v_slots_ay;
 
-    ------------------------------------------------------------------
-    -- Take top picks by desire into queues
-    ------------------------------------------------------------------
     SELECT ARRAY_AGG(course_id ORDER BY desire DESC, title),
            ARRAY_AGG(desire ORDER BY desire DESC, title)
     INTO v_ay_q, v_ay_d
@@ -960,7 +937,7 @@ BEGIN
     v_s_d  := COALESCE(v_s_d,  ARRAY[]::double precision[]);
 
     ------------------------------------------------------------------
-    -- Merge into 8 ranks: shared all-year vs split semester
+    -- Merge into 8 ranks per term (all-year shared across columns)
     ------------------------------------------------------------------
     v_fall_order := ARRAY[]::uuid[];
     v_spring_order := ARRAY[]::uuid[];
@@ -976,25 +953,20 @@ BEGIN
         CASE WHEN v_si <= COALESCE(array_length(v_s_q, 1), 0) THEN v_s_d[v_si] ELSE -1 END
       );
 
-      -- Must use all-year if semester queues exhausted; must use semester if AY exhausted
       IF v_next_ay_des < 0 THEN
         v_use_ay := false;
       ELSIF v_next_sem_des < 0 THEN
         v_use_ay := true;
       ELSE
-        -- Prefer higher desire; slight bias to place cores (desire>=1000) first via desire itself
         v_use_ay := v_next_ay_des >= v_next_sem_des;
       END IF;
 
-      -- Also force remaining AY slots if we'd run out of ranks for them
       IF v_use_ay = false
-         AND (COALESCE(array_length(v_ay_q, 1), 0) - v_ayi + 1)
-             > (8 - v_rank) THEN
+         AND (COALESCE(array_length(v_ay_q, 1), 0) - v_ayi + 1) > (8 - v_rank) THEN
         v_use_ay := true;
       END IF;
       IF v_use_ay = true
-         AND (COALESCE(array_length(v_f_q, 1), 0) - v_fi + 1)
-             > (8 - v_rank)
+         AND (COALESCE(array_length(v_f_q, 1), 0) - v_fi + 1) > (8 - v_rank)
          AND v_next_sem_des >= 0 THEN
         v_use_ay := false;
       END IF;
@@ -1015,35 +987,44 @@ BEGIN
       END IF;
     END LOOP;
 
-    -- Safety pad if somehow short (should be rare)
+    -- Hard pad to 8 per column from catalog (never leave a student short).
     WHILE COALESCE(array_length(v_fall_order, 1), 0) < 8 LOOP
       SELECT c.id INTO v_cid
       FROM _catalog c
       WHERE c.is_fall
         AND v_grade = ANY (c.grade)
         AND NOT (c.id = ANY (v_fall_order))
-      ORDER BY c.base_weight DESC
+      ORDER BY c.base_weight DESC, c.title
       LIMIT 1;
       EXIT WHEN v_cid IS NULL;
       v_fall_order := array_append(v_fall_order, v_cid);
     END LOOP;
+
     WHILE COALESCE(array_length(v_spring_order, 1), 0) < 8 LOOP
       SELECT c.id INTO v_cid
       FROM _catalog c
       WHERE c.is_spring
         AND v_grade = ANY (c.grade)
         AND NOT (c.id = ANY (v_spring_order))
-      ORDER BY c.base_weight DESC
+      ORDER BY c.base_weight DESC, c.title
       LIMIT 1;
       EXIT WHEN v_cid IS NULL;
       v_spring_order := array_append(v_spring_order, v_cid);
     END LOOP;
 
+    v_n_fall := COALESCE(array_length(v_fall_order, 1), 0);
+    v_n_spring := COALESCE(array_length(v_spring_order, 1), 0);
+    IF v_n_fall < 8 OR v_n_spring < 8 THEN
+      RAISE EXCEPTION
+        'Student % (grade %) could not fill 8 rankings (fall=%, spring=%). Catalog too thin.',
+        v_email, v_grade, v_n_fall, v_n_spring;
+    END IF;
+
     ------------------------------------------------------------------
-    -- Bookmarks: ranked + 2–5 alternates
+    -- Bookmarks: every ranked course + a few alternates
     ------------------------------------------------------------------
     v_written := ARRAY[]::uuid[];
-    FOR v_pref IN 1..COALESCE(array_length(v_fall_order, 1), 0) LOOP
+    FOR v_pref IN 1..v_n_fall LOOP
       v_bookmark := v_fall_order[v_pref];
       IF NOT (v_bookmark = ANY (v_written)) THEN
         INSERT INTO bookmarked_courses (course_id, student_id)
@@ -1051,7 +1032,7 @@ BEGIN
         v_written := array_append(v_written, v_bookmark);
       END IF;
     END LOOP;
-    FOR v_pref IN 1..COALESCE(array_length(v_spring_order, 1), 0) LOOP
+    FOR v_pref IN 1..v_n_spring LOOP
       v_bookmark := v_spring_order[v_pref];
       IF NOT (v_bookmark = ANY (v_written)) THEN
         INSERT INTO bookmarked_courses (course_id, student_id)
@@ -1065,7 +1046,7 @@ BEGIN
       SELECT p.course_id
       FROM _picks p
       WHERE NOT (p.course_id = ANY (v_written))
-      ORDER BY p.desire DESC
+      ORDER BY p.desire DESC, p.title
       LIMIT v_alt
     LOOP
       INSERT INTO bookmarked_courses (course_id, student_id)
@@ -1074,12 +1055,11 @@ BEGIN
     END LOOP;
 
     ------------------------------------------------------------------
-    -- Submitted rankings (submitted = true)
-    -- Mirror syncSubmittedCourses: Fall column first, then Spring;
-    -- all-year course_ids appear once with preference from Fall rank.
+    -- Submitted rankings — ALWAYS submitted = true
+    -- Mirror syncSubmittedCourses: Fall first, then Spring; all-year once.
     ------------------------------------------------------------------
     v_written := ARRAY[]::uuid[];
-    FOR v_pref IN 1..LEAST(8, COALESCE(array_length(v_fall_order, 1), 0)) LOOP
+    FOR v_pref IN 1..8 LOOP
       v_cid := v_fall_order[v_pref];
       IF NOT (v_cid = ANY (v_written)) THEN
         INSERT INTO submitted_courses (course_id, student_id, preference, submitted)
@@ -1087,7 +1067,7 @@ BEGIN
         v_written := array_append(v_written, v_cid);
       END IF;
     END LOOP;
-    FOR v_pref IN 1..LEAST(8, COALESCE(array_length(v_spring_order, 1), 0)) LOOP
+    FOR v_pref IN 1..8 LOOP
       v_cid := v_spring_order[v_pref];
       IF NOT (v_cid = ANY (v_written)) THEN
         INSERT INTO submitted_courses (course_id, student_id, preference, submitted)
@@ -1096,8 +1076,7 @@ BEGIN
       END IF;
     END LOOP;
 
-    -- Occasional submitted note
-    IF pg_temp.rnd(i, 'note') < 0.15 THEN
+    IF pg_temp.rnd(i, 'note') < 0.12 THEN
       INSERT INTO submitted_notes (student_id, note)
       VALUES (
         v_student_id,
@@ -1110,57 +1089,94 @@ BEGIN
       );
     END IF;
 
-  END LOOP; -- students
+  END LOOP;
 END $$;
 
 ----------------------------------------------------------------------
--- 6. Verification (read-only reports)
+-- 6. Verification — abort unless all 500 have full submitted rankings
 ----------------------------------------------------------------------
 DO $$
 DECLARE
   v_school_id uuid;
-  v_fall_id uuid;
-  v_spring_id uuid;
   v_students int;
-  v_submitted int;
-  v_bookmarks int;
-  v_completed int;
-  v_capped int;
-  v_bad_ranks int;
+  v_with_rankings int;
+  v_submitted_rows int;
+  v_draft_rows int;
+  v_incomplete int;
+  v_missing_bookmark int;
   v_allyear_dupes int;
+  v_capped int;
   rec RECORD;
 BEGIN
-  SELECT school_id, fall_id, spring_id
-  INTO v_school_id, v_fall_id, v_spring_id
-  FROM _nueva_ctx;
+  SELECT school_id INTO v_school_id FROM _nueva_ctx;
 
   SELECT COUNT(*) INTO v_students
   FROM students
   WHERE school_id = v_school_id AND email ILIKE '%test@gmail.com';
 
-  SELECT COUNT(*) INTO v_submitted
+  SELECT COUNT(DISTINCT sc.student_id) INTO v_with_rankings
+  FROM submitted_courses sc
+  JOIN students s ON s.id = sc.student_id
+  WHERE s.school_id = v_school_id
+    AND s.email ILIKE '%test@gmail.com'
+    AND sc.submitted = true;
+
+  SELECT COUNT(*) INTO v_submitted_rows
   FROM submitted_courses sc
   JOIN students s ON s.id = sc.student_id
   WHERE s.school_id = v_school_id AND s.email ILIKE '%test@gmail.com';
 
-  SELECT COUNT(*) INTO v_bookmarks
-  FROM bookmarked_courses bc
-  JOIN students s ON s.id = bc.student_id
-  WHERE s.school_id = v_school_id AND s.email ILIKE '%test@gmail.com';
+  SELECT COUNT(*) INTO v_draft_rows
+  FROM submitted_courses sc
+  JOIN students s ON s.id = sc.student_id
+  WHERE s.school_id = v_school_id
+    AND s.email ILIKE '%test@gmail.com'
+    AND sc.submitted IS DISTINCT FROM true;
 
-  SELECT COUNT(*) INTO v_completed
-  FROM completed_courses cc
-  JOIN students s ON s.id = cc.student_id
-  WHERE s.school_id = v_school_id AND s.email ILIKE '%test@gmail.com';
+  SELECT COUNT(*) INTO v_incomplete
+  FROM students s
+  WHERE s.school_id = v_school_id
+    AND s.email ILIKE '%test@gmail.com'
+    AND (
+      SELECT COUNT(*)
+      FROM submitted_courses sc
+      WHERE sc.student_id = s.id AND sc.submitted = true
+    ) < 8;
+
+  SELECT COUNT(*) INTO v_missing_bookmark
+  FROM submitted_courses sc
+  JOIN students s ON s.id = sc.student_id
+  WHERE s.school_id = v_school_id
+    AND s.email ILIKE '%test@gmail.com'
+    AND NOT EXISTS (
+      SELECT 1 FROM bookmarked_courses bc
+      WHERE bc.student_id = sc.student_id AND bc.course_id = sc.course_id
+    );
+
+  SELECT COUNT(*) INTO v_allyear_dupes
+  FROM (
+    SELECT sc.student_id, sc.course_id
+    FROM submitted_courses sc
+    JOIN students s ON s.id = sc.student_id
+    JOIN _catalog c ON c.id = sc.course_id
+    WHERE s.school_id = v_school_id
+      AND s.email ILIKE '%test@gmail.com'
+      AND c.is_allyear
+    GROUP BY sc.student_id, sc.course_id
+    HAVING COUNT(*) > 1
+  ) d;
 
   SELECT COUNT(*) INTO v_capped
   FROM courses WHERE school_id = v_school_id AND max_student_count = 20;
 
   RAISE NOTICE '=== Nueva 500-student seed verification ===';
   RAISE NOTICE 'Students: %', v_students;
-  RAISE NOTICE 'submitted_courses rows: %', v_submitted;
-  RAISE NOTICE 'bookmarked_courses rows: %', v_bookmarks;
-  RAISE NOTICE 'completed_courses rows: %', v_completed;
+  RAISE NOTICE 'Students with submitted=true rankings: %', v_with_rankings;
+  RAISE NOTICE 'submitted_courses rows: %', v_submitted_rows;
+  RAISE NOTICE 'draft (submitted≠true) rows: %', v_draft_rows;
+  RAISE NOTICE 'Students with <8 submitted rankings: %', v_incomplete;
+  RAISE NOTICE 'Submitted rows missing bookmarks: %', v_missing_bookmark;
+  RAISE NOTICE 'All-year duplicate submitted rows: %', v_allyear_dupes;
   RAISE NOTICE 'Courses capped at 20: %', v_capped;
 
   RAISE NOTICE '--- Students by grade ---';
@@ -1174,57 +1190,7 @@ BEGIN
     RAISE NOTICE '  grade %: %', rec.grade, rec.n;
   END LOOP;
 
-  -- Every student should have prefs 1..8 represented in each term column
-  -- after restore. Check: for each student, among courses eligible for fall,
-  -- the set of preferences on those rows (plus all-year) covers 1..8 uniquely
-  -- when sorted. Simpler check: each student has at least 8 submitted rows
-  -- and preferences between 1 and 8.
-  SELECT COUNT(*) INTO v_bad_ranks
-  FROM (
-    SELECT s.id
-    FROM students s
-    JOIN submitted_courses sc ON sc.student_id = s.id
-    WHERE s.school_id = v_school_id AND s.email ILIKE '%test@gmail.com'
-    GROUP BY s.id
-    HAVING COUNT(*) < 8
-        OR MIN(sc.preference) < 1
-        OR MAX(sc.preference) > 8
-        OR COUNT(*) FILTER (WHERE sc.submitted IS DISTINCT FROM true) > 0
-  ) bad;
-
-  RAISE NOTICE 'Students with incomplete/invalid rankings: %', v_bad_ranks;
-
-  -- All-year ranked courses should appear once per student
-  SELECT COUNT(*) INTO v_allyear_dupes
-  FROM (
-    SELECT sc.student_id, sc.course_id, COUNT(*) AS n
-    FROM submitted_courses sc
-    JOIN students s ON s.id = sc.student_id
-    JOIN _catalog c ON c.id = sc.course_id
-    WHERE s.school_id = v_school_id
-      AND s.email ILIKE '%test@gmail.com'
-      AND c.is_allyear
-    GROUP BY sc.student_id, sc.course_id
-    HAVING COUNT(*) > 1
-  ) d;
-  RAISE NOTICE 'All-year duplicate submitted rows: %', v_allyear_dupes;
-
-  -- Every submitted course must also be bookmarked (Register restore requirement)
-  SELECT COUNT(*) INTO v_bad_ranks
-  FROM submitted_courses sc
-  JOIN students s ON s.id = sc.student_id
-  WHERE s.school_id = v_school_id
-    AND s.email ILIKE '%test@gmail.com'
-    AND NOT EXISTS (
-      SELECT 1 FROM bookmarked_courses bc
-      WHERE bc.student_id = sc.student_id AND bc.course_id = sc.course_id
-    );
-  RAISE NOTICE 'Submitted rows missing bookmarks: %', v_bad_ranks;
-  IF v_bad_ranks > 0 THEN
-    RAISE EXCEPTION '% submitted rows are not bookmarked', v_bad_ranks;
-  END IF;
-
-  RAISE NOTICE '--- Top 20 courses by # of students ranking them (any pref) ---';
+  RAISE NOTICE '--- Top 15 courses by ranking demand ---';
   FOR rec IN
     SELECT c.title,
            COUNT(DISTINCT sc.student_id) AS demand,
@@ -1235,23 +1201,37 @@ BEGIN
     WHERE s.school_id = v_school_id AND s.email ILIKE '%test@gmail.com'
     GROUP BY c.title
     ORDER BY demand DESC
-    LIMIT 20
+    LIMIT 15
   LOOP
-    RAISE NOTICE '  % — demand %, first-choice %', rec.title, rec.demand, rec.first_choice;
+    RAISE NOTICE '  % — demand %, first-choice %',
+      rec.title, rec.demand, rec.first_choice;
   END LOOP;
 
   IF v_students <> 500 THEN
     RAISE EXCEPTION 'Expected 500 students, got %', v_students;
   END IF;
-  IF v_bad_ranks > 0 THEN
-    RAISE EXCEPTION '% students have invalid rankings', v_bad_ranks;
+  IF v_with_rankings <> 500 THEN
+    RAISE EXCEPTION
+      'Expected all 500 students to have submitted rankings, got %',
+      v_with_rankings;
   END IF;
-  IF v_allyear_dupes > 0 THEN
+  IF v_draft_rows <> 0 THEN
+    RAISE EXCEPTION 'Found % draft ranking rows (submitted must be true)', v_draft_rows;
+  END IF;
+  IF v_incomplete <> 0 THEN
+    RAISE EXCEPTION '% students have fewer than 8 submitted rankings', v_incomplete;
+  END IF;
+  IF v_missing_bookmark <> 0 THEN
+    RAISE EXCEPTION '% submitted rows are not bookmarked', v_missing_bookmark;
+  END IF;
+  IF v_allyear_dupes <> 0 THEN
     RAISE EXCEPTION 'Found duplicate all-year submitted rows';
   END IF;
   IF v_capped = 0 THEN
     RAISE EXCEPTION 'No courses were capped at 20';
   END IF;
+
+  RAISE NOTICE 'Seed OK: 500 students, all with submitted=true rankings.';
 END $$;
 
 COMMIT;
