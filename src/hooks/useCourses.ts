@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import type { Course, ReqGroup, ReqOptions } from "../data/courses";
+import { parseSchedule } from "../utils/classTime";
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -133,6 +134,7 @@ export function useCourses(schoolId: string | null, reloadKey?: number) {
               termOptions: Array.isArray(supabaseCourse.term_options)
                 ? supabaseCourse.term_options
                 : [],
+              schedule: parseSchedule(supabaseCourse.schedule),
               shortDescription: supabaseCourse.short_description,
               longDescription: supabaseCourse.long_description,
             };

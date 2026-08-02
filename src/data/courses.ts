@@ -1,3 +1,5 @@
+import type { ClassTime } from "../utils/classTime";
+
 /**
  * A school term (e.g. "Fall", "Quarter 1"). Terms are configured per-school in
  * the `terms` table; the number of terms drives the Register columns.
@@ -52,6 +54,12 @@ export type Course = {
    * (linked in the register). Independent offerings use separate course rows.
    */
   termOptions: string[];
+  /**
+   * Class meeting times for this course row: day (positional rotation day),
+   * start and end as minutes from midnight. Optional so static demo data can
+   * omit it; the live pipeline always sets it (possibly empty).
+   */
+  schedule?: ClassTime[];
   shortDescription: string;
   longDescription: string;
 

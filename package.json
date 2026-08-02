@@ -20,7 +20,7 @@
     "nvm": "^0.0.4",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "react-router-dom": "^7.17.0",
+    "react-router-dom": "^7.11.0",
     "resend": "^6.17.2",
     "tailwindcss": "^4.3.1"
   },

@@ -10,6 +10,7 @@ CREATE TABLE public.schools (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   password text NOT NULL DEFAULT ''::text,
   rankings smallint NOT NULL DEFAULT '8'::smallint,
+  electives_assigned integer NOT NULL DEFAULT 0,
   CONSTRAINT schools_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.courses (
@@ -34,6 +35,8 @@ CREATE TABLE public.courses (
   coreq_options ARRAY,
   max_student_count smallint NOT NULL DEFAULT '-1'::smallint,
   term_options ARRAY,
+  schedule ARRAY,
+  students ARRAY,
   CONSTRAINT courses_pkey PRIMARY KEY (id),
   CONSTRAINT courses_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
   CONSTRAINT courses_term_id_fkey FOREIGN KEY (term_id) REFERENCES public.terms(id),
@@ -48,6 +51,7 @@ CREATE TABLE public.students (
   school_id uuid NOT NULL,
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   graduation_year bigint,
+  times_taken ARRAY,
   CONSTRAINT students_pkey PRIMARY KEY (id),
   CONSTRAINT students_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );

@@ -1,7 +1,12 @@
 import type { Course } from "../data/courses";
+import type { ClassTime } from "./classTime";
 
-/** A single offering-row of a logical course: its DB id and the terms it covers. */
-export type Offering = { courseId: string; termOptions: string[] };
+/** A single offering-row of a logical course: its DB id, terms, and schedule. */
+export type Offering = {
+  courseId: string;
+  termOptions: string[];
+  schedule: ClassTime[];
+};
 
 /**
  * A course as shown on the Courses page. Rows that are identical except for
@@ -32,8 +37,30 @@ export function offeringsOf(item: DisplayCourse): string[][] {
 }
 
 /**
+ * Full offering rows (id + terms + schedule) for a display item. Used by the
+ * teacher save path so schedule diffs target the correct `courses` row.
+ */
+export function offeringRowsOf(item: DisplayCourse): Offering[] {
+  return item.kind === "group"
+    ? item.offerings.map((o) => ({
+        courseId: o.courseId,
+        termOptions: o.termOptions,
+        schedule: o.schedule,
+      }))
+    : [
+        {
+          courseId: item.course.id,
+          termOptions: item.course.termOptions,
+          schedule: item.course.schedule ?? [],
+        },
+      ];
+}
+
+/**
  * Signature of everything that must match for two rows to merge — every field
- * except `id` and `termOptions`.
+ * except `id`, `termOptions`, and `schedule`. Schedule is intentionally omitted
+ * so rows that differ only in class times still appear as one course to
+ * students (who never see class times).
  */
 function signature(course: Course): string {
   return JSON.stringify({
@@ -86,6 +113,7 @@ export function buildDisplayCourses(courses: Course[]): DisplayCourse[] {
       offerings: bucket.map((c) => ({
         courseId: c.id,
         termOptions: c.termOptions,
+        schedule: c.schedule ?? [],
       })),
     });
   }

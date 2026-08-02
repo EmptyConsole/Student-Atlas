@@ -220,6 +220,8 @@ export type Database = {
           term_id: string | null
           term_options: string[] | null
           title: string
+          schedule: number[][] | null
+          students: string[] | null
         }
         Insert: {
           created_at?: string
@@ -243,6 +245,8 @@ export type Database = {
           term_id?: string | null
           term_options?: string[] | null
           title: string
+          schedule?: number[][] | null
+          students?: string[] | null
         }
         Update: {
           created_at?: string
@@ -266,6 +270,8 @@ export type Database = {
           term_id?: string | null
           term_options?: string[] | null
           title?: string
+          schedule?: number[][] | null
+          students?: string[] | null
         }
         Relationships: [
           {
@@ -421,6 +427,7 @@ export type Database = {
         Row: {
           city: string
           created_at: string
+          electives_assigned: number
           id: string
           name: string
           password: string
@@ -431,6 +438,7 @@ export type Database = {
         Insert: {
           city: string
           created_at?: string
+          electives_assigned?: number
           id?: string
           name: string
           password?: string
@@ -441,6 +449,7 @@ export type Database = {
         Update: {
           city?: string
           created_at?: string
+          electives_assigned?: number
           id?: string
           name?: string
           password?: string
@@ -459,6 +468,7 @@ export type Database = {
           id: string
           name: string
           school_id: string
+          times_taken: number[][] | null
         }
         Insert: {
           created_at?: string
@@ -468,6 +478,7 @@ export type Database = {
           id?: string
           name: string
           school_id: string
+          times_taken?: number[][] | null
         }
         Update: {
           created_at?: string
@@ -477,6 +488,7 @@ export type Database = {
           id?: string
           name?: string
           school_id?: string
+          times_taken?: number[][] | null
         }
         Relationships: [
           {
@@ -640,7 +652,43 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      reorder_terms: {
+        Args: {
+          p_school_id: string
+          p_ordered_term_ids: string[]
+        }
+        Returns: undefined
+      }
+      add_class_time: {
+        Args: {
+          p_course_id: string
+          p_day: number
+          p_start: number
+          p_end: number
+        }
+        Returns: number[][]
+      }
+      edit_class_time: {
+        Args: {
+          p_course_id: string
+          p_old_day: number
+          p_old_start: number
+          p_old_end: number
+          p_new_day: number
+          p_new_start: number
+          p_new_end: number
+        }
+        Returns: number[][]
+      }
+      remove_class_time: {
+        Args: {
+          p_course_id: string
+          p_day: number
+          p_start: number
+          p_end: number
+        }
+        Returns: number[][]
+      }
     }
     Enums: {
       [_ in never]: never

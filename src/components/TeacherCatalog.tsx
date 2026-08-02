@@ -9,6 +9,7 @@ import { useTerms } from "../hooks/useTerms";
 import {
   buildDisplayCourses,
   courseIdsInItem,
+  offeringRowsOf,
   repCourse,
   type DisplayCourse,
 } from "../utils/courseGrouping";
@@ -222,9 +223,14 @@ function TeacherCatalog({
       pendingScrollRef.current = scrollRef.current.scrollTop;
     }
     // Existing offering rows to reconcile against (empty when adding).
-    const existingIds =
-      courseModal?.mode === "edit" ? courseIdsInItem(courseModal.item) : [];
-    const result = await saveCourseOfferings(school.id, existingIds, submit);
+    const existingRows =
+      courseModal?.mode === "edit"
+        ? offeringRowsOf(courseModal.item).map((r) => ({
+            courseId: r.courseId,
+            schedule: r.schedule,
+          }))
+        : [];
+    const result = await saveCourseOfferings(school.id, existingRows, submit);
     if (!result.error) reload();
     return { error: result.error };
   };
@@ -305,7 +311,7 @@ function TeacherCatalog({
       }
     }
 
-    return reorderTerms(orderedIds);
+    return reorderTerms(schoolId, orderedIds);
   };
 
   const handleSaveSchool = async (

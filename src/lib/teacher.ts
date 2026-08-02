@@ -1,6 +1,11 @@
 import { supabase } from "./supabase";
 import type { Tables } from "../types/database";
 import type { Term } from "../data/courses";
+import {
+  classTimeKey,
+  toScheduleArray,
+  type ClassTime,
+} from "../utils/classTime";
 
 export type SchoolRow = Tables<"schools">;
 export type DepartmentRow = Tables<"departments">;
@@ -44,14 +49,38 @@ export type CourseBaseInput = {
 export type CourseInput = CourseBaseInput & {
   /** Term ids (from the `terms` table) covered by this row. */
   termOptions: string[];
+  /** Class times for a brand-new row (written directly on INSERT). */
+  schedule?: ClassTime[];
 };
 
 /**
- * What the course form submits: shared fields plus one array of term ids per
- * offering. Each offering becomes its own `courses` row.
+ * One draft class-time row from the form. `original` is the value loaded from
+ * the DB (null for newly added rows); `value` is what the teacher submitted.
+ */
+export type ClassTimeEdit = {
+  original: ClassTime | null;
+  value: ClassTime;
+};
+
+/** One offering row the form submits: existing course id (or null), terms, times. */
+export type OfferingInput = {
+  courseId: string | null;
+  termOptions: string[];
+  times: ClassTimeEdit[];
+};
+
+/**
+ * What the course form submits: shared fields plus one offering per `courses`
+ * row. Each offering carries its own terms and class times.
  */
 export type CourseFormSubmit = CourseBaseInput & {
-  offerings: string[][];
+  offerings: OfferingInput[];
+};
+
+/** Existing offering rows the save path reconciles against. */
+export type ExistingOfferingRow = {
+  courseId: string;
+  schedule: ClassTime[];
 };
 
 type Result<T = void> = { data?: T; error?: string };
@@ -310,16 +339,20 @@ export async function deleteTerm(
   }
 }
 
-/** Persists the given term ordering by writing each term's array index as its position. */
-export async function reorderTerms(orderedTermIds: string[]): Promise<Result> {
+/**
+ * Persists the given term ordering via the reorder_terms RPC, which remaps
+ * students.times_taken term ranks and writes 0-based positions atomically.
+ */
+export async function reorderTerms(
+  schoolId: string,
+  orderedTermIds: string[],
+): Promise<Result> {
   try {
-    for (let i = 0; i < orderedTermIds.length; i += 1) {
-      const { error } = await supabase
-        .from("terms")
-        .update({ position: i })
-        .eq("id", orderedTermIds[i]);
-      if (error) throw error;
-    }
+    const { error } = await supabase.rpc("reorder_terms", {
+      p_school_id: schoolId,
+      p_ordered_term_ids: orderedTermIds,
+    });
+    if (error) throw error;
     return {};
   } catch (err) {
     return { error: toMessage(err, "Failed to reorder terms") };
@@ -529,6 +562,8 @@ export async function createCourse(
       retakeable: input.retakeable,
       prereq_options: input.prereqOptions,
       coreq_options: input.coreqOptions,
+      // Brand-new rows have no roster, so a direct schedule write is safe.
+      schedule: toScheduleArray(input.schedule ?? []),
     });
     if (error) throw error;
     return {};
@@ -570,19 +605,83 @@ export async function updateCourse(
 }
 
 /**
- * Reconciles a logical course's offering-rows against the submitted form. Reuses
- * `existingIds` rows for the first offerings (update in place), inserts rows for
- * extra offerings, and deletes any leftover rows. Offerings with no terms are
- * dropped; at least one valid offering is required.
+ * Diffs a course's class times and applies changes via the class-time RPCs so
+ * rosters and students.times_taken stay consistent. Order: removes, then edits,
+ * then adds — so an edit never collides with a block that is on its way out.
+ */
+export async function syncCourseSchedule(
+  courseId: string,
+  previous: ClassTime[],
+  times: ClassTimeEdit[],
+): Promise<Result> {
+  try {
+    const claimedOriginals = new Set(
+      times
+        .filter((t) => t.original != null)
+        .map((t) => classTimeKey(t.original!)),
+    );
+
+    // 1. Remove every previous key that no draft row claims as its original.
+    for (const prev of previous) {
+      const key = classTimeKey(prev);
+      if (claimedOriginals.has(key)) continue;
+      const { error } = await supabase.rpc("remove_class_time", {
+        p_course_id: courseId,
+        p_day: prev.day,
+        p_start: prev.start,
+        p_end: prev.end,
+      });
+      if (error) throw error;
+    }
+
+    // 2. Edit rows whose original key differs from the new value.
+    for (const edit of times) {
+      if (!edit.original) continue;
+      if (classTimeKey(edit.original) === classTimeKey(edit.value)) continue;
+      const { error } = await supabase.rpc("edit_class_time", {
+        p_course_id: courseId,
+        p_old_day: edit.original.day,
+        p_old_start: edit.original.start,
+        p_old_end: edit.original.end,
+        p_new_day: edit.value.day,
+        p_new_start: edit.value.start,
+        p_new_end: edit.value.end,
+      });
+      if (error) throw error;
+    }
+
+    // 3. Add newly created rows.
+    for (const edit of times) {
+      if (edit.original != null) continue;
+      const { error } = await supabase.rpc("add_class_time", {
+        p_course_id: courseId,
+        p_day: edit.value.day,
+        p_start: edit.value.start,
+        p_end: edit.value.end,
+      });
+      if (error) throw error;
+    }
+
+    return {};
+  } catch (err) {
+    return { error: toMessage(err, "Failed to update class times") };
+  }
+}
+
+/**
+ * Reconciles a logical course's offering-rows against the submitted form.
+ * Matches on `courseId` (not positional index): updates existing rows by id,
+ * inserts rows with a null id, and deletes existing ids absent from the
+ * submission. Schedule sync runs before the metadata update so
+ * `edit_class_time` resolves term ranks against the terms the existing
+ * `times_taken` rows were written under.
  */
 export async function saveCourseOfferings(
   schoolId: string,
-  existingIds: string[],
+  existingRows: ExistingOfferingRow[],
   submit: CourseFormSubmit,
 ): Promise<Result> {
-  const offerings = submit.offerings
-    .map((o) => o.filter((id) => id))
-    .filter((o) => o.length > 0);
+  const offerings = submit.offerings.filter((o) => o.termOptions.length > 0);
   if (offerings.length === 0) {
     return { error: "Select at least one term for this course." };
   }
@@ -601,18 +700,43 @@ export async function saveCourseOfferings(
     coreqOptions: submit.coreqOptions,
   };
 
-  for (let i = 0; i < offerings.length; i += 1) {
-    const input: CourseInput = { ...base, termOptions: offerings[i] };
-    const existingId = existingIds[i];
-    const result = existingId
-      ? await updateCourse(existingId, schoolId, input)
-      : await createCourse(schoolId, input);
-    if (result.error) return { error: result.error };
+  const previousById = new Map(
+    existingRows.map((r) => [r.courseId, r.schedule]),
+  );
+  const keptIds = new Set<string>();
+
+  for (const offering of offerings) {
+    const scheduleValues = offering.times.map((t) => t.value);
+
+    if (offering.courseId) {
+      keptIds.add(offering.courseId);
+      const previous = previousById.get(offering.courseId) ?? [];
+      const syncResult = await syncCourseSchedule(
+        offering.courseId,
+        previous,
+        offering.times,
+      );
+      if (syncResult.error) return { error: syncResult.error };
+
+      const result = await updateCourse(offering.courseId, schoolId, {
+        ...base,
+        termOptions: offering.termOptions,
+      });
+      if (result.error) return { error: result.error };
+    } else {
+      const result = await createCourse(schoolId, {
+        ...base,
+        termOptions: offering.termOptions,
+        schedule: scheduleValues,
+      });
+      if (result.error) return { error: result.error };
+    }
   }
 
-  // Delete rows that are no longer needed (form has fewer offerings than before).
-  for (let i = offerings.length; i < existingIds.length; i += 1) {
-    const result = await deleteCourse(existingIds[i], schoolId);
+  // Delete rows that are no longer needed.
+  for (const row of existingRows) {
+    if (keptIds.has(row.courseId)) continue;
+    const result = await deleteCourse(row.courseId, schoolId);
     if (result.error) return { error: result.error };
   }
 
