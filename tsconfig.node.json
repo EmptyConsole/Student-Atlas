@@ -4,7 +4,8 @@
     "target": "es2023",
     "lib": ["ES2023"],
     "module": "esnext",
-    "types": ["node"],
+    /* Scripts transitively import src/lib/supabase.ts, which reads import.meta.env. */
+    "types": ["node", "vite/client"],
     "skipLibCheck": true,
 
     /* Bundler mode */
