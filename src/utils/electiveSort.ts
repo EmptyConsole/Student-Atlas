@@ -537,12 +537,64 @@ export function runElectiveSort(
   }
 
   // -------------------------------------------------------------------------
-  // Inline displacement
+  // Main loops: grade (high→low) → term → round → shuffle
+  // -------------------------------------------------------------------------
+
+  for (const grade of grades) {
+    const gradeStudents = students.filter((s) => s.grade === grade);
+    const required = requiredFor(grade);
+
+    for (const term of terms) {
+      for (let round = 1; round <= required; round += 1) {
+        const order = [...gradeStudents];
+        shuffleInPlace(order, rand);
+
+        for (const student of order) {
+          const held = heldByTerm.get(student.id)?.get(term.id) ?? 0;
+          if (held >= round) continue;
+
+          const ranking = rankingForTerm(student.id, term.id);
+
+          for (let rankIdx = 0; rankIdx < ranking.length; rankIdx += 1) {
+            const course = ranking[rankIdx]!;
+            // Only assign in the course's first term.
+            if (firstTermId(course) !== term.id) continue;
+            if (!isGradeEligible(course, student.grade)) continue;
+            if (course.schedule.length === 0) continue;
+            if (assignedCourses.get(student.id)?.has(course.id)) continue;
+
+            const block = pickClass(course, student.id);
+            if (!block) continue;
+
+            assign(student, course, block, term.id, rankIdx + 1);
+            break;
+          }
+
+          const assigned = heldByTerm.get(student.id)?.get(term.id) ?? 0;
+          const key = `${student.id}|${term.id}`;
+          if (assigned >= required) {
+            shortfallMap.delete(key);
+          } else {
+            shortfallMap.set(key, {
+              studentId: student.id,
+              termId: term.id,
+              grade: student.grade,
+              assigned,
+              required,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Displacement post-pass
   //
-  // When a student cannot take any open seat, try to slide an already-placed
-  // student further down their list (with cascading). Younger students may
-  // displace a given person at most once; older / same-grade students may
-  // re-displace them.
+  // After the main loops, students still under quota can take a seat by
+  // sliding an already-placed student further down their list (with
+  // cascading). Younger students may displace a given person at most once;
+  // older / same-grade students may re-displace them.
   // -------------------------------------------------------------------------
 
   const displacements: ElectiveDisplacement[] = [];
@@ -739,82 +791,53 @@ export function runElectiveSort(
     return false;
   }
 
-  /** Try to seat `student` in `term` by bumping someone already placed. */
-  function tryDisplace(student: ElectiveStudent, term: ElectiveTerm): boolean {
+  function fillOneSeat(student: ElectiveStudent, term: ElectiveTerm): boolean {
     return claimSeat(student, term, 0, new Set(), null, null);
   }
 
-  function updateShortfall(
-    student: ElectiveStudent,
-    term: ElectiveTerm,
-    required: number,
-  ): void {
-    const assigned = heldByTerm.get(student.id)?.get(term.id) ?? 0;
-    const key = `${student.id}|${term.id}`;
-    if (assigned >= required) {
-      shortfallMap.delete(key);
-    } else {
-      shortfallMap.set(key, {
-        studentId: student.id,
-        termId: term.id,
-        grade: student.grade,
-        assigned,
-        required,
-      });
-    }
-  }
+  // Sweep until a full pass seats nobody else. Older/same-grade students may
+  // re-bump, so progress is bounded by remaining shortfalls, not by a hard
+  // once-per-student cap.
+  for (;;) {
+    let progress = false;
 
-  // -------------------------------------------------------------------------
-  // Main loops: grade (high→low) → term → round → shuffle
-  // Bumping runs inline when a normal open-seat placement fails.
-  // -------------------------------------------------------------------------
+    for (const grade of grades) {
+      const required = requiredFor(grade);
+      if (required <= 0) continue;
 
-  for (const grade of grades) {
-    const gradeStudents = students.filter((s) => s.grade === grade);
-    const required = requiredFor(grade);
+      const order = students.filter((s) => s.grade === grade);
+      shuffleInPlace(order, rand);
 
-    for (const term of terms) {
-      for (let round = 1; round <= required; round += 1) {
-        const order = [...gradeStudents];
-        shuffleInPlace(order, rand);
-
-        for (const student of order) {
-          const held = heldByTerm.get(student.id)?.get(term.id) ?? 0;
-          if (held >= round) continue;
-
-          const ranking = rankingForTerm(student.id, term.id);
-          let placed = false;
-
-          for (let rankIdx = 0; rankIdx < ranking.length; rankIdx += 1) {
-            const course = ranking[rankIdx]!;
-            if (firstTermId(course) !== term.id) continue;
-            if (!isGradeEligible(course, student.grade)) continue;
-            if (course.schedule.length === 0) continue;
-            if (assignedCourses.get(student.id)?.has(course.id)) continue;
-
-            const block = pickClass(course, student.id);
-            if (!block) continue;
-
-            assign(student, course, block, term.id, rankIdx + 1);
-            placed = true;
-            break;
+      for (const student of order) {
+        for (const term of terms) {
+          while ((heldByTerm.get(student.id)?.get(term.id) ?? 0) < required) {
+            if (!fillOneSeat(student, term)) break;
+            progress = true;
           }
-
-          if (!placed) {
-            placed = tryDisplace(student, term);
-          }
-
-          updateShortfall(student, term, required);
         }
       }
     }
+
+    if (!progress) break;
   }
 
   // Finalize shortfalls: anyone still under quota.
   for (const student of students) {
     const required = requiredFor(student.grade);
     for (const term of terms) {
-      updateShortfall(student, term, required);
+      const assigned = heldByTerm.get(student.id)?.get(term.id) ?? 0;
+      const key = `${student.id}|${term.id}`;
+      if (assigned >= required) {
+        shortfallMap.delete(key);
+      } else {
+        shortfallMap.set(key, {
+          studentId: student.id,
+          termId: term.id,
+          grade: student.grade,
+          assigned,
+          required,
+        });
+      }
     }
   }
 
