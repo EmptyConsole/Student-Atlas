@@ -254,7 +254,7 @@ function CourseCard({
         className="cursor-pointer p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
         style={{ outlineColor: subject.accent }}
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <ChevronDown
               className="h-5 w-5 shrink-0 transition-transform duration-200"
@@ -333,12 +333,12 @@ function CourseCard({
           </div>
         </div>
 
-        <p className="mt-2 pl-7 text-sm leading-snug text-gray-600">
+        <p className="mt-1 pl-7 text-sm leading-snug text-gray-600">
           {course.shortDescription}
         </p>
 
         {!expanded && hasNote && (
-          <p className="mt-2 pl-7 text-sm leading-snug text-gray-700 italic">
+          <p className="mt-1.5 pl-7 text-sm leading-snug text-gray-700 italic">
             <span className="font-semibold not-italic" style={{ color: subject.accent }}>
               Note:{" "}
             </span>
@@ -346,7 +346,7 @@ function CourseCard({
           </p>
         )}
 
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-7 sm:hidden">
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-7 sm:hidden">
           <MetaBadge
             label={formatGrades(course.grades)}
             bg={subject.color}
