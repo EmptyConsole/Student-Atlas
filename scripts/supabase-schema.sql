@@ -11,6 +11,7 @@ CREATE TABLE public.schools (
   password text NOT NULL DEFAULT ''::text,
   rankings smallint NOT NULL DEFAULT '8'::smallint,
   electives_assigned integer NOT NULL DEFAULT 0,
+  grade jsonb,
   CONSTRAINT schools_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.courses (
