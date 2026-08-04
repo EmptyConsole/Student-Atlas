@@ -2,13 +2,11 @@
 --
 -- Deletes every prior Nueva test student (email '%test@gmail.com'), then
 -- inserts 500 fresh students with:
---   • grade-appropriate completed prerequisites (cores still tracked as completed)
+--   • grade-appropriate cores + completed prerequisites
 --   • archetyped elective preferences (stem / humanities / arts / balanced)
 --   • exactly 8 ranked courses per term column (Fall + Spring)
 --   • every submitted_courses row has submitted = true
 --   • every ranked course is also bookmarked
---   • required cores / language ladder / teaching fellowships never ranked
---     or bookmarked (see pg_temp.rank_blocked)
 --
 -- Caps every Nueva course at max_student_count = 20 and sets schools.rankings = 8.
 --
@@ -338,49 +336,15 @@ BEGIN
 END;
 $fn$ LANGUAGE plpgsql STABLE;
 
--- Courses that must never appear in submitted rankings or bookmarks.
--- Covers required cores, lang 1–5, Math 1–3 / Calculus / CMI, SEL, Senior Block,
--- and every Teaching Fellowship.
-CREATE OR REPLACE FUNCTION pg_temp.rank_blocked(p_title text) RETURNS boolean AS $fn$
-BEGIN
-  IF p_title IS NULL OR p_title = '' THEN RETURN false; END IF;
-
-  IF p_title ILIKE '%Teaching Fellowship%' THEN RETURN true; END IF;
-
-  IF p_title IN (
-    'English 9', 'English 10', 'English 11',
-    'History 9 - World to 1500',
-    'History 10 - Modern World',
-    'History 11 - US History',
-    'Chinese 1', 'Chinese 2', 'Chinese 3', 'Chinese 4',
-    'Chinese 5: Current Events & Film',
-    'Spanish 1', 'Spanish 2', 'Spanish 3', 'Spanish 4',
-    'Japanese 1', 'Japanese 2', 'Japanese 3', 'Japanese 4',
-    'Math 1', 'Math 2', 'Math 3', 'Calculus',
-    'Core Mathematics Intensive X', 'Core Mathematics Intensive Y',
-    'Chemistry', 'Biology',
-    'Social Emotional Learning 9',
-    'Social Emotional Learning 10',
-    'Social Emotional Learning 11',
-    'Social Emotional Learning 12: The Good Life',
-    'Senior Block'
-  ) THEN
-    RETURN true;
-  END IF;
-
-  RETURN false;
-END;
-$fn$ LANGUAGE plpgsql IMMUTABLE;
-
 CREATE OR REPLACE FUNCTION pg_temp.popularity(p_title text, p_dept text) RETURNS double precision AS $fn$
 BEGIN
-  IF pg_temp.rank_blocked(p_title) THEN RETURN 0.01; END IF;
+  IF p_title ILIKE '%Teaching Fellowship%' THEN RETURN 0.05; END IF;
   IF p_title ILIKE 'Independent Study%' THEN RETURN 0.08; END IF;
   IF p_title ILIKE '%[Not Running%' THEN RETURN 0.01; END IF;
 
   IF p_title IN (
     'Physics','Intro to Computer Programming','Intro to Psychology','Data Science',
-    'Free Block','Creative Writing','Journalism',
+    'Free Block','Creative Writing','Calculus','Biology','Chemistry','Journalism',
     'Video Game Programming','Mobile App Development','Intro to Machine Learning',
     'Algorithms','Software Engineering'
   ) THEN RETURN 3.5; END IF;
@@ -718,14 +682,33 @@ BEGIN
     END LOOP;
 
     ------------------------------------------------------------------
-    -- Build picks: optional soft cores (never rank-blocked), then electives
+    -- Build picks: cores first, then scored electives
     ------------------------------------------------------------------
     DELETE FROM _picks;
 
-    -- Soft cores that are allowed on the preference form (not required cores).
     IF v_grade = 9 THEN
-      FOREACH v_title IN ARRAY ARRAY['Design Create Innovate (DCI)'] LOOP
-        IF pg_temp.rank_blocked(v_title) THEN CONTINUE; END IF;
+      FOREACH v_title IN ARRAY ARRAY[
+        'English 9','History 9 - World to 1500','Chemistry',
+        'Social Emotional Learning 9','Design Create Innovate (DCI)',
+        v_math_title, v_lang_title
+      ] LOOP
+        v_cid := pg_temp.course_id_by_title(v_title);
+        IF v_cid IS NULL THEN CONTINUE; END IF;
+        SELECT CASE WHEN is_allyear THEN 'allyear'
+                    WHEN is_fall_only THEN 'fall'
+                    ELSE 'spring' END,
+               base_weight
+        INTO v_kind, v_des
+        FROM _catalog WHERE id = v_cid;
+        INSERT INTO _picks (course_id, title, kind, desire, is_core)
+        VALUES (v_cid, v_title, v_kind, 1000.0 + v_des, true)
+        ON CONFLICT (course_id) DO NOTHING;
+      END LOOP;
+    ELSIF v_grade = 10 THEN
+      FOREACH v_title IN ARRAY ARRAY[
+        'English 10','History 10 - Modern World','Biology',
+        'Social Emotional Learning 10', v_math_title, v_lang_title
+      ] LOOP
         v_cid := pg_temp.course_id_by_title(v_title);
         IF v_cid IS NULL THEN CONTINUE; END IF;
         SELECT CASE WHEN is_allyear THEN 'allyear'
@@ -739,8 +722,10 @@ BEGIN
         ON CONFLICT (course_id) DO NOTHING;
       END LOOP;
     ELSIF v_grade = 11 THEN
-      FOREACH v_title IN ARRAY ARRAY['Physics'] LOOP
-        IF pg_temp.rank_blocked(v_title) THEN CONTINUE; END IF;
+      FOREACH v_title IN ARRAY ARRAY[
+        'English 11','History 11 - US History','Physics',
+        'Social Emotional Learning 11', v_math_title, v_lang_title
+      ] LOOP
         v_cid := pg_temp.course_id_by_title(v_title);
         IF v_cid IS NULL THEN CONTINUE; END IF;
         SELECT CASE WHEN is_allyear THEN 'allyear'
@@ -753,7 +738,42 @@ BEGIN
         VALUES (v_cid, v_title, v_kind, 1000.0 + v_des, true)
         ON CONFLICT (course_id) DO NOTHING;
       END LOOP;
-    ELSIF v_grade = 12 THEN
+    ELSE
+      FOREACH v_title IN ARRAY ARRAY[v_math_title, v_lang_title] LOOP
+        v_cid := pg_temp.course_id_by_title(v_title);
+        IF v_cid IS NULL THEN CONTINUE; END IF;
+        SELECT CASE WHEN is_allyear THEN 'allyear'
+                    WHEN is_fall_only THEN 'fall'
+                    ELSE 'spring' END,
+               base_weight
+        INTO v_kind, v_des
+        FROM _catalog WHERE id = v_cid;
+        INSERT INTO _picks (course_id, title, kind, desire, is_core)
+        VALUES (v_cid, v_title, v_kind, 1000.0 + v_des, true)
+        ON CONFLICT (course_id) DO NOTHING;
+      END LOOP;
+
+      v_cid := pg_temp.course_id_for_term('Senior Block', v_fall_id);
+      IF v_cid IS NOT NULL THEN
+        INSERT INTO _picks (course_id, title, kind, desire, is_core)
+        VALUES (v_cid, 'Senior Block', 'fall', 1100.0, true)
+        ON CONFLICT (course_id) DO NOTHING;
+      END IF;
+
+      v_cid := pg_temp.course_id_for_term(
+        'Social Emotional Learning 12: The Good Life', v_spring_id);
+      IF v_cid IS NOT NULL THEN
+        INSERT INTO _picks (course_id, title, kind, desire, is_core)
+        VALUES (
+          v_cid,
+          'Social Emotional Learning 12: The Good Life',
+          'spring',
+          1100.0,
+          true
+        )
+        ON CONFLICT (course_id) DO NOTHING;
+      END IF;
+
       v_eng_fall := (ARRAY[
         'Irish Literature','Memoir and Adaptation','Monstrosity',
         'War and Conflict in Literature'
@@ -764,35 +784,18 @@ BEGIN
       ])[1 + floor(pg_temp.rnd(i, 'engs') * 5)::int];
 
       v_cid := pg_temp.course_id_for_term(v_eng_fall, v_fall_id);
-      IF v_cid IS NOT NULL AND NOT pg_temp.rank_blocked(v_eng_fall) THEN
+      IF v_cid IS NOT NULL THEN
         INSERT INTO _picks (course_id, title, kind, desire, is_core)
         VALUES (v_cid, v_eng_fall, 'fall', 1050.0, true)
         ON CONFLICT (course_id) DO NOTHING;
       END IF;
       v_cid := pg_temp.course_id_for_term(v_eng_spring, v_spring_id);
-      IF v_cid IS NOT NULL AND NOT pg_temp.rank_blocked(v_eng_spring) THEN
+      IF v_cid IS NOT NULL THEN
         INSERT INTO _picks (course_id, title, kind, desire, is_core)
         VALUES (v_cid, v_eng_spring, 'spring', 1050.0, true)
         ON CONFLICT (course_id) DO NOTHING;
       END IF;
     END IF;
-
-    -- Post-ladder math / language only when the title is rankable (not Math 1–3,
-    -- Calculus, Chinese/Spanish/Japanese 1–5, etc.).
-    FOREACH v_title IN ARRAY ARRAY[v_math_title, v_lang_title] LOOP
-      IF pg_temp.rank_blocked(v_title) THEN CONTINUE; END IF;
-      v_cid := pg_temp.course_id_by_title(v_title);
-      IF v_cid IS NULL THEN CONTINUE; END IF;
-      SELECT CASE WHEN is_allyear THEN 'allyear'
-                  WHEN is_fall_only THEN 'fall'
-                  ELSE 'spring' END,
-             base_weight
-      INTO v_kind, v_des
-      FROM _catalog WHERE id = v_cid;
-      INSERT INTO _picks (course_id, title, kind, desire, is_core)
-      VALUES (v_cid, v_title, v_kind, 1000.0 + v_des, true)
-      ON CONFLICT (course_id) DO NOTHING;
-    END LOOP;
 
     FOR rec IN
       SELECT c.id, c.title, c.dept, c.base_weight,
@@ -802,7 +805,7 @@ BEGIN
       FROM _catalog c
       WHERE v_grade = ANY (c.grade)
         AND (c.is_allyear OR c.is_fall_only OR c.is_spring_only)
-        AND NOT pg_temp.rank_blocked(c.title)
+        AND c.title NOT ILIKE '%Teaching Fellowship%'
         AND c.title NOT ILIKE '%[Not Running%'
         AND NOT EXISTS (SELECT 1 FROM _picks p WHERE p.course_id = c.id)
         AND NOT (c.title = ANY (v_completed))
@@ -828,14 +831,8 @@ BEGIN
       'What Is Philosophy?','Existentialism','Environmental Earth Science',
       'Marine Environments','Building Toys','The Art of Repair',
       'Intro to CAD','Cinema Studies','Irish Literature','Journalism',
-      'Intro to Psychology','Intro to Drawing','Intro to Photography',
-      'Physics','Data Science','Intro to Computer Programming',
-      'Algorithms','Product Design','How to Build Anything?',
-      'International Relations','Intro to Microeconomics','Intro to Macroeconomics',
-      'Yearbook Media Production','Anatomy and Physiology','Modern Physics',
-      'Statistics','Linear Algebra','Multivariable Calculus'
+      'Intro to Psychology','Intro to Drawing','Intro to Photography'
     ] LOOP
-      IF pg_temp.rank_blocked(v_title) THEN CONTINUE; END IF;
       FOR rec IN
         SELECT c.id,
                CASE WHEN c.is_allyear THEN 'allyear'
@@ -854,7 +851,7 @@ BEGIN
       END LOOP;
     END LOOP;
 
-    -- Last-resort pad: any grade-eligible non-blocked course, ignore prereqs.
+    -- Last-resort pad: any grade-eligible course, ignore prereqs.
     SELECT COUNT(*) INTO v_avail_f FROM _picks WHERE kind IN ('allyear', 'fall');
     SELECT COUNT(*) INTO v_avail_s FROM _picks WHERE kind IN ('allyear', 'spring');
     IF v_avail_f < 8 OR v_avail_s < 8 THEN
@@ -867,11 +864,9 @@ BEGIN
         FROM _catalog c
         WHERE v_grade = ANY (c.grade)
           AND (c.is_allyear OR c.is_fall_only OR c.is_spring_only)
-          AND NOT pg_temp.rank_blocked(c.title)
-          AND c.title NOT ILIKE '%[Not Running%'
           AND NOT EXISTS (SELECT 1 FROM _picks p WHERE p.course_id = c.id)
         ORDER BY c.base_weight DESC, c.title
-        LIMIT 60
+        LIMIT 40
       LOOP
         INSERT INTO _picks (course_id, title, kind, desire, is_core)
         VALUES (rec.id, rec.title, rec.kind, 0.05 + rec.base_weight * 0.01, false)
@@ -998,8 +993,6 @@ BEGIN
       FROM _catalog c
       WHERE c.is_fall
         AND v_grade = ANY (c.grade)
-        AND NOT pg_temp.rank_blocked(c.title)
-        AND c.title NOT ILIKE '%[Not Running%'
         AND NOT (c.id = ANY (v_fall_order))
       ORDER BY c.base_weight DESC, c.title
       LIMIT 1;
@@ -1012,8 +1005,6 @@ BEGIN
       FROM _catalog c
       WHERE c.is_spring
         AND v_grade = ANY (c.grade)
-        AND NOT pg_temp.rank_blocked(c.title)
-        AND c.title NOT ILIKE '%[Not Running%'
         AND NOT (c.id = ANY (v_spring_order))
       ORDER BY c.base_weight DESC, c.title
       LIMIT 1;
@@ -1115,8 +1106,6 @@ DECLARE
   v_missing_bookmark int;
   v_allyear_dupes int;
   v_capped int;
-  v_blocked_rank int;
-  v_blocked_bookmark int;
   rec RECORD;
 BEGIN
   SELECT school_id INTO v_school_id FROM _nueva_ctx;
@@ -1180,22 +1169,6 @@ BEGIN
   SELECT COUNT(*) INTO v_capped
   FROM courses WHERE school_id = v_school_id AND max_student_count = 20;
 
-  SELECT COUNT(*) INTO v_blocked_rank
-  FROM submitted_courses sc
-  JOIN students s ON s.id = sc.student_id
-  JOIN courses c ON c.id = sc.course_id
-  WHERE s.school_id = v_school_id
-    AND s.email ILIKE '%test@gmail.com'
-    AND pg_temp.rank_blocked(c.title);
-
-  SELECT COUNT(*) INTO v_blocked_bookmark
-  FROM bookmarked_courses bc
-  JOIN students s ON s.id = bc.student_id
-  JOIN courses c ON c.id = bc.course_id
-  WHERE s.school_id = v_school_id
-    AND s.email ILIKE '%test@gmail.com'
-    AND pg_temp.rank_blocked(c.title);
-
   RAISE NOTICE '=== Nueva 500-student seed verification ===';
   RAISE NOTICE 'Students: %', v_students;
   RAISE NOTICE 'Students with submitted=true rankings: %', v_with_rankings;
@@ -1204,8 +1177,6 @@ BEGIN
   RAISE NOTICE 'Students with <8 submitted rankings: %', v_incomplete;
   RAISE NOTICE 'Submitted rows missing bookmarks: %', v_missing_bookmark;
   RAISE NOTICE 'All-year duplicate submitted rows: %', v_allyear_dupes;
-  RAISE NOTICE 'Blocked courses in rankings: %', v_blocked_rank;
-  RAISE NOTICE 'Blocked courses in bookmarks: %', v_blocked_bookmark;
   RAISE NOTICE 'Courses capped at 20: %', v_capped;
 
   RAISE NOTICE '--- Students by grade ---';
@@ -1256,17 +1227,11 @@ BEGIN
   IF v_allyear_dupes <> 0 THEN
     RAISE EXCEPTION 'Found duplicate all-year submitted rows';
   END IF;
-  IF v_blocked_rank <> 0 THEN
-    RAISE EXCEPTION '% submitted rankings use blocked core/fellowship courses', v_blocked_rank;
-  END IF;
-  IF v_blocked_bookmark <> 0 THEN
-    RAISE EXCEPTION '% bookmarks use blocked core/fellowship courses', v_blocked_bookmark;
-  END IF;
   IF v_capped = 0 THEN
     RAISE EXCEPTION 'No courses were capped at 20';
   END IF;
 
-  RAISE NOTICE 'Seed OK: 500 students, all with submitted=true rankings (no blocked cores).';
+  RAISE NOTICE 'Seed OK: 500 students, all with submitted=true rankings.';
 END $$;
 
 COMMIT;

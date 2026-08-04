@@ -3,7 +3,7 @@
  *
  * Loads live school data, runs the assignment in memory (arrays only),
  * aggregates preference-rank coverage and class-fill histograms, and prints
- * the report to the console.
+ * the report to the console (including submission notes).
  */
 
 import {
@@ -13,6 +13,7 @@ import {
 import {
   runElectiveSort,
   type ElectiveAssignment,
+  type ElectiveCourse,
   type ElectiveSortResult,
   type ElectiveTerm,
 } from "../utils/electiveSort";
@@ -41,14 +42,24 @@ export type RankCoverage = {
   >;
 };
 
+export type SubmissionNoteLine = {
+  studentName: string;
+  grade: number | null;
+  note: string;
+};
+
 export type TestSortReport = {
   result: ElectiveSortResult;
   terms: ElectiveTerm[];
   byGrade: Record<string, RankCoverage>;
   byTerm: Record<string, RankCoverage>;
   byTermAndGrade: Record<string, Record<string, RankCoverage>>;
+  /** termId → studentCount → number of courses offered that term with that enrollment. */
+  courseSizeCountsByTerm: Record<string, Record<number, number>>;
   /** studentCount → number of classes with that many students (includes 0). */
   classSizeCounts: Record<number, number>;
+  /** Non-empty submitted_notes for the school, with student name + grade. */
+  submissionNotes: SubmissionNoteLine[];
 };
 
 export type TestSortResult =
@@ -195,6 +206,131 @@ function aggregateClassSizes(
   return counts;
 }
 
+/**
+ * Per term: histogram of total enrollment for courses offered in that term.
+ * All-year courses appear under every term they cover, with the same headcount.
+ */
+function aggregateCourseSizesByTerm(
+  classFills: ElectiveSortResult["classFills"],
+  courses: ElectiveCourse[],
+): Record<string, Record<number, number>> {
+  const enrollmentByCourse = new Map<string, number>();
+  for (const fill of classFills) {
+    enrollmentByCourse.set(
+      fill.courseId,
+      (enrollmentByCourse.get(fill.courseId) ?? 0) + fill.count,
+    );
+  }
+
+  const byTerm: Record<string, Record<number, number>> = {};
+  for (const course of courses) {
+    const total = enrollmentByCourse.get(course.id) ?? 0;
+    for (const termId of course.termOptions) {
+      const counts = byTerm[termId] ?? (byTerm[termId] = {});
+      counts[total] = (counts[total] ?? 0) + 1;
+    }
+  }
+  return byTerm;
+}
+
+function printSizeHistogram(
+  title: string,
+  sizeCounts: Record<number, number>,
+  unit: "course" | "class",
+  indent = "",
+): void {
+  const plural = unit === "class" ? "classes" : "courses";
+  console.log(`\n${indent}--- ${title} ---`);
+  const sizes = Object.keys(sizeCounts)
+    .map(Number)
+    .sort((a, b) => b - a);
+  if (sizes.length === 0) {
+    console.log(`${indent}  (no ${plural})`);
+    return;
+  }
+  let total = 0;
+  for (const size of sizes) {
+    const n = sizeCounts[size]!;
+    total += n;
+    const unitLabel = n === 1 ? unit : plural;
+    console.log(
+      `${indent}  ${n} ${unitLabel}: ${size} student${size === 1 ? "" : "s"}`,
+    );
+  }
+  console.log(`${indent}  Total ${plural}: ${total}`);
+}
+
+function printCourseSizesByTerm(
+  terms: ElectiveTerm[],
+  courseSizeCountsByTerm: Record<string, Record<number, number>>,
+): void {
+  console.log("\n--- Course sizes by term ---");
+  const orderedTerms = [...terms].sort((a, b) => a.rank - b.rank);
+  if (orderedTerms.length === 0) {
+    console.log("  (no terms)");
+    return;
+  }
+  for (const term of orderedTerms) {
+    const counts = courseSizeCountsByTerm[term.id] ?? {};
+    printSizeHistogram(termLabel(term), counts, "course", "  ");
+  }
+}
+
+const NOTES_PAGE_SIZE = 1000;
+
+async function resolveClient(client?: ElectiveClient): Promise<ElectiveClient> {
+  if (client) return client;
+  const { supabase } = await import("./supabase");
+  return supabase;
+}
+
+/** Load non-empty submitted_notes for a school, with student name and grade. */
+async function loadSubmissionNotes(
+  schoolId: string,
+  client?: ElectiveClient,
+): Promise<{ notes: SubmissionNoteLine[]; error?: string }> {
+  const db = await resolveClient(client);
+  const notes: SubmissionNoteLine[] = [];
+
+  for (let from = 0; ; from += NOTES_PAGE_SIZE) {
+    const to = from + NOTES_PAGE_SIZE - 1;
+    const { data, error } = await db
+      .from("submitted_notes")
+      .select("note, students!inner(name, grade, school_id)")
+      .eq("students.school_id", schoolId)
+      .range(from, to);
+
+    if (error) return { notes, error: error.message };
+    if (!data?.length) break;
+
+    for (const row of data) {
+      const note = row.note?.trim() ?? "";
+      if (!note) continue;
+      const student = row.students as {
+        name: string;
+        grade: number | null;
+        school_id: string;
+      };
+      notes.push({
+        studentName: student.name,
+        grade: student.grade,
+        note,
+      });
+    }
+
+    if (data.length < NOTES_PAGE_SIZE) break;
+  }
+
+  notes.sort((a, b) => {
+    const ga = a.grade ?? Number.POSITIVE_INFINITY;
+    const gb = b.grade ?? Number.POSITIVE_INFINITY;
+    if (ga !== gb) return gb - ga;
+    return a.studentName.localeCompare(b.studentName);
+  });
+
+  return { notes };
+}
+
 function printRankCoverage(coverage: RankCoverage, indent: string): void {
   const rankNums = Object.keys(coverage.ranks)
     .map(Number)
@@ -221,7 +357,9 @@ export function printTestSortReport(report: TestSortReport): void {
     byGrade,
     byTerm,
     byTermAndGrade,
+    courseSizeCountsByTerm,
     classSizeCounts,
+    submissionNotes,
   } = report;
 
   console.log("\n========== testsort results (no DB writes) ==========");
@@ -274,23 +412,8 @@ export function printTestSortReport(report: TestSortReport): void {
     }
   }
 
-  console.log("\n--- Class sizes ---");
-  const sizes = Object.keys(classSizeCounts)
-    .map(Number)
-    .sort((a, b) => b - a);
-  if (sizes.length === 0) {
-    console.log("  (no classes)");
-  } else {
-    let totalClasses = 0;
-    for (const size of sizes) {
-      const n = classSizeCounts[size]!;
-      totalClasses += n;
-      console.log(
-        `  ${n} class${n === 1 ? "" : "es"}: ${size} student${size === 1 ? "" : "s"}`,
-      );
-    }
-    console.log(`  Total classes: ${totalClasses}`);
-  }
+  printCourseSizesByTerm(terms, courseSizeCountsByTerm);
+  printSizeHistogram("Class sizes", classSizeCounts, "class");
 
   if (result.shortfalls.length > 0) {
     console.log(`\n--- Shortfalls (${result.shortfalls.length}) ---`);
@@ -298,6 +421,16 @@ export function printTestSortReport(report: TestSortReport): void {
       console.log(
         `  student=${s.studentId} grade=${s.grade} term=${s.termId} assigned=${s.assigned}/${s.required}`,
       );
+    }
+  }
+
+  console.log(`\n--- Submission notes (${submissionNotes.length}) ---`);
+  if (submissionNotes.length === 0) {
+    console.log("  (none)");
+  } else {
+    for (const row of submissionNotes) {
+      const gradeLabel = row.grade === null ? "unknown" : String(row.grade);
+      console.log(`  ${row.studentName} (grade ${gradeLabel}): ${row.note}`);
     }
   }
 
@@ -327,14 +460,24 @@ export async function testsort(
   schoolId: string,
   options: TestSortOptions = {},
 ): Promise<TestSortResult> {
-  const loaded = await loadElectiveData(schoolId, options.client);
+  const [loaded, notesLoaded] = await Promise.all([
+    loadElectiveData(schoolId, options.client),
+    loadSubmissionNotes(schoolId, options.client),
+  ]);
   if (loaded.error || !loaded.data) {
     return { error: loaded.error ?? "Failed to load elective data" };
+  }
+  if (notesLoaded.error) {
+    return { error: notesLoaded.error };
   }
 
   const result = runElectiveSort(loaded.data, options.seed);
   const byGrade = aggregateByGrade(result.assignments);
   const { byTerm, byTermAndGrade } = aggregateByTerm(result.assignments);
+  const courseSizeCountsByTerm = aggregateCourseSizesByTerm(
+    result.classFills,
+    loaded.data.courses,
+  );
   const classSizeCounts = aggregateClassSizes(result.classFills);
 
   const report: TestSortReport = {
@@ -343,7 +486,9 @@ export async function testsort(
     byGrade,
     byTerm,
     byTermAndGrade,
+    courseSizeCountsByTerm,
     classSizeCounts,
+    submissionNotes: notesLoaded.notes,
   };
   printTestSortReport(report);
 
