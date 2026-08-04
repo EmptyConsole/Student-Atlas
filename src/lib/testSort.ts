@@ -370,6 +370,24 @@ export function printTestSortReport(report: TestSortReport): void {
     `Students with times_taken: ${Object.keys(result.timesTaken).length}`,
   );
   console.log(`Shortfalls: ${result.shortfalls.length}`);
+  console.log(`Displacements: ${result.displacements.length}`);
+
+  if (result.displacements.length > 0) {
+    console.log(`\n--- Displacements (${result.displacements.length}) ---`);
+    console.log(
+      "(a seated student slid further down their own list so a student with no",
+    );
+    console.log(" usable open class could take their seat)");
+    for (const d of result.displacements) {
+      console.log(
+        `  student=${d.displacedStudentId} grade=${d.displacedGrade} term=${d.termId}` +
+          ` moved ${ordinal(d.fromPreferenceRank)} "${d.fromCourseTitle}"` +
+          ` → ${ordinal(d.toPreferenceRank)} "${d.toCourseTitle}"` +
+          ` for student=${d.beneficiaryStudentId} grade=${d.beneficiaryGrade}` +
+          ` (their ${ordinal(d.beneficiaryPreferenceRank)} choice)`,
+      );
+    }
+  }
 
   console.log("\n--- Assignments by grade × preference rank ---");
   console.log(

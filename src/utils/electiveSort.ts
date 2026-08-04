@@ -45,9 +45,16 @@ export type ElectiveTerm = {
 };
 
 export type ElectiveSortInput = {
-  /** School-wide seats per term; used for grades absent from the map below. */
+  /**
+   * School-wide seats per term. Used only when `electivesAssignedByGrade` is
+   * omitted (unit tests / direct callers). With a map, unlisted grades are
+   * skipped entirely rather than falling back here.
+   */
   electivesAssigned: number;
-  /** Per-grade seats per term, from `schools.grade`. */
+  /**
+   * Per-grade seats per term, from `schools.grade`. When provided, only
+   * students whose grade is a key in this map are sorted.
+   */
   electivesAssignedByGrade?: Record<number, number>;
   terms: ElectiveTerm[];
   students: ElectiveStudent[];
@@ -92,6 +99,30 @@ export type ElectiveAssignment = {
   end: number;
 };
 
+/**
+ * One seat handed from an already-placed student to a student who would
+ * otherwise be short, with the displaced student sliding down their own list.
+ */
+export type ElectiveDisplacement = {
+  /** Student moved down their ranking to free the seat. */
+  displacedStudentId: string;
+  displacedGrade: number | null;
+  /** Student who received the freed seat. */
+  beneficiaryStudentId: string;
+  beneficiaryGrade: number | null;
+  termId: string;
+  fromCourseId: string;
+  fromCourseTitle: string;
+  /** Displaced student's rank for the vacated course. */
+  fromPreferenceRank: number;
+  toCourseId: string;
+  toCourseTitle: string;
+  /** Displaced student's rank for their replacement course (always worse). */
+  toPreferenceRank: number;
+  /** Beneficiary's rank for the course they moved into. */
+  beneficiaryPreferenceRank: number;
+};
+
 export type ElectiveSortResult = {
   /** courseId → roster strings (one per occupied class). */
   rosters: Record<string, RosterEntry[]>;
@@ -102,6 +133,8 @@ export type ElectiveSortResult = {
   classFills: ClassFill[];
   /** Every seat granted during the run (in-memory; never written by itself). */
   assignments: ElectiveAssignment[];
+  /** Seats reclaimed by the displacement pass, oldest first. */
+  displacements: ElectiveDisplacement[];
 };
 
 // ---------------------------------------------------------------------------
@@ -169,11 +202,22 @@ export function runElectiveSort(
   const usedSeed = seed ?? defaultSeed();
   const rand = mulberry32(usedSeed);
 
+  const byGrade = input.electivesAssignedByGrade;
+  // When a per-grade map is supplied, drop students whose grade is not a key.
+  const students =
+    byGrade === undefined
+      ? input.students
+      : input.students.filter(
+          (s) => s.grade !== null && Object.hasOwn(byGrade, s.grade),
+        );
+
   /** Seats owed per term to a student in this grade. */
   function requiredFor(grade: number | null): number {
-    const perGrade =
-      grade === null ? undefined : input.electivesAssignedByGrade?.[grade];
-    return Math.max(0, Math.floor(perGrade ?? input.electivesAssigned));
+    if (grade !== null && byGrade !== undefined && Object.hasOwn(byGrade, grade)) {
+      return Math.max(0, Math.floor(byGrade[grade]!));
+    }
+    // No map (or grade somehow unlisted): school-wide fallback.
+    return Math.max(0, Math.floor(input.electivesAssigned));
   }
 
   const terms = [...input.terms].sort((a, b) => a.rank - b.rank);
@@ -184,7 +228,7 @@ export function runElectiveSort(
   }
 
   const studentById = new Map<string, ElectiveStudent>();
-  for (const student of input.students) {
+  for (const student of students) {
     studentById.set(student.id, student);
   }
 
@@ -213,20 +257,20 @@ export function runElectiveSort(
 
   // studentId → times_taken quads (mutated as we assign).
   const timesTaken = new Map<string, number[][]>();
-  for (const student of input.students) {
+  for (const student of students) {
     timesTaken.set(student.id, []);
   }
 
   // studentId → termId → number of electives already held in that term.
   // Multi-term courses increment every spanned term.
   const heldByTerm = new Map<string, Map<string, number>>();
-  for (const student of input.students) {
+  for (const student of students) {
     heldByTerm.set(student.id, new Map());
   }
 
   // studentId → set of course ids already assigned.
   const assignedCourses = new Map<string, Set<string>>();
-  for (const student of input.students) {
+  for (const student of students) {
     assignedCourses.set(student.id, new Set());
   }
 
@@ -238,7 +282,7 @@ export function runElectiveSort(
   // Grades present, highest first.
   const grades = [
     ...new Set(
-      input.students
+      students
         .map((s) => s.grade)
         .filter((g): g is number => g !== null && Number.isFinite(g)),
     ),
@@ -284,6 +328,21 @@ export function runElectiveSort(
     return eligible.map((e) => e.course);
   }
 
+  /** Known term ranks a course occupies. */
+  function spannedTermRanks(course: ElectiveCourse): number[] {
+    return course.termOptions
+      .map((tid) => termRankOf(tid))
+      .filter((r): r is number => r !== undefined);
+  }
+
+  /** Stable signature of the terms a course occupies, for span comparisons. */
+  function termSpanKey(course: ElectiveCourse): string {
+    return course.termOptions
+      .filter((tid) => termRankOf(tid) !== undefined)
+      .sort()
+      .join(",");
+  }
+
   function isGradeEligible(course: ElectiveCourse, grade: number | null): boolean {
     if (grade === null) return false;
     if (!course.grade || course.grade.length === 0) return false;
@@ -321,9 +380,7 @@ export function runElectiveSort(
     course: ElectiveCourse,
     studentId: string,
   ): ClassTime | null {
-    const spannedRanks = course.termOptions
-      .map((tid) => termRankOf(tid))
-      .filter((r): r is number => r !== undefined);
+    const spannedRanks = spannedTermRanks(course);
 
     if (spannedRanks.length === 0) return null;
 
@@ -398,12 +455,322 @@ export function runElectiveSort(
     });
   }
 
+  /** Everything needed to put a seat back exactly as it was. */
+  type SavedSeat = {
+    student: ElectiveStudent;
+    course: ElectiveCourse;
+    block: ClassTime;
+    rosterIndex: number;
+    assignmentIndex: number;
+    assignment: ElectiveAssignment;
+  };
+
+  /**
+   * Reverse of `assign`. Returns the state needed by `restoreSeat`, or null if
+   * the student does not actually hold that seat.
+   */
+  function unassignSeat(
+    student: ElectiveStudent,
+    course: ElectiveCourse,
+    block: ClassTime,
+  ): SavedSeat | null {
+    const key = classTimeKey(block);
+    const roster = rosterMap.get(course.id)?.get(key);
+    if (!roster) return null;
+    const rosterIndex = roster.indexOf(student.id);
+    if (rosterIndex < 0) return null;
+
+    const assignmentIndex = assignments.findIndex(
+      (a) =>
+        a.studentId === student.id &&
+        a.courseId === course.id &&
+        a.day === block.day &&
+        a.start === block.start &&
+        a.end === block.end,
+    );
+    if (assignmentIndex < 0) return null;
+    const assignment = assignments[assignmentIndex]!;
+
+    roster.splice(rosterIndex, 1);
+    assignedCourses.get(student.id)?.delete(course.id);
+
+    const quads = timesTaken.get(student.id) ?? [];
+    const held = heldByTerm.get(student.id)!;
+    for (const tid of course.termOptions) {
+      const rank = termRankOf(tid);
+      if (rank === undefined) continue;
+      const qi = quads.findIndex(
+        (q) =>
+          q[0] === rank &&
+          q[1] === block.day &&
+          q[2] === block.start &&
+          q[3] === block.end,
+      );
+      if (qi >= 0) quads.splice(qi, 1);
+      held.set(tid, Math.max(0, (held.get(tid) ?? 0) - 1));
+    }
+
+    assignments.splice(assignmentIndex, 1);
+    return { student, course, block, rosterIndex, assignmentIndex, assignment };
+  }
+
+  function restoreSeat(saved: SavedSeat): void {
+    const key = classTimeKey(saved.block);
+    const roster = rosterMap.get(saved.course.id)?.get(key);
+    if (roster) {
+      roster.splice(saved.rosterIndex, 0, saved.student.id);
+    }
+    assignedCourses.get(saved.student.id)?.add(saved.course.id);
+
+    const quads = timesTaken.get(saved.student.id) ?? [];
+    const held = heldByTerm.get(saved.student.id)!;
+    for (const tid of saved.course.termOptions) {
+      const rank = termRankOf(tid);
+      if (rank === undefined) continue;
+      quads.push([rank, saved.block.day, saved.block.start, saved.block.end]);
+      held.set(tid, (held.get(tid) ?? 0) + 1);
+    }
+    quads.sort((a, b) => a[0]! - b[0]! || a[1]! - b[1]! || a[2]! - b[2]!);
+    timesTaken.set(saved.student.id, quads);
+
+    assignments.splice(saved.assignmentIndex, 0, saved.assignment);
+  }
+
   // -------------------------------------------------------------------------
-  // Main loops: grade (high→low) → term (display order) → round → shuffle
+  // Inline displacement
+  //
+  // When a student cannot take any open seat, try to slide an already-placed
+  // student further down their list (with cascading). Younger students may
+  // displace a given person at most once; older / same-grade students may
+  // re-displace them.
+  // -------------------------------------------------------------------------
+
+  const displacements: ElectiveDisplacement[] = [];
+  /** Occupants already bumped by someone younger than them (or unknown grade). */
+  const alreadyDisplaced = new Set<string>();
+  const MAX_CASCADE_DEPTH = 8;
+
+  function mayDisplace(
+    beneficiary: ElectiveStudent,
+    occupant: ElectiveStudent,
+  ): boolean {
+    if (!alreadyDisplaced.has(occupant.id)) return true;
+    if (beneficiary.grade === null || occupant.grade === null) return false;
+    return beneficiary.grade >= occupant.grade;
+  }
+
+  type BumpCandidate = {
+    occupant: ElectiveStudent;
+    course: ElectiveCourse;
+    block: ClassTime;
+    fromRank: number;
+    beneficiaryRank: number;
+  };
+
+  function collectCandidates(
+    student: ElectiveStudent,
+    term: ElectiveTerm,
+    inFlight: Set<string>,
+    targetCourse: ElectiveCourse | null,
+  ):
+    | { tookOpen: true }
+    | { tookOpen: false; candidates: BumpCandidate[] } {
+    const ranking = rankingForTerm(student.id, term.id);
+    const candidates: BumpCandidate[] = [];
+
+    for (let idx = 0; idx < ranking.length; idx += 1) {
+      const course = ranking[idx]!;
+      if (targetCourse && course.id !== targetCourse.id) continue;
+      if (firstTermId(course) !== term.id) continue;
+      if (!isGradeEligible(course, student.grade)) continue;
+      if (course.schedule.length === 0) continue;
+      if (assignedCourses.get(student.id)?.has(course.id)) continue;
+
+      const spannedRanks = spannedTermRanks(course);
+      if (spannedRanks.length === 0) continue;
+
+      const open = pickClass(course, student.id);
+      if (open) {
+        assign(student, course, open, term.id, idx + 1);
+        return { tookOpen: true };
+      }
+
+      for (const block of course.schedule) {
+        if (studentConflicts(student.id, block, spannedRanks)) continue;
+        const roster = rosterMap.get(course.id)?.get(classTimeKey(block)) ?? [];
+        for (const occupantId of roster) {
+          if (occupantId === student.id) continue;
+          if (inFlight.has(occupantId)) continue;
+          const occupant = studentById.get(occupantId);
+          if (!occupant) continue;
+          if (!mayDisplace(student, occupant)) continue;
+
+          const occupantRanking = rankingForTerm(occupantId, term.id);
+          const fromRank =
+            occupantRanking.findIndex((c) => c.id === course.id) + 1;
+          if (fromRank <= 0) continue;
+          if (fromRank >= occupantRanking.length) continue;
+
+          candidates.push({
+            occupant,
+            course,
+            block,
+            fromRank,
+            beneficiaryRank: idx + 1,
+          });
+        }
+      }
+    }
+
+    return { tookOpen: false, candidates };
+  }
+
+  function sortCandidates(candidates: BumpCandidate[]): void {
+    shuffleInPlace(candidates, rand);
+    candidates.sort((a, b) => {
+      if (a.fromRank !== b.fromRank) return b.fromRank - a.fromRank;
+      const ga = a.occupant.grade ?? Number.POSITIVE_INFINITY;
+      const gb = b.occupant.grade ?? Number.POSITIVE_INFINITY;
+      return ga - gb;
+    });
+  }
+
+  function slideDown(
+    candidate: BumpCandidate,
+    term: ElectiveTerm,
+    depth: number,
+    inFlight: Set<string>,
+  ): { course: ElectiveCourse; rank: number } | null {
+    const ranking = rankingForTerm(candidate.occupant.id, term.id);
+    const fromSpan = termSpanKey(candidate.course);
+
+    const saved = unassignSeat(
+      candidate.occupant,
+      candidate.course,
+      candidate.block,
+    );
+    if (!saved) return null;
+
+    inFlight.add(candidate.occupant.id);
+
+    for (let i = candidate.fromRank; i < ranking.length; i += 1) {
+      const next = ranking[i]!;
+      if (next.id === candidate.course.id) continue;
+      if (firstTermId(next) !== term.id) continue;
+      if (!isGradeEligible(next, candidate.occupant.grade)) continue;
+      if (next.schedule.length === 0) continue;
+      if (assignedCourses.get(candidate.occupant.id)?.has(next.id)) continue;
+      if (termSpanKey(next) !== fromSpan) continue;
+
+      const open = pickClass(next, candidate.occupant.id);
+      if (open) {
+        assign(candidate.occupant, next, open, term.id, i + 1);
+        inFlight.delete(candidate.occupant.id);
+        return { course: next, rank: i + 1 };
+      }
+
+      if (depth + 1 > MAX_CASCADE_DEPTH) continue;
+      if (
+        !claimSeat(candidate.occupant, term, depth + 1, inFlight, next, i + 1)
+      ) {
+        continue;
+      }
+      inFlight.delete(candidate.occupant.id);
+      return { course: next, rank: i + 1 };
+    }
+
+    inFlight.delete(candidate.occupant.id);
+    restoreSeat(saved);
+    return null;
+  }
+
+  function claimSeat(
+    student: ElectiveStudent,
+    term: ElectiveTerm,
+    depth: number,
+    inFlight: Set<string>,
+    targetCourse: ElectiveCourse | null,
+    beneficiaryRankOverride: number | null,
+  ): boolean {
+    if (depth > MAX_CASCADE_DEPTH) return false;
+
+    const collected = collectCandidates(student, term, inFlight, targetCourse);
+    if (collected.tookOpen) return true;
+
+    const { candidates } = collected;
+    if (candidates.length === 0) return false;
+    sortCandidates(candidates);
+
+    for (const candidate of candidates) {
+      const dispLen = displacements.length;
+      const moved = slideDown(candidate, term, depth, inFlight);
+      if (!moved) {
+        displacements.length = dispLen;
+        continue;
+      }
+
+      const beneficiaryRank =
+        beneficiaryRankOverride ?? candidate.beneficiaryRank;
+      assign(
+        student,
+        candidate.course,
+        candidate.block,
+        term.id,
+        beneficiaryRank,
+      );
+      alreadyDisplaced.add(candidate.occupant.id);
+      displacements.push({
+        displacedStudentId: candidate.occupant.id,
+        displacedGrade: candidate.occupant.grade,
+        beneficiaryStudentId: student.id,
+        beneficiaryGrade: student.grade,
+        termId: term.id,
+        fromCourseId: candidate.course.id,
+        fromCourseTitle: candidate.course.title,
+        fromPreferenceRank: candidate.fromRank,
+        toCourseId: moved.course.id,
+        toCourseTitle: moved.course.title,
+        toPreferenceRank: moved.rank,
+        beneficiaryPreferenceRank: beneficiaryRank,
+      });
+      return true;
+    }
+
+    return false;
+  }
+
+  /** Try to seat `student` in `term` by bumping someone already placed. */
+  function tryDisplace(student: ElectiveStudent, term: ElectiveTerm): boolean {
+    return claimSeat(student, term, 0, new Set(), null, null);
+  }
+
+  function updateShortfall(
+    student: ElectiveStudent,
+    term: ElectiveTerm,
+    required: number,
+  ): void {
+    const assigned = heldByTerm.get(student.id)?.get(term.id) ?? 0;
+    const key = `${student.id}|${term.id}`;
+    if (assigned >= required) {
+      shortfallMap.delete(key);
+    } else {
+      shortfallMap.set(key, {
+        studentId: student.id,
+        termId: term.id,
+        grade: student.grade,
+        assigned,
+        required,
+      });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Main loops: grade (high→low) → term → round → shuffle
+  // Bumping runs inline when a normal open-seat placement fails.
   // -------------------------------------------------------------------------
 
   for (const grade of grades) {
-    const gradeStudents = input.students.filter((s) => s.grade === grade);
+    const gradeStudents = students.filter((s) => s.grade === grade);
     const required = requiredFor(grade);
 
     for (const term of terms) {
@@ -420,7 +787,6 @@ export function runElectiveSort(
 
           for (let rankIdx = 0; rankIdx < ranking.length; rankIdx += 1) {
             const course = ranking[rankIdx]!;
-            // Only assign in the course's first term.
             if (firstTermId(course) !== term.id) continue;
             if (!isGradeEligible(course, student.grade)) continue;
             if (course.schedule.length === 0) continue;
@@ -435,55 +801,20 @@ export function runElectiveSort(
           }
 
           if (!placed) {
-            const assigned = heldByTerm.get(student.id)?.get(term.id) ?? 0;
-            if (assigned < required) {
-              const key = `${student.id}|${term.id}`;
-              shortfallMap.set(key, {
-                studentId: student.id,
-                termId: term.id,
-                grade: student.grade,
-                assigned,
-                required,
-              });
-            }
-          } else {
-            // Clear shortfall if they somehow caught up (shouldn't happen mid-round
-            // for this term, but keep the map accurate after later rounds).
-            const assigned = heldByTerm.get(student.id)?.get(term.id) ?? 0;
-            const key = `${student.id}|${term.id}`;
-            if (assigned >= required) {
-              shortfallMap.delete(key);
-            } else {
-              shortfallMap.set(key, {
-                studentId: student.id,
-                termId: term.id,
-                grade: student.grade,
-                assigned,
-                required,
-              });
-            }
+            placed = tryDisplace(student, term);
           }
+
+          updateShortfall(student, term, required);
         }
       }
     }
   }
 
   // Finalize shortfalls: anyone still under quota.
-  for (const student of input.students) {
+  for (const student of students) {
     const required = requiredFor(student.grade);
     for (const term of terms) {
-      const assigned = heldByTerm.get(student.id)?.get(term.id) ?? 0;
-      if (assigned < required) {
-        shortfallMap.set(`${student.id}|${term.id}`, {
-          studentId: student.id,
-          termId: term.id,
-          grade: student.grade,
-          assigned,
-          required,
-        });
-      } else {
-        shortfallMap.delete(`${student.id}|${term.id}`);
-      }
+      updateShortfall(student, term, required);
     }
   }
 
@@ -536,5 +867,6 @@ export function runElectiveSort(
     shortfalls: [...shortfallMap.values()],
     classFills,
     assignments,
+    displacements,
   };
 }
