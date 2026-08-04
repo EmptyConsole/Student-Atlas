@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { DEFAULT_REQUIRED_RANKINGS } from "../utils/courseRanking";
+import { parseGradeSettings, rankingsForGrade } from "../utils/gradeSettings";
 
 /**
- * Loads how many ranked courses a student must submit per term for their school.
- * Mirrors `schools.rankings` in Supabase.
+ * Loads how many ranked courses a student must submit per term for their
+ * school and grade. Reads the per-grade counts in `schools.grade`, falling back
+ * to the school-wide `schools.rankings` when the grade has no entry.
  */
-export function useSchoolRankings(schoolId: string | null) {
+export function useSchoolRankings(schoolId: string | null, grade: number | null) {
   const [requiredRankings, setRequiredRankings] = useState(DEFAULT_REQUIRED_RANKINGS);
   const [loading, setLoading] = useState(Boolean(schoolId));
 
@@ -25,7 +27,7 @@ export function useSchoolRankings(schoolId: string | null) {
 
         const { data, error } = await supabase
           .from("schools")
-          .select("rankings")
+          .select("rankings, grade")
           .eq("id", schoolId)
           .single();
 
@@ -33,10 +35,12 @@ export function useSchoolRankings(schoolId: string | null) {
 
         if (isMounted) {
           const count = data?.rankings;
-          setRequiredRankings(
+          const schoolWide =
             typeof count === "number" && count > 0
               ? count
-              : DEFAULT_REQUIRED_RANKINGS,
+              : DEFAULT_REQUIRED_RANKINGS;
+          setRequiredRankings(
+            rankingsForGrade(parseGradeSettings(data?.grade), grade, schoolWide),
           );
         }
       } catch (err) {
@@ -56,7 +60,7 @@ export function useSchoolRankings(schoolId: string | null) {
     return () => {
       isMounted = false;
     };
-  }, [schoolId]);
+  }, [schoolId, grade]);
 
   return { requiredRankings, loading };
 }

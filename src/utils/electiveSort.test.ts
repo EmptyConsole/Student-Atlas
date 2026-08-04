@@ -505,4 +505,96 @@ describe("runElectiveSort", () => {
     expect(result.rosters.nosched).toBeUndefined();
     expect(rosterStudents(result.rosters.ok?.[0] ?? "")).toEqual(["s1"]);
   });
+
+  describe("per-grade quotas", () => {
+    /** Four conflict-free, uncapped courses open to grades 10 and 12. */
+    const OPEN_COURSES = [1, 2, 3, 4].map((n) =>
+      course({
+        id: `c${n}`,
+        title: `Course ${n}`,
+        grade: [10, 12],
+        maxStudentCount: -1,
+        schedule: [{ day: n, start: 500, end: 600 }],
+      }),
+    );
+
+    const RANK_ALL = ["senior", "soph"].flatMap((id) =>
+      OPEN_COURSES.map((c, i) => rank(id, c.id, i + 1)),
+    );
+
+    function countFor(
+      result: ReturnType<typeof runElectiveSort>,
+      studentId: string,
+    ): number {
+      return result.assignments.filter((a) => a.studentId === studentId).length;
+    }
+
+    it("gives each grade its own quota, falling back for unlisted grades", () => {
+      const input: ElectiveSortInput = {
+        electivesAssigned: 1,
+        electivesAssignedByGrade: { 12: 3 },
+        terms: [{ id: T1, rank: 1 }],
+        students: [student("senior", 12), student("soph", 10)],
+        courses: OPEN_COURSES,
+        rankings: RANK_ALL,
+      };
+
+      const result = runElectiveSort(input, 1);
+      expect(countFor(result, "senior")).toBe(3);
+      expect(countFor(result, "soph")).toBe(1);
+      expect(result.shortfalls).toEqual([]);
+    });
+
+    it("falls back to the scalar when no per-grade map is supplied", () => {
+      const input: ElectiveSortInput = {
+        electivesAssigned: 2,
+        terms: [{ id: T1, rank: 1 }],
+        students: [student("senior", 12), student("soph", 10)],
+        courses: OPEN_COURSES,
+        rankings: RANK_ALL,
+      };
+
+      const result = runElectiveSort(input, 1);
+      expect(countFor(result, "senior")).toBe(2);
+      expect(countFor(result, "soph")).toBe(2);
+    });
+
+    it("reports shortfalls against the student's own grade quota", () => {
+      const input: ElectiveSortInput = {
+        electivesAssigned: 1,
+        electivesAssignedByGrade: { 12: 3, 10: 1 },
+        terms: [{ id: T1, rank: 1 }],
+        students: [student("senior", 12), student("soph", 10)],
+        courses: [OPEN_COURSES[0]!],
+        rankings: [rank("senior", "c1", 1), rank("soph", "c1", 1)],
+      };
+
+      const result = runElectiveSort(input, 1);
+      expect(result.shortfalls).toEqual([
+        {
+          studentId: "senior",
+          termId: T1,
+          grade: 12,
+          assigned: 1,
+          required: 3,
+        },
+      ]);
+    });
+
+    it("assigns nothing to a grade whose quota is zero", () => {
+      const input: ElectiveSortInput = {
+        electivesAssigned: 2,
+        electivesAssignedByGrade: { 10: 0 },
+        terms: [{ id: T1, rank: 1 }],
+        students: [student("senior", 12), student("soph", 10)],
+        courses: OPEN_COURSES,
+        rankings: RANK_ALL,
+      };
+
+      const result = runElectiveSort(input, 1);
+      expect(countFor(result, "soph")).toBe(0);
+      expect(countFor(result, "senior")).toBe(2);
+      expect(result.shortfalls).toEqual([]);
+    });
+  });
 });

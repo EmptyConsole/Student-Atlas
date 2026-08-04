@@ -11,6 +11,12 @@ CREATE TABLE public.schools (
   password text NOT NULL DEFAULT ''::text,
   rankings smallint NOT NULL DEFAULT '8'::smallint,
   electives_assigned integer NOT NULL DEFAULT 0,
+  -- Per-grade overrides for the two columns above, keyed by grade number with
+  -- string-valued counts:
+  --   {"9": {"rankings": "8", "assigned": "2"}, "12": {"rankings": "12", "assigned": "6"}}
+  -- "rankings" = courses the grade must rank per term (overrides `rankings`).
+  -- "assigned" = elective seats the sort gives per term (overrides
+  -- `electives_assigned`). A grade absent here falls back to those columns.
   grade jsonb,
   CONSTRAINT schools_pkey PRIMARY KEY (id)
 );

@@ -6,6 +6,10 @@ import {
   toScheduleArray,
   type ClassTime,
 } from "../utils/classTime";
+import {
+  serializeGradeSettings,
+  type GradeSettings,
+} from "../utils/gradeSettings";
 
 export type SchoolRow = Tables<"schools">;
 export type DepartmentRow = Tables<"departments">;
@@ -17,7 +21,9 @@ export type SchoolInput = {
   city: string;
   state: string;
   password: string;
+  /** School-wide fallback for grades absent from `gradeSettings`. */
   rankings: number;
+  gradeSettings: GradeSettings;
 };
 
 export type DepartmentInput = {
@@ -132,6 +138,7 @@ export async function createSchool(input: SchoolInput): Promise<Result<SchoolRow
         state: input.state.trim(),
         password: input.password,
         rankings: input.rankings,
+        grade: serializeGradeSettings(input.gradeSettings),
       })
       .select()
       .single();
@@ -156,6 +163,7 @@ export async function updateSchool(
         state: input.state.trim(),
         password: input.password,
         rankings: input.rankings,
+        grade: serializeGradeSettings(input.gradeSettings),
       })
       .eq("id", schoolId);
     if (error) throw error;

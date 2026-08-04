@@ -45,7 +45,10 @@ export type ElectiveTerm = {
 };
 
 export type ElectiveSortInput = {
+  /** School-wide seats per term; used for grades absent from the map below. */
   electivesAssigned: number;
+  /** Per-grade seats per term, from `schools.grade`. */
+  electivesAssignedByGrade?: Record<number, number>;
   terms: ElectiveTerm[];
   students: ElectiveStudent[];
   courses: ElectiveCourse[];
@@ -166,7 +169,13 @@ export function runElectiveSort(
   const usedSeed = seed ?? defaultSeed();
   const rand = mulberry32(usedSeed);
 
-  const required = Math.max(0, Math.floor(input.electivesAssigned));
+  /** Seats owed per term to a student in this grade. */
+  function requiredFor(grade: number | null): number {
+    const perGrade =
+      grade === null ? undefined : input.electivesAssignedByGrade?.[grade];
+    return Math.max(0, Math.floor(perGrade ?? input.electivesAssigned));
+  }
+
   const terms = [...input.terms].sort((a, b) => a.rank - b.rank);
 
   const courseById = new Map<string, ElectiveCourse>();
@@ -395,6 +404,7 @@ export function runElectiveSort(
 
   for (const grade of grades) {
     const gradeStudents = input.students.filter((s) => s.grade === grade);
+    const required = requiredFor(grade);
 
     for (const term of terms) {
       for (let round = 1; round <= required; round += 1) {
@@ -460,6 +470,7 @@ export function runElectiveSort(
 
   // Finalize shortfalls: anyone still under quota.
   for (const student of input.students) {
+    const required = requiredFor(student.grade);
     for (const term of terms) {
       const assigned = heldByTerm.get(student.id)?.get(term.id) ?? 0;
       if (assigned < required) {

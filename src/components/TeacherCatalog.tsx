@@ -14,6 +14,7 @@ import {
   type DisplayCourse,
 } from "../utils/courseGrouping";
 import { DEFAULT_REQUIRED_RANKINGS } from "../utils/courseRanking";
+import { parseGradeSettings } from "../utils/gradeSettings";
 import {
   createDepartment,
   createSchool,
@@ -273,6 +274,8 @@ function TeacherCatalog({
       state: row?.state ?? "",
       password: row?.password ?? school.password,
       rankings: row?.rankings ?? DEFAULT_REQUIRED_RANKINGS,
+      electivesAssigned: row?.electives_assigned ?? 0,
+      gradeSettings: parseGradeSettings(row?.grade),
     });
   };
 

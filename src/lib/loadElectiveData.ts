@@ -11,6 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../types/database";
 import { parseSchedule } from "../utils/classTime";
 import type { ElectiveSortInput } from "../utils/electiveSort";
+import { assignedByGrade, parseGradeSettings } from "../utils/gradeSettings";
 
 export type ElectiveClient = SupabaseClient<Database>;
 
@@ -59,7 +60,7 @@ export async function loadElectiveData(
     await Promise.all([
       db
         .from("schools")
-        .select("electives_assigned")
+        .select("electives_assigned, grade")
         .eq("id", schoolId)
         .maybeSingle(),
       db
@@ -150,6 +151,9 @@ export async function loadElectiveData(
   return {
     data: {
       electivesAssigned: schoolRes.data.electives_assigned,
+      electivesAssignedByGrade: assignedByGrade(
+        parseGradeSettings(schoolRes.data.grade),
+      ),
       terms,
       students,
       courses,

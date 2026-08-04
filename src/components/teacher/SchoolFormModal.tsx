@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import type { SchoolInput } from "../../lib/teacher";
-import type { Term } from "../../data/courses";
+import { GRADES, type Term } from "../../data/courses";
 import { DEFAULT_REQUIRED_RANKINGS } from "../../utils/courseRanking";
+import type { GradeSettings } from "../../utils/gradeSettings";
 import ModalShell from "./ModalShell";
 import UnsavedChangesDialog from "./UnsavedChangesDialog";
 import { useGuardedClose } from "./useGuardedClose";
@@ -20,10 +21,20 @@ export type SchoolFormInitial = {
   state: string;
   password: string;
   rankings: number;
+  electivesAssigned: number;
+  gradeSettings: GradeSettings;
 };
 
 /** An editable term row in the form. `id` present means it exists in Supabase. */
 export type TermDraft = { key: string; id?: string; name: string };
+
+/** An editable per-grade row. Values stay strings while the teacher types. */
+type GradeDraft = {
+  key: string;
+  grade: string;
+  rankings: string;
+  assigned: string;
+};
 
 type SchoolFormModalProps = {
   mode: "add" | "edit";
@@ -41,6 +52,118 @@ function newDraftKey(): string {
   return `draft-${draftCounter}`;
 }
 
+/** Shared column layout for the grade table header and rows. */
+const GRADE_ROW_GRID =
+  "grid grid-cols-[5rem_5rem_5.5rem_1.75rem] items-center justify-items-center gap-x-3 gap-y-3";
+
+const gradeStepperInputClass =
+  "h-7 w-10 shrink-0 rounded-md border border-main-400 bg-white px-0.5 text-center text-sm text-gray-700 shadow-sm focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
+
+const gradeStepperButtonClass =
+  "shrink-0 cursor-pointer rounded p-0.5 text-gray-400 transition-colors hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-30";
+
+function GradeStepper({
+  label,
+  value,
+  onChange,
+  min,
+  invalid = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  min: number;
+  invalid?: boolean;
+}) {
+  const parsed = Number.parseInt(value, 10);
+  const current = Number.isFinite(parsed) ? parsed : min;
+
+  const bump = (delta: number) => {
+    onChange(String(Math.max(min, current + delta)));
+  };
+
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="flex flex-col items-center gap-1.5">
+        <button
+          type="button"
+          aria-label={`Increase ${label}`}
+          onClick={() => bump(1)}
+          className={gradeStepperButtonClass}
+        >
+          <ArrowUp className="h-2.5 w-2.5" />
+        </button>
+        <button
+          type="button"
+          aria-label={`Decrease ${label}`}
+          disabled={current <= min}
+          onClick={() => bump(-1)}
+          className={gradeStepperButtonClass}
+        >
+          <ArrowDown className="h-2.5 w-2.5" />
+        </button>
+      </div>
+      <input
+        type="number"
+        min={min}
+        step={1}
+        aria-label={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${gradeStepperInputClass} ${invalid ? "border-red-400" : ""}`}
+      />
+    </div>
+  );
+}
+
+/** Existing settings as form rows; a new school starts with every app grade. */
+function toGradeDrafts(
+  settings: GradeSettings | undefined,
+  fallbackRankings: number,
+  fallbackAssigned: number,
+): GradeDraft[] {
+  if (!settings || settings.size === 0) {
+    return GRADES.map((grade) => ({
+      key: newDraftKey(),
+      grade: String(grade),
+      rankings: String(fallbackRankings),
+      assigned: String(fallbackAssigned),
+    }));
+  }
+  return [...settings.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([grade, entry]) => ({
+      key: newDraftKey(),
+      grade: String(grade),
+      rankings: String(entry.rankings),
+      assigned: String(entry.assigned),
+    }));
+}
+
+/** Form rows back to a lookup; assumes the rows already passed validation. */
+function toGradeSettings(rows: GradeDraft[]): GradeSettings {
+  const settings: GradeSettings = new Map();
+  for (const row of rows) {
+    settings.set(Number.parseInt(row.grade, 10), {
+      rankings: Number.parseInt(row.rankings, 10),
+      assigned: Number.parseInt(row.assigned, 10),
+    });
+  }
+  return settings;
+}
+
+/** Stable shape for dirty-checking, independent of row keys. */
+function gradeSnapshot(rows: GradeDraft[]): string[] {
+  return rows.map((r) => `${r.grade}:${r.rankings}:${r.assigned}`);
+}
+
+function isCount(value: string, min: number): boolean {
+  const parsed = Number.parseInt(value, 10);
+  return (
+    /^\d+$/.test(value.trim()) && Number.isFinite(parsed) && parsed >= min
+  );
+}
+
 function SchoolFormModal({
   mode,
   initial,
@@ -54,8 +177,12 @@ function SchoolFormModal({
   const [city, setCity] = useState(initial?.city ?? "");
   const [stateField, setStateField] = useState(initial?.state ?? "");
   const [password, setPassword] = useState(initial?.password ?? "");
-  const [rankings, setRankings] = useState(
-    String(initial?.rankings ?? DEFAULT_REQUIRED_RANKINGS),
+  const [gradeRows, setGradeRows] = useState<GradeDraft[]>(() =>
+    toGradeDrafts(
+      initial?.gradeSettings,
+      initial?.rankings ?? DEFAULT_REQUIRED_RANKINGS,
+      initial?.electivesAssigned ?? 0,
+    ),
   );
   const [terms, setTerms] = useState<TermDraft[]>(() =>
     (initialTerms ?? []).map((t) => ({ key: newDraftKey(), id: t.id, name: t.name })),
@@ -69,7 +196,7 @@ function SchoolFormModal({
     city: initial?.city ?? "",
     state: initial?.state ?? "",
     password: initial?.password ?? "",
-    rankings: String(initial?.rankings ?? DEFAULT_REQUIRED_RANKINGS),
+    grades: gradeSnapshot(gradeRows),
     terms: (initialTerms ?? []).map((t) => ({ id: t.id, name: t.name })),
   });
 
@@ -83,23 +210,68 @@ function SchoolFormModal({
       city,
       state: stateField,
       password,
-      rankings,
+      grades: gradeSnapshot(gradeRows),
       terms: currentTerms,
     };
     return JSON.stringify(current) !== JSON.stringify(initialSnapshot.current);
-  }, [name, website, city, stateField, password, rankings, terms]);
+  }, [name, website, city, stateField, password, gradeRows, terms]);
 
   const { requestClose, discardOpen, cancelDiscard, confirmDiscard } =
     useGuardedClose(onClose, isDirty, saving);
 
-  const rankingsValue = Number.parseInt(rankings, 10);
+  const duplicateGrades = useMemo(() => {
+    const seen = new Set<string>();
+    const dupes = new Set<string>();
+    for (const row of gradeRows) {
+      const key = row.grade.trim();
+      if (seen.has(key)) dupes.add(key);
+      seen.add(key);
+    }
+    return dupes;
+  }, [gradeRows]);
+
+  const gradesValid =
+    gradeRows.length > 0 &&
+    duplicateGrades.size === 0 &&
+    gradeRows.every(
+      (row) =>
+        isCount(row.grade, 1) &&
+        isCount(row.rankings, 1) &&
+        isCount(row.assigned, 0) &&
+        Number.parseInt(row.assigned, 10) <= Number.parseInt(row.rankings, 10),
+    );
+
   const trimmedTerms = terms.filter((t) => t.name.trim().length > 0);
   const canSave =
     name.trim().length > 0 &&
     password.trim().length > 0 &&
-    Number.isFinite(rankingsValue) &&
-    rankingsValue > 0 &&
+    gradesValid &&
     trimmedTerms.length > 0;
+
+  const addGrade = () =>
+    setGradeRows((prev) => {
+      const highest = prev.reduce((max, row) => {
+        const value = Number.parseInt(row.grade, 10);
+        return Number.isFinite(value) && value > max ? value : max;
+      }, 0);
+      return [
+        ...prev,
+        {
+          key: newDraftKey(),
+          grade: String(highest > 0 ? highest + 1 : GRADES[0]),
+          rankings: String(DEFAULT_REQUIRED_RANKINGS),
+          assigned: "0",
+        },
+      ];
+    });
+
+  const updateGrade = (key: string, field: keyof GradeDraft, value: string) =>
+    setGradeRows((prev) =>
+      prev.map((row) => (row.key === key ? { ...row, [field]: value } : row)),
+    );
+
+  const removeGrade = (key: string) =>
+    setGradeRows((prev) => prev.filter((row) => row.key !== key));
 
   const addTerm = () =>
     setTerms((prev) => [...prev, { key: newDraftKey(), name: "" }]);
@@ -125,6 +297,9 @@ function SchoolFormModal({
     if (!canSave || saving) return;
     setSaving(true);
     setError(null);
+    const gradeSettings = toGradeSettings(gradeRows);
+    // Lowest grade doubles as the school-wide fallback for unlisted grades.
+    const lowestGrade = Math.min(...gradeSettings.keys());
     const result = await onSave(
       {
         name,
@@ -132,7 +307,9 @@ function SchoolFormModal({
         city,
         state: stateField,
         password,
-        rankings: rankingsValue,
+        rankings:
+          gradeSettings.get(lowestGrade)?.rankings ?? DEFAULT_REQUIRED_RANKINGS,
+        gradeSettings,
       },
       trimmedTerms.map((t) => ({ ...t, name: t.name.trim() })),
     );
@@ -244,21 +421,70 @@ function SchoolFormModal({
         </div>
 
         <div>
-          <label htmlFor="school-rankings" className={labelClass}>
-            # of Courses Required
-          </label>
-          <input
-            id="school-rankings"
-            type="number"
-            min={1}
-            step={1}
-            value={rankings}
-            onChange={(e) => setRankings(e.target.value)}
-            className={inputClass}
-          />
-          <p className="mt-1.5 text-xs text-gray-400">
-            How many ranked courses each student must submit per term.
+          <span className={labelClass}>Courses by grade</span>
+          <p className="mb-2 text-xs text-gray-400">
+            Per grade: how many courses a student must rank per term, and how
+            many electives the sort assigns them per term. Grades left off this
+            list fall back to the lowest grade listed.
           </p>
+          <div className="flex flex-col gap-3">
+            <div
+              className={`${GRADE_ROW_GRID} text-center text-xs font-semibold leading-tight text-gray-500`}
+            >
+              <span>Grade</span>
+              <span>Rankings</span>
+              <span>Assigned per term</span>
+              <span aria-hidden="true" />
+            </div>
+            {gradeRows.map((row) => {
+              const duplicate = duplicateGrades.has(row.grade.trim());
+              return (
+                <div key={row.key} className={GRADE_ROW_GRID}>
+                  <GradeStepper
+                    label="Grade"
+                    value={row.grade}
+                    min={1}
+                    invalid={duplicate}
+                    onChange={(value) => updateGrade(row.key, "grade", value)}
+                  />
+                  <GradeStepper
+                    label="Rankings"
+                    value={row.rankings}
+                    min={1}
+                    onChange={(value) => updateGrade(row.key, "rankings", value)}
+                  />
+                  <GradeStepper
+                    label="Assigned per term"
+                    value={row.assigned}
+                    min={0}
+                    onChange={(value) => updateGrade(row.key, "assigned", value)}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Delete grade"
+                    title="Delete grade"
+                    onClick={() => removeGrade(row.key)}
+                    className="cursor-pointer justify-self-center rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          {duplicateGrades.size > 0 && (
+            <p className="mt-2 text-xs font-medium text-red-600">
+              Each grade can only appear once.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={addGrade}
+            className="mt-2 flex cursor-pointer items-center gap-1.5 rounded-lg border border-main-400 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-main-100"
+          >
+            <Plus className="h-4 w-4" />
+            Add grade
+          </button>
         </div>
 
         <div>

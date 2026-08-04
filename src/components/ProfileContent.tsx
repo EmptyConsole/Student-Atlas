@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { GRADE_COLORS, GRADES } from "../data/courses";
+import { GRADE_COLORS } from "../data/courses";
 import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
+import { useSchoolGrades } from "../hooks/useSchoolGrades";
 import { useSchools } from "../hooks/useSchools";
 import { useSchoolPrereqCourses } from "../hooks/useSchoolPrereqCourses";
 import {
@@ -73,7 +74,7 @@ function GradeChip({
   active: boolean;
   onClick: () => void;
 }) {
-  const { bg, fg } = GRADE_COLORS[grade];
+  const { bg, fg } = GRADE_COLORS[grade] ?? { bg: "#e5e7eb", fg: "#374151" };
   return (
     <button
       type="button"
@@ -128,6 +129,9 @@ function ProfileContent({
   savedEmail = null,
 }: ProfileContentProps) {
   const { schools, loading: schoolsLoading, error: schoolsError } = useSchools();
+  const { grades: schoolGrades, loading: gradesLoading } = useSchoolGrades(
+    profile.schoolId,
+  );
   const { courseTitles, loading: prereqLoading } = useSchoolPrereqCourses(
     profile.schoolId,
   );
@@ -244,8 +248,16 @@ function ProfileContent({
   const handleSelectSchool = (schoolId: string) => {
     if (schoolId === profile.schoolId) return;
     // Completed courses belong to the previous school's catalog, so reset them.
-    onChange({ schoolId, completedCourses: {} });
+    onChange({ schoolId, completedCourses: {}, grade: null });
   };
+
+  // Drop a saved grade that isn't configured for this school anymore.
+  useEffect(() => {
+    if (gradesLoading || profile.grade === null) return;
+    if (!schoolGrades.includes(profile.grade)) {
+      onChange({ grade: null });
+    }
+  }, [gradesLoading, profile.grade, schoolGrades, onChange]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -562,16 +574,27 @@ function ProfileContent({
 
                   <div>
                     <RequiredFieldLabel className="mb-2">Grade</RequiredFieldLabel>
-                    <div className="flex flex-wrap gap-2">
-                      {GRADES.map((grade) => (
-                        <GradeChip
-                          key={grade}
-                          grade={grade}
-                          active={profile.grade === grade}
-                          onClick={() => onChange({ grade })}
-                        />
-                      ))}
-                    </div>
+                    {gradesLoading ? (
+                      <div className="flex items-center gap-2 py-1 text-sm text-gray-400">
+                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-main-300 border-t-main-600" />
+                        Loading grades...
+                      </div>
+                    ) : schoolGrades.length === 0 ? (
+                      <p className="text-sm text-gray-400">
+                        This school has no grades configured yet.
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {schoolGrades.map((grade) => (
+                          <GradeChip
+                            key={grade}
+                            grade={grade}
+                            active={profile.grade === grade}
+                            onClick={() => onChange({ grade })}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div>

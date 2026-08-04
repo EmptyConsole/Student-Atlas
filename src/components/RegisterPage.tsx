@@ -55,7 +55,7 @@ function RegisterPage({
 }: RegisterPageProps) {
   const profileComplete = isProfileComplete(profile);
   const grade = profile.grade ?? 9;
-  const { requiredRankings } = useSchoolRankings(profile.schoolId);
+  const { requiredRankings } = useSchoolRankings(profile.schoolId, profile.grade);
 
   const termIds = useMemo(() => terms.map((t) => t.id), [terms]);
   const [model, setModel] = useState(() =>
