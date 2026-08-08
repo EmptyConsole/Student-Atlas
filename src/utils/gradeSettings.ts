@@ -7,8 +7,9 @@
  *   { "9": { "rankings": "8", "assigned": "2" }, "12": { ... } }
  *
  * Counts are stored as strings, so every read coerces with Number(). A grade
- * missing from the object falls back to the school-wide `schools.rankings` /
- * `schools.electives_assigned` columns.
+ * missing from the object is excluded from sort/testSort (students in that
+ * grade are not assigned). UI ranking requirements still fall back to the
+ * school-wide `schools.rankings` column via `rankingsForGrade`.
  */
 
 /** Counts for one grade: courses to rank, and elective seats to assign. */

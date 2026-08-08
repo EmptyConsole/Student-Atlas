@@ -116,10 +116,16 @@ export async function loadElectiveData(
     return { error: rankingsPage.error };
   }
 
-  const students = studentsPage.data.map((s) => ({
-    id: s.id,
-    grade: s.grade,
-  }));
+  const gradeSettings = parseGradeSettings(schoolRes.data.grade);
+  const electivesAssignedByGrade = assignedByGrade(gradeSettings);
+
+  // Only students whose grade is configured in `schools.grade` enter the sort.
+  const students = studentsPage.data
+    .filter((s) => s.grade !== null && gradeSettings.has(s.grade))
+    .map((s) => ({
+      id: s.id,
+      grade: s.grade,
+    }));
   const studentIds = new Set(students.map((s) => s.id));
 
   const courses = coursesPage.data.map((c) => ({
@@ -151,9 +157,7 @@ export async function loadElectiveData(
   return {
     data: {
       electivesAssigned: schoolRes.data.electives_assigned,
-      electivesAssignedByGrade: assignedByGrade(
-        parseGradeSettings(schoolRes.data.grade),
-      ),
+      electivesAssignedByGrade,
       terms,
       students,
       courses,
