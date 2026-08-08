@@ -1,26 +1,31 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import ModalShell from "./ModalShell";
-import { inputClass, labelClass, dangerButtonClass, secondaryButtonClass } from "./formStyles";
+import {
+  inputClass,
+  labelClass,
+  dangerButtonClass,
+  secondaryButtonClass,
+} from "./formStyles";
 
 type ConfirmDeleteDialogProps = {
   title: string;
-  message: string;
+  message: ReactNode;
   confirmLabel?: string;
-  /** When set, the exact password must be typed to enable deletion. */
-  passwordToMatch?: string | null;
+  /** When true, the school password must be typed; the server checks it. */
+  requirePassword?: boolean;
   /** When set, the exact name must be typed to enable deletion. */
   nameToMatch?: string | null;
   busy?: boolean;
   error?: string | null;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: (password: string) => void;
 };
 
 function ConfirmDeleteDialog({
   title,
   message,
   confirmLabel = "Delete",
-  passwordToMatch = null,
+  requirePassword = false,
   nameToMatch = null,
   busy = false,
   error = null,
@@ -30,10 +35,44 @@ function ConfirmDeleteDialog({
   const [passwordInput, setPasswordInput] = useState("");
   const [nameInput, setNameInput] = useState("");
 
-  const passwordOk =
-    passwordToMatch == null || passwordInput === passwordToMatch;
+  // Correctness is decided server-side, so the button only waits on a
+  // non-empty entry; a wrong password comes back as an error.
+  const passwordOk = !requirePassword || passwordInput.length > 0;
   const nameOk = nameToMatch == null || nameInput.trim() === nameToMatch.trim();
   const canConfirm = passwordOk && nameOk;
+
+  const [shakeOffset, setShakeOffset] = useState({ x: 0, y: 0 });
+  const shakeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopShake = () => {
+    if (shakeTimerRef.current != null) {
+      clearInterval(shakeTimerRef.current);
+      shakeTimerRef.current = null;
+    }
+    setShakeOffset({ x: 0, y: 0 });
+  };
+
+  const startShake = () => {
+    if (busy || !canConfirm) return;
+    stopShake();
+    const jitter = () => {
+      setShakeOffset({
+        x: Math.round((Math.random() - 0.5) * 10),
+        y: Math.round((Math.random() - 0.5) * 10),
+      });
+    };
+    jitter();
+    shakeTimerRef.current = setInterval(jitter, 45);
+  };
+
+  useEffect(
+    () => () => {
+      if (shakeTimerRef.current != null) {
+        clearInterval(shakeTimerRef.current);
+      }
+    },
+    [],
+  );
 
   return (
     <ModalShell
@@ -53,8 +92,13 @@ function ConfirmDeleteDialog({
           </button>
           <button
             type="button"
-            onClick={onConfirm}
+            onClick={() => onConfirm(passwordInput)}
             disabled={!canConfirm || busy}
+            onMouseEnter={startShake}
+            onMouseLeave={stopShake}
+            style={{
+              transform: `translate(${shakeOffset.x}px, ${shakeOffset.y}px)`,
+            }}
             className={dangerButtonClass}
           >
             {busy ? "Deleting…" : confirmLabel}
@@ -63,7 +107,7 @@ function ConfirmDeleteDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <p className="text-sm leading-relaxed text-gray-600">{message}</p>
+        <div className="text-sm leading-relaxed text-gray-600">{message}</div>
 
         {nameToMatch != null && (
           <div>
@@ -85,7 +129,7 @@ function ConfirmDeleteDialog({
           </div>
         )}
 
-        {passwordToMatch != null && (
+        {requirePassword && (
           <div>
             <label htmlFor="delete-password" className={labelClass}>
               Enter the school password to confirm

@@ -21,16 +21,18 @@ BEGIN;
 ----------------------------------------------------------------------
 -- 1. School
 ----------------------------------------------------------------------
-INSERT INTO schools (id, name, website, city, state, password, rankings)
+INSERT INTO schools (id, name, website, city, state, rankings)
 VALUES (
   'a2b20000-0000-4000-a000-000000000000',
   'test2',
   'https://test2.example.edu',
   'Spider',
   'Man',
-  'test2123',
   8
 );
+
+-- Teacher password lives hashed in school_secrets (scripts/teacher-auth.sql).
+SELECT set_school_password('a2b20000-0000-4000-a000-000000000000', 'test2123');
 
 ----------------------------------------------------------------------
 -- 2. Terms

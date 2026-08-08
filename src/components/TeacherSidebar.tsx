@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Subject } from "../data/subjects";
+import ResizableAside from "./ResizableAside";
 import SubjectBookmark from "./SubjectBookmark";
 
 type TeacherSidebarProps = {
@@ -35,7 +36,7 @@ function TeacherSidebar({
   }, [activeSubject]);
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col bg-main-100">
+    <ResizableAside storageKey="student-atlas-teacher-sidebar-width">
       <nav
         aria-label="Departments"
         className="flex flex-1 flex-col overflow-y-auto py-3"
@@ -69,7 +70,7 @@ function TeacherSidebar({
           </ul>
         )}
       </nav>
-    </aside>
+    </ResizableAside>
   );
 }
 

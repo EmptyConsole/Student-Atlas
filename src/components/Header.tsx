@@ -1,5 +1,6 @@
 import { CircleUserRound } from "lucide-react";
 import type { AppView } from "../types/app";
+import AtlasWordmark from "./AtlasWordmark";
 
 type HeaderProps = {
   activeView: AppView;
@@ -25,9 +26,7 @@ function Header({ activeView, onNavigate, locked = false }: HeaderProps) {
           alt="Student Atlas logo"
           className="h-10 w-10 rounded-lg"
         />
-        <span className="text-5xl leading-none font-bold text-[#4169e1]">
-          Atlas
-        </span>
+        <AtlasWordmark />
       </div>
 
       <div className="flex items-center gap-3">

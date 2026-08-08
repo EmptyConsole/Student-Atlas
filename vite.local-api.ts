@@ -10,6 +10,8 @@ const API_HANDLERS: Record<string, () => Promise<ApiHandler>> = {
     (await import("./api/verify-email-code")).POST,
   "/api/send-elective-registration": async () =>
     (await import("./api/send-elective-registration")).POST,
+  "/api/teacher-login": async () => (await import("./api/teacher-login")).POST,
+  "/api/teacher-mutate": async () => (await import("./api/teacher-mutate")).POST,
 };
 
 function readBody(req: Connect.IncomingMessage): Promise<Buffer> {

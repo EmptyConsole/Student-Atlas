@@ -24,16 +24,18 @@ BEGIN;
 ----------------------------------------------------------------------
 -- 1. School
 ----------------------------------------------------------------------
-INSERT INTO schools (id, name, website, city, state, password, rankings)
+INSERT INTO schools (id, name, website, city, state, rankings)
 VALUES (
   '7e570000-0000-4000-a000-000000000000',
   'test',
   'https://test.example.edu',
   'Springfield',
   'CA',
-  'test123',
   5
 );
+
+-- Teacher password lives hashed in school_secrets (scripts/teacher-auth.sql).
+SELECT set_school_password('7e570000-0000-4000-a000-000000000000', 'test123');
 
 ----------------------------------------------------------------------
 -- 2. Terms (three trimesters, ordered by position)

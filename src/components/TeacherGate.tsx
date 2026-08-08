@@ -1,9 +1,14 @@
 import { useState } from "react";
 import { ArrowRight, Lock } from "lucide-react";
 import { useSchools } from "../hooks/useSchools";
-import { createSchool, verifySchoolPassword, type SchoolInput } from "../lib/teacher";
+import {
+  createSchool,
+  loginToSchool,
+  type SchoolInput,
+  type UnlockedSession,
+} from "../lib/teacher";
 import SchoolPicker from "./SchoolPicker";
-import SchoolFormModal from "./teacher/SchoolFormModal";
+import SchoolFormModal, { type TermDraft } from "./teacher/SchoolFormModal";
 import {
   inputClass,
   labelClass,
@@ -11,10 +16,8 @@ import {
   secondaryButtonClass,
 } from "./teacher/formStyles";
 
-export type UnlockedSchool = { id: string; name: string; password: string };
-
 type TeacherGateProps = {
-  onUnlock: (school: UnlockedSchool) => void;
+  onUnlock: (school: UnlockedSession) => void;
 };
 
 function TeacherGate({ onUnlock }: TeacherGateProps) {
@@ -26,7 +29,7 @@ function TeacherGate({ onUnlock }: TeacherGateProps) {
   const [gateError, setGateError] = useState<string | null>(null);
 
   const [addingSchool, setAddingSchool] = useState(false);
-  const [created, setCreated] = useState<UnlockedSchool | null>(null);
+  const [created, setCreated] = useState<UnlockedSession | null>(null);
 
   const selectedSchool = schools.find((s) => s.id === selectedId) ?? null;
 
@@ -34,27 +37,28 @@ function TeacherGate({ onUnlock }: TeacherGateProps) {
     if (!selectedSchool || verifying) return;
     setVerifying(true);
     setGateError(null);
-    const ok = await verifySchoolPassword(selectedSchool.id, password);
+    const result = await loginToSchool(selectedSchool.id, password);
     setVerifying(false);
-    if (ok) {
-      onUnlock({ id: selectedSchool.id, name: selectedSchool.name, password });
+    setPassword("");
+    if (result.token && result.expiresAt) {
+      onUnlock({
+        id: selectedSchool.id,
+        name: selectedSchool.name,
+        token: result.token,
+        expiresAt: result.expiresAt,
+      });
     } else {
-      setGateError("Incorrect password for this school.");
+      setGateError(result.error ?? "Incorrect password for this school.");
     }
   };
 
   const handleCreateSchool = async (
     input: SchoolInput,
+    terms: TermDraft[],
   ): Promise<{ error?: string }> => {
-    const result = await createSchool(input);
+    const result = await createSchool(input, terms);
     if (result.error) return { error: result.error };
-    if (result.data) {
-      setCreated({
-        id: result.data.id,
-        name: result.data.name,
-        password: input.password,
-      });
-    }
+    if (result.data) setCreated(result.data);
     return {};
   };
 

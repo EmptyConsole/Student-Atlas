@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGroup } from "motion/react";
-import { LogOut, Pencil, Search, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Pencil, Search, Trash2 } from "lucide-react";
 import { buildSubject, type Subject } from "../data/subjects";
 import { matchesSearch, type Term } from "../data/courses";
 import { useCourses } from "../hooks/useCourses";
@@ -10,6 +10,7 @@ import {
   buildDisplayCourses,
   courseIdsInItem,
   offeringRowsOf,
+  offeringsOf,
   repCourse,
   type DisplayCourse,
 } from "../utils/courseGrouping";
@@ -18,16 +19,12 @@ import { parseGradeSettings } from "../utils/gradeSettings";
 import {
   createDepartment,
   createSchool,
-  createTerm,
   deleteCourse,
   deleteDepartment,
   deleteSchool,
-  deleteTerm,
   fetchDepartments,
   fetchSchool,
   fetchTerms,
-  renameTerm,
-  reorderTerms,
   saveCourseOfferings,
   updateDepartment,
   updateSchool,
@@ -35,8 +32,8 @@ import {
   type DepartmentInput,
   type DepartmentRow,
   type SchoolInput,
+  type UnlockedSession,
 } from "../lib/teacher";
-import type { UnlockedSchool } from "./TeacherGate";
 import TeacherSidebar from "./TeacherSidebar";
 import TeacherSubjectSection from "./TeacherSubjectSection";
 import AddMenu, { type AddKind } from "./teacher/AddMenu";
@@ -51,11 +48,11 @@ import ModalShell from "./teacher/ModalShell";
 import { primaryButtonClass, secondaryButtonClass } from "./teacher/formStyles";
 
 type TeacherCatalogProps = {
-  school: UnlockedSchool;
-  onSwitchSchool: () => void;
-  onSchoolUpdated: (name: string, password: string) => void;
+  school: UnlockedSession;
+  onSchoolRenamed: (name: string) => void;
   onSchoolDeleted: () => void;
-  onSwitchToSchool: (school: UnlockedSchool) => void;
+  onSessionExpired: () => void;
+  onSwitchToSchool: (school: UnlockedSession) => void;
 };
 
 type CourseModalState =
@@ -71,15 +68,42 @@ type DeleteState =
   | { kind: "school" }
   | null;
 
+/** Student-style cards (1 per row) vs compact teacher grid (3 per row). */
+type TeacherCatalogLayout = "student" | "teacher";
+
+const CATALOG_LAYOUT_KEY = "student-atlas-teacher-catalog-layout";
+
+function loadCatalogLayout(): TeacherCatalogLayout {
+  try {
+    const stored = localStorage.getItem(CATALOG_LAYOUT_KEY);
+    if (stored === "student" || stored === "teacher") return stored;
+  } catch {
+    /* ignore */
+  }
+  return "student";
+}
+
 function TeacherCatalog({
   school,
-  onSwitchSchool,
-  onSchoolUpdated,
+  onSchoolRenamed,
   onSchoolDeleted,
+  onSessionExpired,
   onSwitchToSchool,
 }: TeacherCatalogProps) {
   const [reloadKey, setReloadKey] = useState(0);
   const reload = () => setReloadKey((k) => k + 1);
+
+  /**
+   * Server rejected the session token, so the catalog can no longer save
+   * anything: send the teacher back to the gate instead of failing silently.
+   */
+  const handleResult = (result: {
+    error?: string;
+    expired?: boolean;
+  }): { error?: string } => {
+    if (result.expired) onSessionExpired();
+    return { error: result.error };
+  };
 
   const { subjects, loading: subjectsLoading } = useSubjects(
     school.id,
@@ -99,6 +123,9 @@ function TeacherCatalog({
   }, [courses]);
 
   const [search, setSearch] = useState("");
+  const [catalogLayout, setCatalogLayout] = useState<TeacherCatalogLayout>(
+    loadCatalogLayout,
+  );
   const [activeSubject, setActiveSubject] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -109,7 +136,7 @@ function TeacherCatalog({
     useState<SchoolFormInitial | null>(null);
   const [schoolModalTerms, setSchoolModalTerms] = useState<Term[]>([]);
   const [addSchoolOpen, setAddSchoolOpen] = useState(false);
-  const [createdSchool, setCreatedSchool] = useState<UnlockedSchool | null>(
+  const [createdSchool, setCreatedSchool] = useState<UnlockedSession | null>(
     null,
   );
 
@@ -231,9 +258,13 @@ function TeacherCatalog({
             schedule: r.schedule,
           }))
         : [];
-    const result = await saveCourseOfferings(school.id, existingRows, submit);
+    const result = await saveCourseOfferings(
+      school.token,
+      existingRows,
+      submit,
+    );
     if (!result.error) reload();
-    return { error: result.error };
+    return handleResult(result);
   };
 
   // --- Departments ------------------------------------------------------------
@@ -242,10 +273,10 @@ function TeacherCatalog({
   ): Promise<{ error?: string }> => {
     const result =
       departmentModal?.mode === "edit" && departmentModal.department
-        ? await updateDepartment(departmentModal.department.id, input)
-        : await createDepartment(school.id, input);
+        ? await updateDepartment(school.token, departmentModal.department.id, input)
+        : await createDepartment(school.token, input);
     if (!result.error) reload();
-    return { error: result.error };
+    return handleResult(result);
   };
 
   const openEditDepartment = (subjectName: string) => {
@@ -272,62 +303,21 @@ function TeacherCatalog({
       website: row?.website ?? "",
       city: row?.city ?? "",
       state: row?.state ?? "",
-      password: row?.password ?? school.password,
       rankings: row?.rankings ?? DEFAULT_REQUIRED_RANKINGS,
       electivesAssigned: row?.electives_assigned ?? 0,
       gradeSettings: parseGradeSettings(row?.grade),
     });
   };
 
-  /**
-   * Applies the form's term drafts to Supabase: creates new terms, renames
-   * changed ones, deletes removed ones (guarded), then persists the ordering.
-   */
-  const reconcileTerms = async (
-    schoolId: string,
-    existing: Term[],
-    drafts: TermDraft[],
-  ): Promise<{ error?: string }> => {
-    const draftIds = new Set(
-      drafts.filter((d) => d.id).map((d) => d.id as string),
-    );
-    for (const term of existing) {
-      if (!draftIds.has(term.id)) {
-        const result = await deleteTerm(schoolId, term.id);
-        if (result.error) return { error: result.error };
-      }
-    }
-
-    const orderedIds: string[] = [];
-    for (const draft of drafts) {
-      if (draft.id) {
-        const prev = existing.find((t) => t.id === draft.id);
-        if (prev && prev.name !== draft.name) {
-          const result = await renameTerm(draft.id, draft.name);
-          if (result.error) return { error: result.error };
-        }
-        orderedIds.push(draft.id);
-      } else {
-        const result = await createTerm(schoolId, draft.name);
-        if (result.error) return { error: result.error };
-        if (result.data) orderedIds.push(result.data.id);
-      }
-    }
-
-    return reorderTerms(schoolId, orderedIds);
-  };
-
   const handleSaveSchool = async (
     input: SchoolInput,
     terms: TermDraft[],
   ): Promise<{ error?: string }> => {
-    const result = await updateSchool(school.id, input);
-    if (result.error) return { error: result.error };
+    // The server reconciles the term drafts in the same request.
+    const result = await updateSchool(school.token, input, terms);
+    if (result.error || result.expired) return handleResult(result);
 
-    const termsResult = await reconcileTerms(school.id, schoolModalTerms, terms);
-    if (termsResult.error) return { error: termsResult.error };
-
-    onSchoolUpdated(input.name.trim(), input.password);
+    onSchoolRenamed(input.name.trim());
     reload();
     return {};
   };
@@ -336,41 +326,40 @@ function TeacherCatalog({
     input: SchoolInput,
     terms: TermDraft[],
   ): Promise<{ error?: string }> => {
-    const result = await createSchool(input);
+    const result = await createSchool(input, terms);
     if (result.error) return { error: result.error };
     if (!result.data) return { error: "Failed to create school" };
 
-    const termsResult = await reconcileTerms(result.data.id, [], terms);
-    if (termsResult.error) return { error: termsResult.error };
-
-    setCreatedSchool({
-      id: result.data.id,
-      name: result.data.name,
-      password: input.password,
-    });
+    setCreatedSchool(result.data);
     return {};
   };
 
   // --- Deletion ---------------------------------------------------------------
-  const handleConfirmDelete = async () => {
+  /** `password` is verified server-side for the destructive kinds. */
+  const handleConfirmDelete = async (password: string) => {
     if (!deleteState || deleteBusy) return;
     setDeleteBusy(true);
     setDeleteError(null);
-    let result: { error?: string } = {};
+    let result: { error?: string; expired?: boolean } = {};
     if (deleteState.kind === "course") {
       const ids = courseIdsInItem(deleteState.item);
       for (const id of ids) {
-        result = await deleteCourse(id, school.id);
+        result = await deleteCourse(school.token, id);
         if (result.error) break;
       }
     } else if (deleteState.kind === "department") {
-      result = await deleteDepartment(deleteState.department.id);
+      result = await deleteDepartment(
+        school.token,
+        deleteState.department.id,
+        password,
+      );
     } else {
-      result = await deleteSchool(school.id);
+      result = await deleteSchool(school.token, password);
     }
     setDeleteBusy(false);
     if (result.error) {
       setDeleteError(result.error);
+      handleResult(result);
       return;
     }
     const kind = deleteState.kind;
@@ -381,27 +370,65 @@ function TeacherCatalog({
 
   const deleteDialogProps = () => {
     if (!deleteState) return null;
+
+    const cannotBeUndone = (
+      <strong className="mt-1.5 block text-gray-700">This cannot be undone.</strong>
+    );
+
     if (deleteState.kind === "course") {
       const title = repCourse(deleteState.item).title;
-      const bothTerms = deleteState.item.kind === "group";
+      const termIds = new Set<string>();
+      for (const offering of offeringsOf(deleteState.item)) {
+        for (const termId of offering) termIds.add(termId);
+      }
+      const termNames = [...termIds]
+        .map((id) => termById.get(id))
+        .filter((term): term is Term => term != null)
+        .sort((a, b) => a.position - b.position)
+        .map((term) => term.name);
+      const quotedLabel =
+        termNames.length > 0
+          ? `${title} (${termNames.join(", ")})`
+          : title;
+
       return {
         title: "Delete course",
-        message: bothTerms
-          ? `Delete "${title}" (Fall and Spring)? This cannot be undone.`
-          : `Delete "${title}"? This cannot be undone.`,
+        message: (
+          <>
+            Deleting &ldquo;{quotedLabel}&rdquo;?{cannotBeUndone}
+          </>
+        ),
       };
     }
     if (deleteState.kind === "department") {
       return {
         title: "Delete department and courses",
-        message: `Delete the "${deleteState.department.name}" department and all of its courses? This cannot be undone. Enter the school password to confirm.`,
-        passwordToMatch: school.password,
+        message: (
+          <>
+            Deleting &ldquo;{deleteState.department.name}&rdquo; and all of its
+            courses?
+            {cannotBeUndone}
+            <span className="mt-2 block">
+              Enter the school password to confirm.
+            </span>
+          </>
+        ),
+        requirePassword: true,
       };
     }
     return {
       title: "Delete school",
-      message: `This permanently deletes ${school.name} and all of its departments and courses. Type the school name and password to confirm.`,
-      passwordToMatch: school.password,
+      message: (
+        <>
+          Deleting &ldquo;{school.name}&rdquo; and all of its departments and
+          courses?
+          {cannotBeUndone}
+          <span className="mt-2 block">
+            Type the school name and password to confirm.
+          </span>
+        </>
+      ),
+      requirePassword: true,
       nameToMatch: school.name,
     };
   };
@@ -410,6 +437,18 @@ function TeacherCatalog({
 
   const editableSubjectNames = new Set(subjects.map((s) => s.name));
 
+  const toggleCatalogLayout = () => {
+    setCatalogLayout((prev) => {
+      const next: TeacherCatalogLayout = prev === "student" ? "teacher" : "student";
+      try {
+        localStorage.setItem(CATALOG_LAYOUT_KEY, next);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
+
   const renderSection = (subject: Subject) => (
     <TeacherSubjectSection
       key={subject.name}
@@ -417,6 +456,7 @@ function TeacherCatalog({
       items={itemsBySubject.get(subject.name) ?? []}
       termById={termById}
       expandedId={expandedId}
+      compact={catalogLayout === "teacher"}
       onToggleExpand={toggleExpand}
       editable={editableSubjectNames.has(subject.name)}
       onEditDepartment={() => openEditDepartment(subject.name)}
@@ -439,19 +479,45 @@ function TeacherCatalog({
 
       <main className="flex flex-1 flex-col overflow-hidden bg-detail-400">
         <div className="sticky top-0 z-20 flex flex-col gap-3 bg-detail-400/95 px-6 pt-6 pb-4 backdrop-blur">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="min-w-0 flex-1">
               <h1 className="truncate text-2xl font-bold text-gray-800">
                 {school.name}
               </h1>
-              <p className="text-sm text-gray-500">Teacher editing</p>
+              <p className="truncate text-sm text-gray-500">Teacher editing</p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleCatalogLayout}
+                aria-pressed={catalogLayout === "student"}
+                aria-label={
+                  catalogLayout === "student"
+                    ? "Student preview on — switch to compact teacher view"
+                    : "Compact teacher view — switch to student preview"
+                }
+                title={
+                  catalogLayout === "student"
+                    ? "Student preview (click for compact view)"
+                    : "Compact teacher view (click for student preview)"
+                }
+                className={`flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border shadow-sm transition-all duration-150 hover:scale-[1.02] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500 ${
+                  catalogLayout === "student"
+                    ? "border-main-400 bg-white text-gray-700 hover:bg-main-100"
+                    : "border-main-500 bg-main-100 text-gray-800 hover:bg-main-200"
+                }`}
+              >
+                {catalogLayout === "student" ? (
+                  <Eye className="h-4 w-4" />
+                ) : (
+                  <EyeOff className="h-4 w-4" />
+                )}
+              </button>
               <AddMenu onSelect={handleAdd} />
               <button
                 type="button"
                 onClick={handleEditSchool}
-                className="flex h-11 cursor-pointer items-center gap-1.5 rounded-xl border border-main-400 bg-white px-4 text-sm font-semibold text-gray-700 shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-main-100 active:scale-95"
+                className="flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-main-400 bg-white px-4 text-sm font-semibold text-gray-700 shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-main-100 active:scale-95"
               >
                 <Pencil className="h-4 w-4" />
                 Edit school
@@ -462,18 +528,10 @@ function TeacherCatalog({
                   setDeleteError(null);
                   setDeleteState({ kind: "school" });
                 }}
-                className="flex h-11 cursor-pointer items-center gap-1.5 rounded-xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-600 shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-red-50 active:scale-95"
+                className="flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-600 shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-red-50 active:scale-95"
               >
                 <Trash2 className="h-4 w-4" />
                 Delete school
-              </button>
-              <button
-                type="button"
-                onClick={onSwitchSchool}
-                className="flex h-11 cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-gray-500 transition-colors hover:bg-main-100 hover:text-gray-700"
-              >
-                <LogOut className="h-4 w-4" />
-                Switch school
               </button>
             </div>
           </div>
@@ -597,7 +655,7 @@ function TeacherCatalog({
           title={dialog.title}
           message={dialog.message}
           confirmLabel="Delete"
-          passwordToMatch={dialog.passwordToMatch ?? null}
+          requirePassword={dialog.requirePassword ?? false}
           nameToMatch={dialog.nameToMatch ?? null}
           busy={deleteBusy}
           error={deleteError}

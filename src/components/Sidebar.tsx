@@ -9,6 +9,7 @@ import {
 } from "../utils/courseGrouping";
 import MarqueeText, { Marquee } from "./MarqueeText";
 import RequirementsBookmark from "./RequirementsBookmark";
+import ResizableAside from "./ResizableAside";
 import SubjectBookmark from "./SubjectBookmark";
 import TermBadges from "./TermBadges";
 
@@ -179,7 +180,7 @@ function Sidebar({
   }, [activeSubject]);
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col bg-main-100">
+    <ResizableAside storageKey="student-atlas-sidebar-width">
       <nav aria-label="Course subjects" className="flex-1 overflow-y-auto py-3">
         <ul className="flex flex-col gap-1.5">
           <li
@@ -258,7 +259,7 @@ function Sidebar({
           })}
         </ul>
       </nav>
-    </aside>
+    </ResizableAside>
   );
 }
 

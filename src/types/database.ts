@@ -431,7 +431,6 @@ export type Database = {
           grade: Json | null
           id: string
           name: string
-          password: string
           rankings: number
           state: string
           website: string
@@ -443,7 +442,6 @@ export type Database = {
           grade?: Json | null
           id?: string
           name: string
-          password?: string
           rankings?: number
           state: string
           website: string
@@ -455,12 +453,43 @@ export type Database = {
           grade?: Json | null
           id?: string
           name?: string
-          password?: string
           rankings?: number
           state?: string
           website?: string
         }
         Relationships: []
+      }
+      school_secrets: {
+        Row: {
+          failed_attempts: number
+          locked_until: string | null
+          password_hash: string
+          school_id: string
+          updated_at: string
+        }
+        Insert: {
+          failed_attempts?: number
+          locked_until?: string | null
+          password_hash: string
+          school_id: string
+          updated_at?: string
+        }
+        Update: {
+          failed_attempts?: number
+          locked_until?: string | null
+          password_hash?: string
+          school_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_secrets_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: true
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       students: {
         Row: {

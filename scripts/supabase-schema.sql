@@ -8,7 +8,6 @@ CREATE TABLE public.schools (
   city text NOT NULL,
   state text NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
-  password text NOT NULL DEFAULT ''::text,
   rankings smallint NOT NULL DEFAULT '8'::smallint,
   electives_assigned integer NOT NULL DEFAULT 0,
   -- Per-grade overrides for the two columns above, keyed by grade number with
@@ -19,6 +18,17 @@ CREATE TABLE public.schools (
   -- `electives_assigned`). A grade absent here falls back to those columns.
   grade jsonb,
   CONSTRAINT schools_pkey PRIMARY KEY (id)
+);
+-- Bcrypt hash of each school's teacher password. Never readable by anon; only
+-- verify_school_password / set_school_password (service role) touch it.
+CREATE TABLE public.school_secrets (
+  school_id uuid NOT NULL,
+  password_hash text NOT NULL,
+  failed_attempts integer NOT NULL DEFAULT 0,
+  locked_until timestamp with time zone,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT school_secrets_pkey PRIMARY KEY (school_id),
+  CONSTRAINT school_secrets_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id) ON DELETE CASCADE
 );
 CREATE TABLE public.courses (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

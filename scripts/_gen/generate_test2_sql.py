@@ -452,16 +452,18 @@ def main() -> None:
             ----------------------------------------------------------------------
             -- 1. School
             ----------------------------------------------------------------------
-            INSERT INTO schools (id, name, website, city, state, password, rankings)
+            INSERT INTO schools (id, name, website, city, state, rankings)
             VALUES (
               '{SCHOOL}',
               'test2',
               'https://test2.example.edu',
               'Spider',
               'Man',
-              'test2123',
               8
             );
+
+            -- Teacher password lives hashed in school_secrets (scripts/teacher-auth.sql).
+            SELECT set_school_password('{SCHOOL}', 'test2123');
 
             ----------------------------------------------------------------------
             -- 2. Terms

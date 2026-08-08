@@ -14,12 +14,16 @@ import {
   secondaryButtonClass,
 } from "./formStyles";
 
+/**
+ * Everything the edit form needs. There is deliberately no password: the
+ * current one is a hash the server never hands out, so editing can only ever
+ * set a new one.
+ */
 export type SchoolFormInitial = {
   name: string;
   website: string;
   city: string;
   state: string;
-  password: string;
   rankings: number;
   electivesAssigned: number;
   gradeSettings: GradeSettings;
@@ -52,12 +56,11 @@ function newDraftKey(): string {
   return `draft-${draftCounter}`;
 }
 
-/** Shared column layout for the grade table header and rows. */
-const GRADE_ROW_GRID =
-  "grid grid-cols-[5rem_5rem_5.5rem_1.75rem] items-center justify-items-center gap-x-3 gap-y-3";
+/** Three stepper columns plus delete, each spanning one quarter of the modal. */
+const GRADE_ROW_GRID = "grid grid-cols-4 items-center gap-x-4 gap-y-3";
 
 const gradeStepperInputClass =
-  "h-7 w-10 shrink-0 rounded-md border border-main-400 bg-white px-0.5 text-center text-sm text-gray-700 shadow-sm focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
+  "h-7 min-w-0 flex-1 rounded-md border border-main-400 bg-white px-0.5 text-center text-sm text-gray-700 shadow-sm focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
 
 const gradeStepperButtonClass =
   "shrink-0 cursor-pointer rounded p-0.5 text-gray-400 transition-colors hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-30";
@@ -83,8 +86,8 @@ function GradeStepper({
   };
 
   return (
-    <div className="flex items-center gap-2.5">
-      <div className="flex flex-col items-center gap-1.5">
+    <div className="flex w-full min-w-0 items-center gap-2 px-1">
+      <div className="flex shrink-0 flex-col items-center gap-1.5">
         <button
           type="button"
           aria-label={`Increase ${label}`}
@@ -176,7 +179,8 @@ function SchoolFormModal({
   const [website, setWebsite] = useState(initial?.website ?? "");
   const [city, setCity] = useState(initial?.city ?? "");
   const [stateField, setStateField] = useState(initial?.state ?? "");
-  const [password, setPassword] = useState(initial?.password ?? "");
+  // Blank when editing means "keep the current password".
+  const [password, setPassword] = useState("");
   const [gradeRows, setGradeRows] = useState<GradeDraft[]>(() =>
     toGradeDrafts(
       initial?.gradeSettings,
@@ -195,7 +199,7 @@ function SchoolFormModal({
     website: initial?.website ?? "",
     city: initial?.city ?? "",
     state: initial?.state ?? "",
-    password: initial?.password ?? "",
+    password: "",
     grades: gradeSnapshot(gradeRows),
     terms: (initialTerms ?? []).map((t) => ({ id: t.id, name: t.name })),
   });
@@ -244,7 +248,7 @@ function SchoolFormModal({
   const trimmedTerms = terms.filter((t) => t.name.trim().length > 0);
   const canSave =
     name.trim().length > 0 &&
-    password.trim().length > 0 &&
+    (mode === "edit" || password.trim().length > 0) &&
     gradesValid &&
     trimmedTerms.length > 0;
 
@@ -404,19 +408,25 @@ function SchoolFormModal({
 
         <div>
           <label htmlFor="school-password" className={labelClass}>
-            Teacher password
+            {mode === "add" ? "Teacher password" : "Change teacher password"}
           </label>
           <input
             id="school-password"
-            type="text"
+            type="password"
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Locks the teacher side from students"
+            placeholder={
+              mode === "add"
+                ? "Locks the teacher side from students"
+                : "Leave blank to keep the current password"
+            }
             className={inputClass}
           />
           <p className="mt-1.5 text-xs text-gray-400">
-            Teachers must enter this to edit the school. Keep it away from
-            students.
+            {mode === "add"
+              ? "Teachers must enter this to edit the school. Keep it away from students."
+              : "The current password is stored hashed and cannot be shown. Type a new one only if you want to change it."}
           </p>
         </div>
 
@@ -431,43 +441,55 @@ function SchoolFormModal({
             <div
               className={`${GRADE_ROW_GRID} text-center text-xs font-semibold leading-tight text-gray-500`}
             >
-              <span>Grade</span>
-              <span>Rankings</span>
-              <span>Assigned per term</span>
-              <span aria-hidden="true" />
+              <span className="min-w-0">Grade</span>
+              <span className="min-w-0">Rankings</span>
+              <span className="min-w-0">Assigned per term</span>
+              <span className="min-w-0" aria-hidden="true" />
             </div>
             {gradeRows.map((row) => {
               const duplicate = duplicateGrades.has(row.grade.trim());
               return (
                 <div key={row.key} className={GRADE_ROW_GRID}>
-                  <GradeStepper
-                    label="Grade"
-                    value={row.grade}
-                    min={1}
-                    invalid={duplicate}
-                    onChange={(value) => updateGrade(row.key, "grade", value)}
-                  />
-                  <GradeStepper
-                    label="Rankings"
-                    value={row.rankings}
-                    min={1}
-                    onChange={(value) => updateGrade(row.key, "rankings", value)}
-                  />
-                  <GradeStepper
-                    label="Assigned per term"
-                    value={row.assigned}
-                    min={0}
-                    onChange={(value) => updateGrade(row.key, "assigned", value)}
-                  />
-                  <button
-                    type="button"
-                    aria-label="Delete grade"
-                    title="Delete grade"
-                    onClick={() => removeGrade(row.key)}
-                    className="cursor-pointer justify-self-center rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-50"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="min-w-0">
+                    <GradeStepper
+                      label="Grade"
+                      value={row.grade}
+                      min={1}
+                      invalid={duplicate}
+                      onChange={(value) => updateGrade(row.key, "grade", value)}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <GradeStepper
+                      label="Rankings"
+                      value={row.rankings}
+                      min={1}
+                      onChange={(value) =>
+                        updateGrade(row.key, "rankings", value)
+                      }
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <GradeStepper
+                      label="Assigned per term"
+                      value={row.assigned}
+                      min={0}
+                      onChange={(value) =>
+                        updateGrade(row.key, "assigned", value)
+                      }
+                    />
+                  </div>
+                  <div className="flex min-w-0 justify-center">
+                    <button
+                      type="button"
+                      aria-label="Delete grade"
+                      title="Delete grade"
+                      onClick={() => removeGrade(row.key)}
+                      className="cursor-pointer rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               );
             })}

@@ -18,6 +18,8 @@ type TeacherSubjectSectionProps = {
   onDeleteDepartment: () => void;
   onEditCourse: (item: DisplayCourse) => void;
   onDeleteCourse: (item: DisplayCourse) => void;
+  /** Compact 3-column grid instead of full-width student-style cards. */
+  compact?: boolean;
 };
 
 function TeacherSubjectSection({
@@ -31,6 +33,7 @@ function TeacherSubjectSection({
   onDeleteDepartment,
   onEditCourse,
   onDeleteCourse,
+  compact = false,
 }: TeacherSubjectSectionProps) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -108,9 +111,19 @@ function TeacherSubjectSection({
             transition={{ type: "spring", stiffness: 350, damping: 32 }}
             className="overflow-hidden"
           >
-            <div className="flex flex-col gap-3">
+            <div
+              className={
+                compact
+                  ? "grid grid-cols-2 gap-3"
+                  : "flex flex-col gap-3"
+              }
+            >
               {items.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-main-300 px-4 py-6 text-center text-sm text-gray-400">
+                <p
+                  className={`rounded-xl border border-dashed border-main-300 px-4 py-6 text-center text-sm text-gray-400 ${
+                    compact ? "col-span-full" : ""
+                  }`}
+                >
                   No courses in this department yet.
                 </p>
               ) : (
@@ -123,6 +136,7 @@ function TeacherSubjectSection({
                       subject={subject}
                       offerings={offeringsOf(item)}
                       termById={termById}
+                      compact={compact}
                       expanded={expandedId === course.id}
                       onToggleExpand={() => onToggleExpand(course.id)}
                       onEdit={() => onEditCourse(item)}
