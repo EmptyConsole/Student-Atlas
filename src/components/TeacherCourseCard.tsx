@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 import type { Subject } from "../data/subjects";
 import {
@@ -10,8 +9,9 @@ import {
   type Term,
 } from "../data/courses";
 import CourseRequirements from "./CourseRequirements";
-import MarqueeText from "./MarqueeText";
 import TermBadges from "./TermBadges";
+
+const DETAIL_TRANSITION = { type: "spring" as const, stiffness: 350, damping: 32 };
 
 type TeacherCourseCardProps = {
   course: Course;
@@ -31,19 +31,17 @@ function MetaBadge({
   label,
   bg,
   fg,
-  /** Cap width; marquee when `marqueeActive`, otherwise truncate. */
+  /** Cap width with ellipsis when the label is long. */
   capped = false,
-  marqueeActive = false,
 }: {
   label: string;
   bg: string;
   fg: string;
   capped?: boolean;
-  marqueeActive?: boolean;
 }) {
   return (
     <span
-      title={capped && !marqueeActive ? label : undefined}
+      title={capped ? label : undefined}
       className={
         capped
           ? "inline-block max-w-[28rem] overflow-hidden rounded-full px-2.5 py-0.5 text-xs font-semibold"
@@ -51,11 +49,7 @@ function MetaBadge({
       }
       style={{ backgroundColor: bg, color: fg }}
     >
-      {capped ? (
-        <MarqueeText text={label} active={marqueeActive} />
-      ) : (
-        label
-      )}
+      <span className={capped ? "block truncate" : undefined}>{label}</span>
     </span>
   );
 }
@@ -73,17 +67,14 @@ function TeacherCourseCard({
 }: TeacherCourseCardProps) {
   const prereqLabel = formatRequirementOptions(course.prereqOptions);
   const coreqLabel = formatRequirementOptions(course.coreqOptions);
-  const [hovered, setHovered] = useState(false);
 
   return (
     <motion.div
       id={`course-${course.id}`}
-      layout
-      transition={{ type: "spring", stiffness: 350, damping: 32 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className={`scroll-mt-4 overflow-hidden rounded-2xl border shadow-sm ${
-        compact ? "h-full" : ""
+      {...(compact ? {} : { layout: "position" as const })}
+      transition={DETAIL_TRANSITION}
+      className={`scroll-mt-4 overflow-hidden rounded-2xl border shadow-sm${
+        compact ? " self-start w-full" : ""
       }`}
       style={{ backgroundColor: subject.tint, borderColor: subject.color }}
     >
@@ -100,7 +91,7 @@ function TeacherCourseCard({
           }
         }}
         className={`cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
-          compact ? "flex h-full flex-col p-3" : "p-4"
+          compact ? "p-3" : "p-4"
         }`}
         style={{ outlineColor: subject.accent }}
       >
@@ -113,7 +104,7 @@ function TeacherCourseCard({
         >
           <div className="flex min-w-0 flex-1 items-start gap-1.5">
             <ChevronDown
-              className={`shrink-0 transition-transform duration-200 ${
+              className={`shrink-0 transition-transform duration-300 ease-out ${
                 compact ? "mt-0.5 h-4 w-4" : "h-5 w-5"
               }`}
               style={{
@@ -121,16 +112,16 @@ function TeacherCourseCard({
                 transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
               }}
             />
-            <h3 className="min-w-0 flex-1" style={{ color: subject.accent }}>
-              <MarqueeText
-                text={course.title}
-                active={hovered}
-                className={
-                  compact
-                    ? "text-base leading-snug font-bold"
-                    : "text-xl leading-tight font-bold"
-                }
-              />
+            <h3
+              title={course.title}
+              className={`min-w-0 flex-1 truncate font-bold ${
+                compact
+                  ? "text-base leading-snug"
+                  : "text-xl leading-tight"
+              }`}
+              style={{ color: subject.accent }}
+            >
+              {course.title}
             </h3>
           </div>
 
@@ -148,7 +139,6 @@ function TeacherCourseCard({
                     bg="#ffffff"
                     fg={subject.accent}
                     capped
-                    marqueeActive={hovered}
                   />
                 )}
                 {coreqLabel && (
@@ -157,7 +147,6 @@ function TeacherCourseCard({
                     bg="#ffffff"
                     fg={subject.accent}
                     capped
-                    marqueeActive={hovered}
                   />
                 )}
                 <TermBadges offerings={offerings} termById={termById} />
@@ -194,15 +183,17 @@ function TeacherCourseCard({
           </div>
         </div>
 
-        <p
+        <motion.p
+          layout={false}
+          transition={DETAIL_TRANSITION}
           className={`text-gray-600 ${
             compact
-              ? "mt-1.5 line-clamp-2 pl-5 text-xs leading-snug"
-              : "mt-1 pl-7 text-sm leading-snug"
+              ? "mt-1.5 line-clamp-1 pl-5 text-xs leading-snug"
+              : `mt-1 pl-7 text-sm leading-snug${expanded ? "" : " line-clamp-2"}`
           }`}
         >
           {course.shortDescription}
-        </p>
+        </motion.p>
 
         <div
           className={
@@ -223,7 +214,6 @@ function TeacherCourseCard({
               bg="#ffffff"
               fg={subject.accent}
               capped
-              marqueeActive={hovered}
             />
           )}
           {compact && coreqLabel && (
@@ -232,55 +222,60 @@ function TeacherCourseCard({
               bg="#ffffff"
               fg={subject.accent}
               capped
-              marqueeActive={hovered}
             />
           )}
         </div>
 
-        {expanded && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.2 }}
-            className={`border-t ${
-              compact
-                ? "mt-2 flex-1 pt-2 pl-5 text-xs"
-                : "mt-3 pt-3 pl-7 text-sm"
-            }`}
-            style={{ borderColor: subject.color }}
-          >
-            <p className={`leading-relaxed text-gray-700 ${compact ? "line-clamp-4" : ""}`}>
-              {course.longDescription}
-            </p>
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              key="details"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={DETAIL_TRANSITION}
+              className="overflow-hidden"
+            >
+              <div
+                className={`border-t ${
+                  compact ? "mt-2 pt-2 pl-5 text-xs" : "mt-3 pt-3 pl-7 text-sm"
+                }`}
+                style={{ borderColor: subject.color }}
+              >
+                <p className="leading-relaxed text-gray-700">
+                  {course.longDescription}
+                </p>
 
-            <CourseRequirements
-              course={course}
-              accent={subject.accent}
-              className={compact ? "mt-2" : "mt-3"}
-            />
+                <CourseRequirements
+                  course={course}
+                  accent={subject.accent}
+                  className={compact ? "mt-2" : "mt-3"}
+                />
 
-            <p className={`text-gray-700 ${compact ? "mt-1.5" : "mt-1"}`}>
-              <span className="font-semibold" style={{ color: subject.accent }}>
-                Teacher:{" "}
-              </span>
-              {course.teacher ?? "Unassigned"}
-            </p>
+                <p className={`text-gray-700 ${compact ? "mt-1.5" : "mt-1"}`}>
+                  <span className="font-semibold" style={{ color: subject.accent }}>
+                    Teacher:{" "}
+                  </span>
+                  {course.teacher ?? "Unassigned"}
+                </p>
 
-            <p className={`text-gray-700 ${compact ? "mt-1" : "mt-1"}`}>
-              <span className="font-semibold" style={{ color: subject.accent }}>
-                Max students:{" "}
-              </span>
-              {formatMaxStudentCount(course.maxStudentCount)}
-            </p>
+                <p className={`text-gray-700 ${compact ? "mt-1" : "mt-1"}`}>
+                  <span className="font-semibold" style={{ color: subject.accent }}>
+                    Max students:{" "}
+                  </span>
+                  {formatMaxStudentCount(course.maxStudentCount)}
+                </p>
 
-            <p className={`text-gray-700 ${compact ? "mt-1" : "mt-1"}`}>
-              <span className="font-semibold" style={{ color: subject.accent }}>
-                Repeatable:{" "}
-              </span>
-              {course.retakeable ? "Yes" : "No"}
-            </p>
-          </motion.div>
-        )}
+                <p className={`text-gray-700 ${compact ? "mt-1" : "mt-1"}`}>
+                  <span className="font-semibold" style={{ color: subject.accent }}>
+                    Repeatable:{" "}
+                  </span>
+                  {course.retakeable ? "Yes" : "No"}
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );

@@ -14,6 +14,7 @@ import {
   type DisplayCourse,
 } from "../utils/courseGrouping";
 import CourseCard, { type BookmarkControl } from "./CourseCard";
+import { LAYOUT_SWITCH_TRANSITION } from "./CatalogLayoutToggle";
 
 type SubjectSectionProps = {
   subject: Subject;
@@ -25,6 +26,7 @@ type SubjectSectionProps = {
   bookmarks: Set<string>;
   courseNotes: Record<string, string>;
   collapseResetKey: string;
+  compact?: boolean;
   onToggleExpand: (id: string) => void;
   onToggleBookmark: (id: string) => void;
   onUpdateCourseNote: (courseId: string, note: string) => void;
@@ -40,6 +42,7 @@ function SubjectSection({
   bookmarks,
   courseNotes,
   collapseResetKey,
+  compact = false,
   onToggleExpand,
   onToggleBookmark,
   onUpdateCourseNote,
@@ -70,6 +73,50 @@ function SubjectSection({
   ];
 
   if (items.length === 0) return null;
+
+  const renderCourseCard = ({
+    item,
+    passes,
+  }: {
+    item: DisplayCourse;
+    passes: boolean;
+  }) => {
+    const course = repCourse(item);
+    const noteId =
+      item.kind === "group" ? item.offerings[0].courseId : course.id;
+    const bookmark: BookmarkControl =
+      item.kind === "group"
+        ? {
+            kind: "group",
+            offerings: item.offerings.map((o) => ({
+              courseId: o.courseId,
+              termOptions: o.termOptions,
+              bookmarked: bookmarks.has(o.courseId),
+            })),
+            onToggle: onToggleBookmark,
+          }
+        : {
+            kind: "single",
+            bookmarked: bookmarks.has(course.id),
+            onToggle: () => onToggleBookmark(course.id),
+          };
+    return (
+      <CourseCard
+        key={course.id}
+        course={course}
+        subject={subject}
+        offerings={offeringsOf(item)}
+        termById={termById}
+        dimmed={!passes}
+        expanded={expandedId === course.id}
+        compact={compact}
+        bookmark={bookmark}
+        note={courseNotes[noteId] ?? ""}
+        onToggleExpand={() => onToggleExpand(course.id)}
+        onNoteChange={(note) => onUpdateCourseNote(noteId, note)}
+      />
+    );
+  };
 
   return (
     <section
@@ -131,50 +178,35 @@ function SubjectSection({
             transition={{ type: "spring", stiffness: 350, damping: 32 }}
             className="overflow-hidden"
           >
-            <div className="flex flex-col gap-3">
-              <AnimatePresence initial={false}>
-                {ordered.map(({ item, passes }) => {
-                  const course = repCourse(item);
-                  // Grouped cards key notes on the first offering's UUID so
-                  // they persist across renders.
-                  const noteId =
-                    item.kind === "group"
-                      ? item.offerings[0].courseId
-                      : course.id;
-                  const bookmark: BookmarkControl =
-                    item.kind === "group"
-                      ? {
-                          kind: "group",
-                          offerings: item.offerings.map((o) => ({
-                            courseId: o.courseId,
-                            termOptions: o.termOptions,
-                            bookmarked: bookmarks.has(o.courseId),
-                          })),
-                          onToggle: onToggleBookmark,
-                        }
-                      : {
-                          kind: "single",
-                          bookmarked: bookmarks.has(course.id),
-                          onToggle: () => onToggleBookmark(course.id),
-                        };
-                  return (
-                    <CourseCard
-                      key={course.id}
-                      course={course}
-                      subject={subject}
-                      offerings={offeringsOf(item)}
-                      termById={termById}
-                      dimmed={!passes}
-                      expanded={expandedId === course.id}
-                      bookmark={bookmark}
-                      note={courseNotes[noteId] ?? ""}
-                      onToggleExpand={() => onToggleExpand(course.id)}
-                      onNoteChange={(note) => onUpdateCourseNote(noteId, note)}
-                    />
-                  );
-                })}
-              </AnimatePresence>
-            </div>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={compact ? "compact" : "full"}
+                initial={{ opacity: 0, scale: 0.98, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.98, y: -8 }}
+                transition={LAYOUT_SWITCH_TRANSITION}
+                className={
+                  compact ? "flex items-start gap-3" : "flex flex-col gap-3"
+                }
+              >
+                {compact ? (
+                  <>
+                    <div className="flex min-w-0 flex-1 flex-col gap-3">
+                      {ordered
+                        .filter((_, index) => index % 2 === 0)
+                        .map(renderCourseCard)}
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col gap-3">
+                      {ordered
+                        .filter((_, index) => index % 2 === 1)
+                        .map(renderCourseCard)}
+                    </div>
+                  </>
+                ) : (
+                  ordered.map(renderCourseCard)
+                )}
+              </motion.div>
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>

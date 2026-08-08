@@ -4,6 +4,8 @@ import { ChevronDown, GraduationCap } from "lucide-react";
 import { REQUIREMENTS_KEY, type Subject } from "../data/subjects";
 import { getSubjectIcon } from "../data/subjectIcons";
 
+const SECTION_TRANSITION = { type: "spring" as const, stiffness: 350, damping: 32 };
+
 type RequirementsSectionProps = {
   subjects: Subject[];
 };
@@ -16,6 +18,8 @@ function RequirementsSection({ subjects }: RequirementsSectionProps) {
     [subjects],
   );
 
+  const toggleCollapsed = () => setCollapsed((c) => !c);
+
   return (
     <section
       id={`subject-${REQUIREMENTS_KEY}`}
@@ -23,21 +27,24 @@ function RequirementsSection({ subjects }: RequirementsSectionProps) {
       aria-labelledby="requirements-heading"
       className="scroll-mt-4 rounded-2xl border border-main-300 bg-white p-4 shadow-sm"
     >
-      <div className="flex items-start gap-3">
-        <button
-          type="button"
-          aria-expanded={!collapsed}
-          aria-label={
-            collapsed ? "Expand requirements" : "Collapse requirements"
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? "Expand requirements" : "Collapse requirements"}
+        onClick={toggleCollapsed}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleCollapsed();
           }
-          onClick={() => setCollapsed((c) => !c)}
-          className="mt-0.5 cursor-pointer rounded-full p-1.5 text-gray-600 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500"
-        >
-          <ChevronDown
-            className="h-5 w-5 shrink-0 transition-transform duration-200"
-            style={{ transform: collapsed ? "rotate(180deg)" : "rotate(0deg)" }}
-          />
-        </button>
+        }}
+        className="flex cursor-pointer items-start gap-3 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500"
+      >
+        <ChevronDown
+          className="mt-0.5 h-5 w-5 shrink-0 transition-transform duration-200"
+          style={{ transform: collapsed ? "rotate(180deg)" : "rotate(0deg)" }}
+        />
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <GraduationCap
             className="h-6 w-6 shrink-0 text-gray-700"
@@ -56,7 +63,7 @@ function RequirementsSection({ subjects }: RequirementsSectionProps) {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 350, damping: 32 }}
+            transition={SECTION_TRANSITION}
             className="overflow-hidden"
           >
             {subjectsWithRequirements.length === 0 ? (

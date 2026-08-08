@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { Bookmark, ChevronDown } from "lucide-react";
 import type { Subject } from "../data/subjects";
 import {
@@ -11,8 +11,9 @@ import {
   type Term,
 } from "../data/courses";
 import CourseRequirements from "./CourseRequirements";
-import MarqueeText from "./MarqueeText";
 import TermBadges from "./TermBadges";
+
+const DETAIL_TRANSITION = { type: "spring" as const, stiffness: 350, damping: 32 };
 
 /** One selectable offering in a grouped course's bookmark popup. */
 export type BookmarkOffering = {
@@ -45,25 +46,25 @@ type CourseCardProps = {
   note: string;
   onToggleExpand: () => void;
   onNoteChange: (note: string) => void;
+  /** Tighter card for the 2-column browser grid. */
+  compact?: boolean;
 };
 
 function MetaBadge({
   label,
   bg,
   fg,
-  /** Cap width; marquee when `marqueeActive`, otherwise truncate. */
+  /** Cap width with ellipsis when the label is long. */
   capped = false,
-  marqueeActive = false,
 }: {
   label: string;
   bg: string;
   fg: string;
   capped?: boolean;
-  marqueeActive?: boolean;
 }) {
   return (
     <span
-      title={capped && !marqueeActive ? label : undefined}
+      title={capped ? label : undefined}
       className={
         capped
           ? "inline-block max-w-[28rem] overflow-hidden rounded-full px-2.5 py-0.5 text-xs font-semibold"
@@ -71,11 +72,7 @@ function MetaBadge({
       }
       style={{ backgroundColor: bg, color: fg }}
     >
-      {capped ? (
-        <MarqueeText text={label} active={marqueeActive} />
-      ) : (
-        label
-      )}
+      <span className={capped ? "block truncate" : undefined}>{label}</span>
     </span>
   );
 }
@@ -218,22 +215,20 @@ function CourseCard({
   note,
   onToggleExpand,
   onNoteChange,
+  compact = false,
 }: CourseCardProps) {
   const hasNote = note.trim().length > 0;
   const prereqLabel = formatRequirementOptions(course.prereqOptions);
   const coreqLabel = formatRequirementOptions(course.coreqOptions);
-  const [hovered, setHovered] = useState(false);
 
   return (
     <motion.div
       id={`course-${course.id}`}
-      layout
-      transition={{ type: "spring", stiffness: 350, damping: 32 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className={`scroll-mt-4 overflow-hidden rounded-2xl border shadow-sm transition-opacity duration-300 ${
-        dimmed ? "opacity-45" : "opacity-100"
-      }`}
+      {...(compact ? {} : { layout: "position" as const })}
+      transition={DETAIL_TRANSITION}
+      className={`scroll-mt-4 overflow-hidden rounded-2xl border shadow-sm transition-opacity duration-300${
+        compact ? " self-start w-full" : ""
+      } ${dimmed ? "opacity-45" : "opacity-100"}`}
       style={{
         backgroundColor: subject.tint,
         borderColor: subject.color,
@@ -251,57 +246,68 @@ function CourseCard({
             onToggleExpand();
           }
         }}
-        className="cursor-pointer p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+        className={`cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+          compact ? "p-3" : "p-4"
+        }`}
         style={{ outlineColor: subject.accent }}
       >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div
+          className={
+            compact
+              ? "flex items-start justify-between gap-2"
+              : "flex items-center justify-between gap-3"
+          }
+        >
+          <div className="flex min-w-0 flex-1 items-start gap-1.5">
             <ChevronDown
-              className="h-5 w-5 shrink-0 transition-transform duration-200"
+              className={`shrink-0 transition-transform duration-300 ease-out ${
+                compact ? "mt-0.5 h-4 w-4" : "h-5 w-5"
+              }`}
               style={{
                 color: subject.accent,
                 transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
               }}
             />
             <h3
-              className="min-w-0 flex-1"
+              title={course.title}
+              className={`min-w-0 flex-1 truncate font-bold ${
+                compact
+                  ? "text-base leading-snug"
+                  : "text-xl leading-tight"
+              }`}
               style={{ color: subject.accent }}
             >
-              <MarqueeText
-                text={course.title}
-                active={hovered}
-                className="text-xl leading-tight font-bold"
-              />
+              {course.title}
             </h3>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <div className="hidden flex-wrap items-center justify-end gap-1.5 sm:flex">
-              <MetaBadge
-                label={formatGrades(course.grades)}
-                bg={subject.color}
-                fg={subject.accent}
-              />
-              {prereqLabel && (
+          <div className="flex shrink-0 items-center gap-1">
+            {!compact && (
+              <div className="hidden flex-wrap items-center justify-end gap-1.5 sm:flex">
                 <MetaBadge
-                  label={`Prereq: ${prereqLabel}`}
-                  bg="#ffffff"
+                  label={formatGrades(course.grades)}
+                  bg={subject.color}
                   fg={subject.accent}
-                  capped
-                  marqueeActive={hovered}
                 />
-              )}
-              {coreqLabel && (
-                <MetaBadge
-                  label={`Coreq: ${coreqLabel}`}
-                  bg="#ffffff"
-                  fg={subject.accent}
-                  capped
-                  marqueeActive={hovered}
-                />
-              )}
-              <TermBadges offerings={offerings} termById={termById} />
-            </div>
+                {prereqLabel && (
+                  <MetaBadge
+                    label={`Prereq: ${prereqLabel}`}
+                    bg="#ffffff"
+                    fg={subject.accent}
+                    capped
+                  />
+                )}
+                {coreqLabel && (
+                  <MetaBadge
+                    label={`Coreq: ${coreqLabel}`}
+                    bg="#ffffff"
+                    fg={subject.accent}
+                    capped
+                  />
+                )}
+                <TermBadges offerings={offerings} termById={termById} />
+              </div>
+            )}
 
             {bookmark.kind === "single" ? (
               <button
@@ -314,11 +320,13 @@ function CourseCard({
                   e.stopPropagation();
                   bookmark.onToggle();
                 }}
-                className="cursor-pointer rounded-full p-1.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
+                className={`cursor-pointer rounded-full transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 ${
+                  compact ? "p-1" : "p-1.5"
+                }`}
                 style={{ color: subject.accent }}
               >
                 <Bookmark
-                  className="h-5 w-5"
+                  className={compact ? "h-4 w-4" : "h-5 w-5"}
                   fill={bookmark.bookmarked ? subject.accent : "none"}
                 />
               </button>
@@ -333,97 +341,148 @@ function CourseCard({
           </div>
         </div>
 
-        <p className="mt-1 pl-7 text-sm leading-snug text-gray-600">
+        <motion.p
+          layout={false}
+          transition={DETAIL_TRANSITION}
+          className={`text-gray-600 ${
+            compact
+              ? "mt-1.5 line-clamp-1 pl-5 text-xs leading-snug"
+              : `mt-1 pl-7 text-sm leading-snug${expanded ? "" : " line-clamp-2"}`
+          }`}
+        >
           {course.shortDescription}
-        </p>
+        </motion.p>
 
-        {!expanded && hasNote && (
-          <p className="mt-1.5 pl-7 text-sm leading-snug text-gray-700 italic">
-            <span className="font-semibold not-italic" style={{ color: subject.accent }}>
-              Note:{" "}
-            </span>
-            {note}
-          </p>
-        )}
+        <AnimatePresence initial={false}>
+          {!expanded && hasNote && (
+            <motion.p
+              key="note-preview"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={DETAIL_TRANSITION}
+              className={`overflow-hidden text-sm leading-snug text-gray-700 italic ${
+                compact ? "mt-1 line-clamp-1 pl-5" : "mt-1.5 pl-7"
+              }`}
+            >
+              <span className="font-semibold not-italic" style={{ color: subject.accent }}>
+                Note:{" "}
+              </span>
+              {note}
+            </motion.p>
+          )}
+        </AnimatePresence>
 
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-7 sm:hidden">
+        <div
+          className={
+            compact
+              ? "mt-2 flex flex-wrap items-center gap-1 pl-5"
+              : "mt-1.5 flex flex-wrap items-center gap-1.5 pl-7 sm:hidden"
+          }
+        >
           <MetaBadge
             label={formatGrades(course.grades)}
             bg={subject.color}
             fg={subject.accent}
           />
           <TermBadges offerings={offerings} termById={termById} />
+          {compact && prereqLabel && (
+            <MetaBadge
+              label={`Prereq: ${prereqLabel}`}
+              bg="#ffffff"
+              fg={subject.accent}
+              capped
+            />
+          )}
+          {compact && coreqLabel && (
+            <MetaBadge
+              label={`Coreq: ${coreqLabel}`}
+              bg="#ffffff"
+              fg={subject.accent}
+              capped
+            />
+          )}
         </div>
 
-        {expanded && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.2 }}
-            className="mt-3 border-t pt-3 pl-7"
-            style={{ borderColor: subject.color }}
-          >
-            <p className="text-sm leading-relaxed text-gray-700">
-              {course.longDescription}
-            </p>
-
-            <CourseRequirements
-              course={course}
-              accent={subject.accent}
-              className="mt-3"
-            />
-
-            <p className="mt-1 text-sm text-gray-700">
-              <span
-                className="font-semibold"
-                style={{ color: subject.accent }}
-              >
-                Teacher:{" "}
-              </span>
-              {course.teacher ?? "Unknown"}
-            </p>
-
-            <p className="mt-1 text-sm text-gray-700">
-              <span className="font-semibold" style={{ color: subject.accent }}>
-                Max students:{" "}
-              </span>
-              {formatMaxStudentCount(course.maxStudentCount)}
-            </p>
-
-            <p className="mt-1 text-sm text-gray-700">
-              <span className="font-semibold" style={{ color: subject.accent }}>
-                Retakeable:{" "}
-              </span>
-              {course.retakeable ? "True" : "False"}
-            </p>
-
-            <div
-              className="mt-4"
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => e.stopPropagation()}
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              key="details"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={DETAIL_TRANSITION}
+              className="overflow-hidden"
             >
-              <label
-                htmlFor={`note-${course.id}`}
-                className="text-sm font-semibold"
-                style={{ color: subject.accent }}
+              <div
+                className={`border-t ${
+                  compact ? "mt-2 pt-2 pl-5 text-xs" : "mt-3 pt-3 pl-7 text-sm"
+                }`}
+                style={{ borderColor: subject.color }}
               >
-                Your note
-              </label>
-              <textarea
-                id={`note-${course.id}`}
-                value={note}
-                onChange={(e) => onNoteChange(e.target.value)}
-                placeholder="Add a personal note about this course..."
-                rows={3}
-                className="mt-1.5 w-full resize-y rounded-lg border bg-white/70 px-3 py-2 text-sm leading-relaxed text-gray-700 placeholder:text-gray-400 focus:outline-none focus-visible:ring-2"
-                style={{
-                  borderColor: subject.color,
-                  outlineColor: subject.accent,
-                }}
-              />
-            </div>
-          </motion.div>
-        )}
+                <p className="leading-relaxed text-gray-700">
+                  {course.longDescription}
+                </p>
+
+                <CourseRequirements
+                  course={course}
+                  accent={subject.accent}
+                  className={compact ? "mt-2" : "mt-3"}
+                />
+
+                <p className={`text-gray-700 ${compact ? "mt-1.5 text-xs" : "mt-1 text-sm"}`}>
+                  <span
+                    className="font-semibold"
+                    style={{ color: subject.accent }}
+                  >
+                    Teacher:{" "}
+                  </span>
+                  {course.teacher ?? "Unknown"}
+                </p>
+
+                <p className={`text-gray-700 ${compact ? "mt-1 text-xs" : "mt-1 text-sm"}`}>
+                  <span className="font-semibold" style={{ color: subject.accent }}>
+                    Max students:{" "}
+                  </span>
+                  {formatMaxStudentCount(course.maxStudentCount)}
+                </p>
+
+                <p className={`text-gray-700 ${compact ? "mt-1 text-xs" : "mt-1 text-sm"}`}>
+                  <span className="font-semibold" style={{ color: subject.accent }}>
+                    Retakeable:{" "}
+                  </span>
+                  {course.retakeable ? "True" : "False"}
+                </p>
+
+                <div
+                  className="mt-4"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <label
+                    htmlFor={`note-${course.id}`}
+                    className="text-sm font-semibold"
+                    style={{ color: subject.accent }}
+                  >
+                    Your note
+                  </label>
+                  <textarea
+                    id={`note-${course.id}`}
+                    value={note}
+                    onChange={(e) => onNoteChange(e.target.value)}
+                    placeholder="Add a personal note about this course..."
+                    rows={3}
+                    className="mt-1.5 w-full resize-y rounded-lg border bg-white/70 px-3 py-2 text-sm leading-relaxed text-gray-700 placeholder:text-gray-400 focus:outline-none focus-visible:ring-2"
+                    style={{
+                      borderColor: subject.color,
+                      outlineColor: subject.accent,
+                    }}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { LayoutGroup } from "motion/react";
-import { Eye, EyeOff, Pencil, Search, Trash2 } from "lucide-react";
+import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { Pencil, Search, Trash2 } from "lucide-react";
 import { buildSubject, type Subject } from "../data/subjects";
 import { matchesSearch, type Term } from "../data/courses";
 import { useCourses } from "../hooks/useCourses";
@@ -46,6 +46,9 @@ import SchoolFormModal, {
 import ConfirmDeleteDialog from "./teacher/ConfirmDeleteDialog";
 import ModalShell from "./teacher/ModalShell";
 import { primaryButtonClass, secondaryButtonClass } from "./teacher/formStyles";
+import CatalogLayoutToggle, {
+  LAYOUT_SWITCH_TRANSITION,
+} from "./CatalogLayoutToggle";
 
 type TeacherCatalogProps = {
   school: UnlockedSession;
@@ -478,7 +481,7 @@ function TeacherCatalog({
       />
 
       <main className="flex flex-1 flex-col overflow-hidden bg-detail-400">
-        <div className="sticky top-0 z-20 flex flex-col gap-3 bg-detail-400/95 px-6 pt-6 pb-4 backdrop-blur">
+        <div className="sticky top-0 z-20 flex flex-col gap-3 border-b border-dashed border-main-400 bg-detail-400/95 px-6 pt-6 pb-4 backdrop-blur">
           <div className="flex min-w-0 items-center gap-3">
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-2xl font-bold text-gray-800">
@@ -487,32 +490,14 @@ function TeacherCatalog({
               <p className="truncate text-sm text-gray-500">Teacher editing</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={toggleCatalogLayout}
-                aria-pressed={catalogLayout === "student"}
-                aria-label={
-                  catalogLayout === "student"
-                    ? "Student preview on — switch to compact teacher view"
-                    : "Compact teacher view — switch to student preview"
-                }
-                title={
-                  catalogLayout === "student"
-                    ? "Student preview (click for compact view)"
-                    : "Compact teacher view (click for student preview)"
-                }
-                className={`flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border shadow-sm transition-all duration-150 hover:scale-[1.02] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500 ${
-                  catalogLayout === "student"
-                    ? "border-main-400 bg-white text-gray-700 hover:bg-main-100"
-                    : "border-main-500 bg-main-100 text-gray-800 hover:bg-main-200"
-                }`}
-              >
-                {catalogLayout === "student" ? (
-                  <Eye className="h-4 w-4" />
-                ) : (
-                  <EyeOff className="h-4 w-4" />
-                )}
-              </button>
+              <CatalogLayoutToggle
+                compact={catalogLayout === "teacher"}
+                onToggle={toggleCatalogLayout}
+                ariaLabelFull="Student preview on — switch to compact teacher view"
+                ariaLabelCompact="Compact teacher view — switch to student preview"
+                titleFull="Student preview (click for compact view)"
+                titleCompact="Compact teacher view (click for student preview)"
+              />
               <AddMenu onSelect={handleAdd} />
               <button
                 type="button"
@@ -563,10 +548,19 @@ function TeacherCatalog({
             </div>
           ) : (
             <LayoutGroup>
-              <div className="flex flex-col gap-8">
-                {subjects.map(renderSection)}
-                {extraSubjects.map(renderSection)}
-              </div>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={catalogLayout}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={LAYOUT_SWITCH_TRANSITION}
+                  className="flex flex-col gap-8"
+                >
+                  {subjects.map(renderSection)}
+                  {extraSubjects.map(renderSection)}
+                </motion.div>
+              </AnimatePresence>
             </LayoutGroup>
           )}
         </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { LayoutGroup } from "motion/react";
+import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { Search } from "lucide-react";
 import type { Subject } from "../data/subjects";
 import {
@@ -11,6 +11,9 @@ import {
 } from "../data/courses";
 import type { UserProfile } from "../hooks/useProfile";
 import { buildDisplayCourses, repCourse, type DisplayCourse } from "../utils/courseGrouping";
+import CatalogLayoutToggle, {
+  LAYOUT_SWITCH_TRANSITION,
+} from "./CatalogLayoutToggle";
 import FilterPanel from "./FilterPanel";
 import RequirementsSection from "./RequirementsSection";
 import SubjectSection from "./SubjectSection";
@@ -30,6 +33,20 @@ type CourseBrowserProps = {
   onActiveSubjectChange: (name: string) => void;
 };
 
+type BrowserLayout = "full" | "compact";
+
+const BROWSER_LAYOUT_KEY = "student-atlas-browser-layout";
+
+function loadBrowserLayout(): BrowserLayout {
+  try {
+    const stored = localStorage.getItem(BROWSER_LAYOUT_KEY);
+    if (stored === "full" || stored === "compact") return stored;
+  } catch {
+    /* ignore */
+  }
+  return "full";
+}
+
 function CourseBrowser({
   courses,
   subjects,
@@ -45,6 +62,7 @@ function CourseBrowser({
   onActiveSubjectChange,
 }: CourseBrowserProps) {
   const [search, setSearch] = useState("");
+  const [browserLayout, setBrowserLayout] = useState<BrowserLayout>(loadBrowserLayout);
   const [filters, setFilters] = useState<Filters>({
     ...DEFAULT_FILTERS,
     grades: new Set(),
@@ -54,6 +72,8 @@ function CourseBrowser({
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef(activeSubject);
   activeRef.current = activeSubject;
+
+  const compact = browserLayout === "compact";
 
   const itemsBySubject = useMemo(() => {
     const map = new Map<string, DisplayCourse[]>();
@@ -68,6 +88,18 @@ function CourseBrowser({
 
   const toggleExpand = (id: string) =>
     setExpandedId((cur) => (cur === id ? null : id));
+
+  const toggleBrowserLayout = () => {
+    setBrowserLayout((prev) => {
+      const next: BrowserLayout = prev === "full" ? "compact" : "full";
+      try {
+        localStorage.setItem(BROWSER_LAYOUT_KEY, next);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
 
   const collapseResetKey = useMemo(
     () =>
@@ -109,7 +141,7 @@ function CourseBrowser({
     const sections = root.querySelectorAll("[data-subject]");
     sections.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [search, onActiveSubjectChange]);
+  }, [search, onActiveSubjectChange, browserLayout]);
 
   const hasResults = subjects.some(
     (s) => (itemsBySubject.get(s.name)?.length ?? 0) > 0,
@@ -117,8 +149,8 @@ function CourseBrowser({
 
   return (
     <main className="flex flex-1 flex-col overflow-hidden bg-detail-400">
-      <div className="sticky top-0 z-20 flex items-center gap-3 bg-detail-400/95 px-6 pt-6 pb-4 backdrop-blur">
-        <div className="relative flex-1">
+      <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-dashed border-main-400 bg-detail-400/95 px-6 pt-6 pb-4 backdrop-blur">
+        <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3.5 h-5 w-5 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
@@ -128,6 +160,7 @@ function CourseBrowser({
             className="h-12 w-full rounded-xl border border-main-400 bg-white pr-4 pl-11 text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500"
           />
         </div>
+        <CatalogLayoutToggle compact={compact} onToggle={toggleBrowserLayout} />
         <FilterPanel filters={filters} onChange={setFilters} terms={terms} />
       </div>
 
@@ -150,32 +183,42 @@ function CourseBrowser({
           </div>
         ) : (
           <LayoutGroup>
-            <div className="flex flex-col gap-8">
-              <RequirementsSection subjects={subjects} />
-              {subjects.map((subject) => (
-                <SubjectSection
-                  key={subject.name}
-                  subject={subject}
-                  items={itemsBySubject.get(subject.name) ?? []}
-                  filters={filters}
-                  termById={termById}
-                  completedCourses={profile.completedCourses}
-                  expandedId={expandedId}
-                  bookmarks={bookmarks}
-                  courseNotes={profile.courseNotes}
-                  collapseResetKey={collapseResetKey}
-                  onToggleExpand={toggleExpand}
-                  onToggleBookmark={onToggleBookmark}
-                  onUpdateCourseNote={onUpdateCourseNote}
-                />
-              ))}
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={browserLayout}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={LAYOUT_SWITCH_TRANSITION}
+                className="flex flex-col gap-8"
+              >
+                <RequirementsSection subjects={subjects} />
+                {subjects.map((subject) => (
+                  <SubjectSection
+                    key={subject.name}
+                    subject={subject}
+                    items={itemsBySubject.get(subject.name) ?? []}
+                    filters={filters}
+                    termById={termById}
+                    completedCourses={profile.completedCourses}
+                    expandedId={expandedId}
+                    bookmarks={bookmarks}
+                    courseNotes={profile.courseNotes}
+                    collapseResetKey={collapseResetKey}
+                    compact={compact}
+                    onToggleExpand={toggleExpand}
+                    onToggleBookmark={onToggleBookmark}
+                    onUpdateCourseNote={onUpdateCourseNote}
+                  />
+                ))}
 
-              {!hasResults && (
-                <p className="py-16 text-center text-gray-400">
-                  No courses match "{search}".
-                </p>
-              )}
-            </div>
+                {!hasResults && (
+                  <p className="py-16 text-center text-gray-400">
+                    No courses match "{search}".
+                  </p>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </LayoutGroup>
         )}
       </div>

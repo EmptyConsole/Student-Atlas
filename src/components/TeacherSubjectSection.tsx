@@ -5,6 +5,7 @@ import type { Subject } from "../data/subjects";
 import type { Term } from "../data/courses";
 import { offeringsOf, repCourse, type DisplayCourse } from "../utils/courseGrouping";
 import TeacherCourseCard from "./TeacherCourseCard";
+import { LAYOUT_SWITCH_TRANSITION } from "./CatalogLayoutToggle";
 
 type TeacherSubjectSectionProps = {
   subject: Subject;
@@ -36,6 +37,24 @@ function TeacherSubjectSection({
   compact = false,
 }: TeacherSubjectSectionProps) {
   const [collapsed, setCollapsed] = useState(false);
+
+  const renderCourseCard = (item: DisplayCourse) => {
+    const course = repCourse(item);
+    return (
+      <TeacherCourseCard
+        key={course.id}
+        course={course}
+        subject={subject}
+        offerings={offeringsOf(item)}
+        termById={termById}
+        compact={compact}
+        expanded={expandedId === course.id}
+        onToggleExpand={() => onToggleExpand(course.id)}
+        onEdit={() => onEditCourse(item)}
+        onDelete={() => onDeleteCourse(item)}
+      />
+    );
+  };
 
   return (
     <section
@@ -111,41 +130,35 @@ function TeacherSubjectSection({
             transition={{ type: "spring", stiffness: 350, damping: 32 }}
             className="overflow-hidden"
           >
-            <div
-              className={
-                compact
-                  ? "grid grid-cols-2 gap-3"
-                  : "flex flex-col gap-3"
-              }
-            >
-              {items.length === 0 ? (
-                <p
-                  className={`rounded-xl border border-dashed border-main-300 px-4 py-6 text-center text-sm text-gray-400 ${
-                    compact ? "col-span-full" : ""
-                  }`}
-                >
-                  No courses in this department yet.
-                </p>
-              ) : (
-                items.map((item) => {
-                  const course = repCourse(item);
-                  return (
-                    <TeacherCourseCard
-                      key={course.id}
-                      course={course}
-                      subject={subject}
-                      offerings={offeringsOf(item)}
-                      termById={termById}
-                      compact={compact}
-                      expanded={expandedId === course.id}
-                      onToggleExpand={() => onToggleExpand(course.id)}
-                      onEdit={() => onEditCourse(item)}
-                      onDelete={() => onDeleteCourse(item)}
-                    />
-                  );
-                })
-              )}
-            </div>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={compact ? "compact" : "full"}
+                initial={{ opacity: 0, scale: 0.98, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.98, y: -8 }}
+                transition={LAYOUT_SWITCH_TRANSITION}
+                className={
+                  compact ? "flex items-start gap-3" : "flex flex-col gap-3"
+                }
+              >
+                {items.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-main-300 px-4 py-6 text-center text-sm text-gray-400">
+                    No courses in this department yet.
+                  </p>
+                ) : compact ? (
+                  <>
+                    <div className="flex min-w-0 flex-1 flex-col gap-3">
+                      {items.filter((_, index) => index % 2 === 0).map(renderCourseCard)}
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col gap-3">
+                      {items.filter((_, index) => index % 2 === 1).map(renderCourseCard)}
+                    </div>
+                  </>
+                ) : (
+                  items.map(renderCourseCard)
+                )}
+              </motion.div>
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>
