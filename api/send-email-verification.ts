@@ -1,11 +1,11 @@
 // Vercel serverless function: send a 6-digit email verification code via Resend.
-// Imports stay under api/ so Vercel's function bundler includes everything.
+// Self-contained (no imports outside api/) so Vercel's function bundler includes everything.
 
 import { createHash, randomInt } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
-import { sendOrSkip, type SkippedEmailKind } from "./resend-helpers";
 
+const FROM_ADDRESS = "Student Atlas <noreply@emptyconsole.com>";
 const CODE_TTL_MS = 10 * 60 * 1000;
 
 type EmailVerificationPurpose = "signup" | "login" | "email_change";
@@ -190,29 +190,16 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY!);
-  const kind: SkippedEmailKind = `otp_${purpose}`;
-  const { skipped } = await sendOrSkip({
-    resend,
-    supabase,
+  const { error: sendError } = await resend.emails.send({
+    from: FROM_ADDRESS,
     to: email,
     subject: "Your Student Atlas verification code",
     html: buildEmailHtml(code, purpose),
-    kind,
   });
 
-  if (skipped) {
-    // No orphan OTP — consume the row we just inserted so verify cannot succeed.
-    const { error: consumeError } = await supabase
-      .from("email_verification_codes")
-      .update({ consumed_at: new Date().toISOString() })
-      .eq("email", email)
-      .eq("purpose", purpose)
-      .eq("code_hash", codeHash)
-      .is("consumed_at", null);
-    if (consumeError) {
-      console.error("Failed to consume OTP after Resend skip:", consumeError);
-    }
-    return json({ ok: true, skipped: true }, 200);
+  if (sendError) {
+    console.error("Resend error:", sendError);
+    return json({ error: "Failed to send email" }, 502);
   }
 
   return json({ ok: true }, 200);

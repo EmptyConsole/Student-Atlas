@@ -489,21 +489,18 @@ export type EmailVerificationPurpose = "signup" | "login" | "email_change";
 export async function sendEmailVerification(
   email: string,
   purpose: EmailVerificationPurpose,
-): Promise<{ error?: string; skipped?: boolean }> {
+): Promise<{ error?: string }> {
   try {
     const res = await fetch("/api/send-email-verification", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: email.trim(), purpose }),
     });
-    const body = (await res.json().catch(() => ({}))) as {
-      error?: string;
-      skipped?: boolean;
-    };
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
     if (!res.ok) {
       return { error: body.error ?? "Failed to send verification code." };
     }
-    return { skipped: body.skipped === true };
+    return {};
   } catch {
     return { error: "Failed to send verification code. Please try again." };
   }

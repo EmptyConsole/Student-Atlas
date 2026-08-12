@@ -5,11 +5,11 @@
 // The recipient address is always looked up server-side from the `students`
 // table (never taken from the request body), so this endpoint can only send
 // mail to addresses that belong to registered students.
-// Imports stay under api/ so Vercel's function bundler includes everything.
 
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
-import { sendOrSkip } from "./resend-helpers";
+
+const FROM_ADDRESS = "Student Atlas <noreply@emptyconsole.com>";
 
 type Payload = {
   studentId: string;
@@ -85,10 +85,9 @@ export async function POST(request: Request): Promise<Response> {
     });
 
   const resendApiKey = process.env.RESEND_API_KEY;
-  const supabaseUrl = (process.env.VITE_SUPABASE_URL ?? "").replace(/\/$/, "");
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!resendApiKey || !supabaseUrl || !supabaseKey || !serviceKey) {
+  if (!resendApiKey || !supabaseUrl || !supabaseKey) {
     return json({ error: "Server is missing required environment variables" }, 500);
   }
 
@@ -105,9 +104,6 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
-  const serviceSupabase = createClient(supabaseUrl, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
 
   const { data: student, error: studentError } = await supabase
     .from("students")
@@ -148,14 +144,17 @@ export async function POST(request: Request): Promise<Response> {
   );
 
   const resend = new Resend(resendApiKey);
-  const { skipped } = await sendOrSkip({
-    resend,
-    supabase: serviceSupabase,
+  const { error: sendError } = await resend.emails.send({
+    from: FROM_ADDRESS,
     to: student.email as string,
     subject: "Your elective rankings have been submitted",
     html,
-    kind: "rankings",
   });
 
-  return json({ ok: true, skipped }, 200);
+  if (sendError) {
+    console.error("Resend error:", sendError);
+    return json({ error: "Failed to send email" }, 502);
+  }
+
+  return json({ ok: true }, 200);
 }

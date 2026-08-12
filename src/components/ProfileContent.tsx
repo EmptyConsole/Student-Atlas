@@ -171,19 +171,6 @@ function ProfileContent({
     setSendingCode(false);
     if (result.error) return { error: result.error };
 
-    // Resend unavailable — proceed without OTP so signup/login/email change
-    // are not blocked when the free tier (or API) cannot deliver mail.
-    if (result.skipped) {
-      const verified = await onVerified();
-      if (verified.error) return verified;
-      clearVerification();
-      setLoggingIn(false);
-      setSubmitting(false);
-      setSaving(false);
-      if (purpose === "email_change") setJustSaved(true);
-      return {};
-    }
-
     setPendingVerification({ purpose, email, onVerified });
     setOtpCode("");
     setResendCooldown(RESEND_COOLDOWN_SEC);
@@ -238,23 +225,6 @@ function ProfileContent({
     setSendingCode(false);
     if (result.error) {
       setVerifyError(result.error);
-      return;
-    }
-    // Resend still unavailable — finish without a code.
-    if (result.skipped) {
-      setVerifyingCode(true);
-      const verified = await pendingVerification.onVerified();
-      if (verified.error) {
-        setVerifyError(verified.error);
-        setVerifyingCode(false);
-        return;
-      }
-      const wasEmailChange = pendingVerification.purpose === "email_change";
-      clearVerification();
-      setLoggingIn(false);
-      setSubmitting(false);
-      setSaving(false);
-      if (wasEmailChange) setJustSaved(true);
       return;
     }
     setOtpCode("");
