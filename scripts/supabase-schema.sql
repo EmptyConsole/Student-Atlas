@@ -202,3 +202,12 @@ CREATE TABLE public.email_verification_codes (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT email_verification_codes_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.skipped_emails (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  kind text NOT NULL CHECK (kind = ANY (ARRAY['otp_signup'::text, 'otp_login'::text, 'otp_email_change'::text, 'rankings'::text])),
+  intended_to text NOT NULL,
+  detail text,
+  notified_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT skipped_emails_pkey PRIMARY KEY (id)
+);
