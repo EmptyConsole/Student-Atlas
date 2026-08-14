@@ -79,7 +79,7 @@ CREATE TABLE public.completed_courses (
   student_id uuid NOT NULL,
   CONSTRAINT completed_courses_pkey PRIMARY KEY (id),
   CONSTRAINT completed_courses_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id),
-  CONSTRAINT completed_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
+  CONSTRAINT completed_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE CASCADE
 );
 CREATE TABLE public.enrolled_courses (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -88,7 +88,7 @@ CREATE TABLE public.enrolled_courses (
   student_id uuid NOT NULL,
   CONSTRAINT enrolled_courses_pkey PRIMARY KEY (id),
   CONSTRAINT enrolled_courses_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id),
-  CONSTRAINT enrolled_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
+  CONSTRAINT enrolled_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE CASCADE
 );
 CREATE TABLE public.bookmarked_courses (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -97,7 +97,7 @@ CREATE TABLE public.bookmarked_courses (
   student_id uuid NOT NULL,
   CONSTRAINT bookmarked_courses_pkey PRIMARY KEY (id),
   CONSTRAINT bookmarked_courses_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id),
-  CONSTRAINT bookmarked_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
+  CONSTRAINT bookmarked_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE CASCADE
 );
 CREATE TABLE public.course_notes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -107,7 +107,7 @@ CREATE TABLE public.course_notes (
   note text NOT NULL,
   CONSTRAINT course_notes_pkey PRIMARY KEY (id),
   CONSTRAINT course_notes_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id),
-  CONSTRAINT course_notes_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
+  CONSTRAINT course_notes_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE CASCADE
 );
 CREATE TABLE public.graduation_requirements (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -181,7 +181,7 @@ CREATE TABLE public.submitted_courses (
   submitted boolean,
   CONSTRAINT submitted_courses_pkey PRIMARY KEY (id),
   CONSTRAINT submitted_courses_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id),
-  CONSTRAINT submitted_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
+  CONSTRAINT submitted_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE CASCADE
 );
 CREATE TABLE public.submitted_notes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -189,7 +189,7 @@ CREATE TABLE public.submitted_notes (
   student_id uuid,
   note text,
   CONSTRAINT submitted_notes_pkey PRIMARY KEY (id),
-  CONSTRAINT submitted_notes_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
+  CONSTRAINT submitted_notes_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE CASCADE
 );
 CREATE TABLE public.email_verification_codes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

@@ -105,6 +105,14 @@ export const GRADE_COLORS: Record<number, { bg: string; fg: string }> = {
   12: { bg: "#d0c7ef", fg: "#5b4399" },
 };
 
+/**
+ * Chip colors for a grade level. Falls back to the cycled term palette for
+ * grades outside the fixed 8-12 set (schools can configure other levels).
+ */
+export function gradeColor(grade: number): { bg: string; fg: string } {
+  return GRADE_COLORS[grade] ?? termColor(grade);
+}
+
 export type CourseCompletion = "prereq" | "coreq";
 
 export type Filters = {

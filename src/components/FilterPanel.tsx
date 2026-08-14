@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
 import {
   DEFAULT_FILTERS,
-  GRADE_COLORS,
   GRADES,
+  gradeColor,
   termColor,
   type Filters,
   type Term,
@@ -14,6 +14,11 @@ type FilterPanelProps = {
   onChange: (filters: Filters) => void;
   /** The school's terms, rendered as dynamic filter chips. */
   terms: Term[];
+  /**
+   * Grade levels the school uses (`schools.grade` keys). Falls back to the
+   * default 8-12 list when the school has no per-grade settings yet.
+   */
+  grades: number[];
 };
 
 function Chip({
@@ -55,9 +60,11 @@ function Chip({
 const YES_CHIP = { bg: "#c5ecc0", fg: "#357a3a" };
 const NO_CHIP = { bg: "#f7c8d2", fg: "#a83f57" };
 
-function FilterPanel({ filters, onChange, terms }: FilterPanelProps) {
+function FilterPanel({ filters, onChange, terms, grades }: FilterPanelProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const gradeOptions = grades.length > 0 ? grades : [...GRADES];
 
   const activeCount =
     filters.grades.size +
@@ -126,16 +133,19 @@ function FilterPanel({ filters, onChange, terms }: FilterPanelProps) {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {GRADES.map((grade) => (
-              <Chip
-                key={grade}
-                label={`${grade}`}
-                active={filters.grades.has(grade)}
-                bg={GRADE_COLORS[grade].bg}
-                fg={GRADE_COLORS[grade].fg}
-                onClick={() => toggleGrade(grade)}
-              />
-            ))}
+            {gradeOptions.map((grade) => {
+              const { bg, fg } = gradeColor(grade);
+              return (
+                <Chip
+                  key={grade}
+                  label={`${grade}`}
+                  active={filters.grades.has(grade)}
+                  bg={bg}
+                  fg={fg}
+                  onClick={() => toggleGrade(grade)}
+                />
+              );
+            })}
           </div>
 
           {terms.length > 0 && (

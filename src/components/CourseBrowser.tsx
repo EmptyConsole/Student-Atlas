@@ -23,6 +23,8 @@ type CourseBrowserProps = {
   subjects: Subject[];
   terms: Term[];
   termById: Map<string, Term>;
+  /** Grade levels the school uses, for the grade filter chips. */
+  schoolGrades: number[];
   loading: boolean;
   error: string | null;
   profile: UserProfile;
@@ -52,6 +54,7 @@ function CourseBrowser({
   subjects,
   terms,
   termById,
+  schoolGrades,
   loading,
   error,
   profile,
@@ -161,7 +164,12 @@ function CourseBrowser({
           />
         </div>
         <CatalogLayoutToggle compact={compact} onToggle={toggleBrowserLayout} />
-        <FilterPanel filters={filters} onChange={setFilters} terms={terms} />
+        <FilterPanel
+          filters={filters}
+          onChange={setFilters}
+          terms={terms}
+          grades={schoolGrades}
+        />
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pt-2 pb-10">

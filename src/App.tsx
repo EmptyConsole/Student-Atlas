@@ -7,6 +7,7 @@ import RegisterPage from "./components/RegisterPage";
 import RegisterUnsavedDialog from "./components/RegisterUnsavedDialog";
 import { useProfile, type UserProfile } from "./hooks/useProfile";
 import { useCourses } from "./hooks/useCourses";
+import { useSchoolGrades } from "./hooks/useSchoolGrades";
 import { useSubjects } from "./hooks/useSubjects";
 import { useTerms } from "./hooks/useTerms";
 import {
@@ -98,6 +99,10 @@ function App() {
 
   // Terms drive term badges, filter chips, and the Register columns.
   const { terms, termById } = useTerms(profile.schoolId);
+
+  // Grade levels the school actually uses (`schools.grade` keys) so filter
+  // chips only offer grades the school allows.
+  const { grades: schoolGrades } = useSchoolGrades(profile.schoolId);
 
   // Default the active subject to the first one once departments load.
   useEffect(() => {
@@ -242,11 +247,28 @@ function App() {
     return {};
   };
 
-  const handleDeleteAccount = async () => {
-    if (!studentId) return;
-    await deleteStudentAccount(studentId);
+  // Signs out and wipes per-account browser state (bookmarks live in App
+  // state, so `signOut` alone would leave them behind for the next login).
+  const handleSignOut = () => {
+    syncEnabled.current = false;
+    setBookmarks(new Set());
+    setSavedProfile(null);
     signOut();
     setActiveView("courses");
+  };
+
+  const handleDeleteAccount = async (): Promise<{ error?: string }> => {
+    if (!studentId) return {};
+    // Stop bookmark/note sync first so nothing is re-written to Supabase while
+    // (or after) the account rows are being deleted.
+    syncEnabled.current = false;
+    const result = await deleteStudentAccount(studentId);
+    if (result.error) {
+      syncEnabled.current = true;
+      return { error: result.error };
+    }
+    handleSignOut();
+    return {};
   };
 
   const toggleBookmark = (id: string) => {
@@ -301,6 +323,7 @@ function App() {
             subjects={subjects}
             terms={terms}
             termById={termById}
+            schoolGrades={schoolGrades}
             loading={coursesLoading}
             error={coursesError}
             profile={profile}
@@ -316,10 +339,7 @@ function App() {
         <ProfilePage
           profile={profile}
           onChange={updateProfile}
-          onSignOut={() => {
-            signOut();
-            setActiveView("courses");
-          }}
+          onSignOut={handleSignOut}
           onDeleteAccount={handleDeleteAccount}
           hasUnsavedChanges={hasUnsavedChanges}
           onSaveChanges={handleSaveProfileChanges}

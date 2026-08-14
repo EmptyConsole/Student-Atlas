@@ -19,7 +19,7 @@ type ProfileSidebarProps = {
   activeSection: ProfileSection;
   onSelectSection: (id: ProfileSection) => void;
   onSignOut: () => void;
-  onDeleteAccount?: () => Promise<void>;
+  onDeleteAccount?: () => Promise<{ error?: string }>;
   showSignOut?: boolean;
 };
 
@@ -33,6 +33,7 @@ function ProfileSidebar({
   const activeItemRef = useRef<HTMLLIElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleSelect = (id: ProfileSection) => {
     onSelectSection(id);
@@ -85,14 +86,22 @@ function ProfileSidebar({
                   <p className="text-xs font-semibold text-red-700">
                     This will permanently delete your account and all data.
                   </p>
+                  {deleteError && (
+                    <p className="text-xs text-red-600">{deleteError}</p>
+                  )}
                   <div className="flex gap-2">
                     <button
                       type="button"
                       disabled={deleting}
                       onClick={async () => {
                         setDeleting(true);
-                        await onDeleteAccount();
+                        setDeleteError(null);
+                        const { error } = await onDeleteAccount();
                         setDeleting(false);
+                        if (error) {
+                          setDeleteError(error);
+                          return;
+                        }
                         setConfirmDelete(false);
                       }}
                       className="flex-1 cursor-pointer rounded-md bg-red-600 px-2 py-1 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
@@ -102,7 +111,10 @@ function ProfileSidebar({
                     <button
                       type="button"
                       disabled={deleting}
-                      onClick={() => setConfirmDelete(false)}
+                      onClick={() => {
+                        setConfirmDelete(false);
+                        setDeleteError(null);
+                      }}
                       className="flex-1 cursor-pointer rounded-md bg-white px-2 py-1 text-xs font-semibold text-gray-600 border border-gray-200 transition-colors hover:bg-gray-50 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
                     >
                       Cancel

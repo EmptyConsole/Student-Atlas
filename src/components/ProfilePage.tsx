@@ -7,7 +7,7 @@ type ProfilePageProps = {
   profile: UserProfile;
   onChange: (patch: Partial<UserProfile>) => void;
   onSignOut: () => void;
-  onDeleteAccount?: () => Promise<void>;
+  onDeleteAccount?: () => Promise<{ error?: string }>;
   onboarding?: boolean;
   onSubmit?: () => Promise<{ error?: string }>;
   onLoginByEmail?: (email: string) => Promise<{ error?: string }>;

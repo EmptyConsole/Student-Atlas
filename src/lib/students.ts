@@ -585,7 +585,10 @@ export async function loginByEmail(email: string): Promise<LoginByEmailResult> {
 
 export async function deleteStudentAccount(studentId: string): Promise<{ error?: string }> {
   try {
-    await Promise.all([
+    // Child rows must go first: their FKs to students(id) would otherwise block
+    // the final students delete. Errors are checked so a failed child delete
+    // can't silently leave the account (and its bookmarks) behind.
+    const childDeletes = await Promise.all([
       supabase.from("bookmarked_courses").delete().eq("student_id", studentId),
       supabase.from("completed_courses").delete().eq("student_id", studentId),
       supabase.from("enrolled_courses").delete().eq("student_id", studentId),
@@ -593,7 +596,15 @@ export async function deleteStudentAccount(studentId: string): Promise<{ error?:
       supabase.from("submitted_courses").delete().eq("student_id", studentId),
       supabase.from("submitted_notes").delete().eq("student_id", studentId),
     ]);
-    await supabase.from("students").delete().eq("id", studentId);
+    const childError = childDeletes.find((r) => r.error)?.error;
+    if (childError) return { error: childError.message };
+
+    const { error: studentError } = await supabase
+      .from("students")
+      .delete()
+      .eq("id", studentId);
+    if (studentError) return { error: studentError.message };
+
     return {};
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to delete account." };
