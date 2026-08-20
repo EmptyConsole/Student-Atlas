@@ -2,7 +2,7 @@
  * testsort — same algorithm as sort, but never writes to Supabase.
  *
  * Loads live school data, runs the assignment in memory (arrays only),
- * aggregates preference-rank coverage and class-fill histograms, and prints
+ * aggregates preference quality / missing seats / leftovers, and prints
  * the report to the console (including submission notes).
  */
 
@@ -23,23 +23,19 @@ export type TestSortOptions = {
   client?: ElectiveClient;
 };
 
-/** Preference-rank coverage for a cohort of students. */
-export type RankCoverage = {
-  /** Distinct students in the cohort. */
+/** Best-preference quality for a cohort (leftover seats excluded). */
+export type BestRankCoverage = {
   studentTotal: number;
-  /** Assignment rows attributed to this cohort. */
-  assignmentTotal: number;
+  /** Students with at least one non-leftover assignment. */
+  rankedStudentTotal: number;
   /**
-   * For each preference rank R that at least one student received:
-   * studentsWith = students who got rank R as one of their assigned classes
-   * count = assignmentTotal * (studentsWith / studentTotal)
-   *   so if everyone got R, count equals assignmentTotal and pct is 100%
+   * For each best preference rank R among a student's non-leftover seats:
+   * studentsWith = students whose best assigned rank is R
    * pct = 100 * studentsWith / studentTotal
    */
-  ranks: Record<
-    number,
-    { studentsWith: number; count: number; pct: number }
-  >;
+  ranks: Record<number, { studentsWith: number; pct: number }>;
+  /** Students whose only seats are leftovers (or none ranked). */
+  leftoverOnlyStudents: number;
 };
 
 export type SubmissionNoteLine = {
@@ -48,16 +44,27 @@ export type SubmissionNoteLine = {
   note: string;
 };
 
+export type MissingSeatsByGrade = Record<
+  string,
+  { records: number; missingSeats: number }
+>;
+
 export type TestSortReport = {
   result: ElectiveSortResult;
   terms: ElectiveTerm[];
-  byGrade: Record<string, RankCoverage>;
-  byTerm: Record<string, RankCoverage>;
-  byTermAndGrade: Record<string, Record<string, RankCoverage>>;
+  missingSeatsTotal: number;
+  missingSeatsByGrade: MissingSeatsByGrade;
+  leftoverAssignments: number;
+  leftoverByGrade: Record<string, number>;
+  bestByGrade: Record<string, BestRankCoverage>;
+  bestByTerm: Record<string, BestRankCoverage>;
+  bestByTermAndGrade: Record<string, Record<string, BestRankCoverage>>;
   /** termId → studentCount → number of courses offered that term with that enrollment. */
   courseSizeCountsByTerm: Record<string, Record<number, number>>;
   /** studentCount → number of classes with that many students (includes 0). */
   classSizeCounts: Record<number, number>;
+  /** Displaced grade → beneficiary grade → hop count. */
+  displacementMatrix: Record<string, Record<string, number>>;
   /** Non-empty submitted_notes for the school, with student name + grade. */
   submissionNotes: SubmissionNoteLine[];
 };
@@ -74,126 +81,184 @@ function sortGradeKeys(keys: string[]): string[] {
   });
 }
 
-/**
- * Build coverage stats: a student who received preference rank R as any of
- * their assigned classes counts fully toward R (pct = share of students).
- * Display count scales to assignmentTotal so 100% coverage → count equals
- * the cohort's assignment total.
- */
-function coverageFromAssignments(
-  rows: { studentId: string; preferenceRank: number }[],
-): RankCoverage {
-  const ranksByStudent = new Map<string, Set<number>>();
-  for (const row of rows) {
-    let set = ranksByStudent.get(row.studentId);
-    if (!set) {
-      set = new Set();
-      ranksByStudent.set(row.studentId, set);
-    }
-    set.add(row.preferenceRank);
-  }
-
-  const studentTotal = ranksByStudent.size;
-  const assignmentTotal = rows.length;
-  const ranks: RankCoverage["ranks"] = {};
-
-  if (studentTotal === 0) {
-    return { studentTotal: 0, assignmentTotal: 0, ranks };
-  }
-
-  const studentsWithByRank = new Map<number, number>();
-  for (const set of ranksByStudent.values()) {
-    for (const r of set) {
-      studentsWithByRank.set(r, (studentsWithByRank.get(r) ?? 0) + 1);
-    }
-  }
-
-  for (const [preferenceRank, studentsWith] of [...studentsWithByRank.entries()].sort(
-    (a, b) => a[0] - b[0],
-  )) {
-    const pct = (100 * studentsWith) / studentTotal;
-    const count = (assignmentTotal * studentsWith) / studentTotal;
-    ranks[preferenceRank] = { studentsWith, count, pct };
-  }
-
-  return { studentTotal, assignmentTotal, ranks };
+function gradeKeyOf(grade: number | null): string {
+  return grade === null ? "null" : String(grade);
 }
 
-function aggregateByGrade(
+function bestRankCoverage(
+  rows: { studentId: string; preferenceRank: number; leftover?: boolean }[],
+): BestRankCoverage {
+  const bestByStudent = new Map<string, number>();
+  const leftoverOnly = new Set<string>();
+  const seen = new Set<string>();
+
+  for (const row of rows) {
+    seen.add(row.studentId);
+    if (row.leftover) {
+      if (!bestByStudent.has(row.studentId)) {
+        leftoverOnly.add(row.studentId);
+      }
+      continue;
+    }
+    leftoverOnly.delete(row.studentId);
+    const prev = bestByStudent.get(row.studentId);
+    if (prev === undefined || row.preferenceRank < prev) {
+      bestByStudent.set(row.studentId, row.preferenceRank);
+    }
+  }
+
+  const ranks: BestRankCoverage["ranks"] = {};
+  for (const r of bestByStudent.values()) {
+    const entry = ranks[r] ?? { studentsWith: 0, pct: 0 };
+    entry.studentsWith += 1;
+    ranks[r] = entry;
+  }
+
+  const studentTotal = seen.size;
+  for (const r of Object.keys(ranks).map(Number)) {
+    ranks[r]!.pct =
+      studentTotal === 0 ? 0 : (100 * ranks[r]!.studentsWith) / studentTotal;
+  }
+
+  return {
+    studentTotal,
+    rankedStudentTotal: bestByStudent.size,
+    ranks,
+    leftoverOnlyStudents: leftoverOnly.size,
+  };
+}
+
+function aggregateBestByGrade(
   assignments: ElectiveAssignment[],
-): Record<string, RankCoverage> {
+): Record<string, BestRankCoverage> {
   const rowsByGrade = new Map<
     string,
-    { studentId: string; preferenceRank: number }[]
+    { studentId: string; preferenceRank: number; leftover?: boolean }[]
   >();
 
   for (const a of assignments) {
-    const gradeKey = a.grade === null ? "null" : String(a.grade);
-    const list = rowsByGrade.get(gradeKey) ?? [];
-    list.push({ studentId: a.studentId, preferenceRank: a.preferenceRank });
-    rowsByGrade.set(gradeKey, list);
+    const key = gradeKeyOf(a.grade);
+    const list = rowsByGrade.get(key) ?? [];
+    list.push({
+      studentId: a.studentId,
+      preferenceRank: a.preferenceRank,
+      leftover: a.leftover,
+    });
+    rowsByGrade.set(key, list);
   }
 
-  const out: Record<string, RankCoverage> = {};
+  const out: Record<string, BestRankCoverage> = {};
   for (const [gradeKey, rows] of rowsByGrade) {
-    out[gradeKey] = coverageFromAssignments(rows);
+    out[gradeKey] = bestRankCoverage(rows);
   }
   return out;
 }
 
-function aggregateByTerm(
+function aggregateBestByTerm(
   assignments: ElectiveAssignment[],
 ): {
-  byTerm: Record<string, RankCoverage>;
-  byTermAndGrade: Record<string, Record<string, RankCoverage>>;
+  byTerm: Record<string, BestRankCoverage>;
+  byTermAndGrade: Record<string, Record<string, BestRankCoverage>>;
 } {
   const rowsByTerm = new Map<
     string,
-    { studentId: string; preferenceRank: number; gradeKey: string }[]
+    {
+      studentId: string;
+      preferenceRank: number;
+      leftover?: boolean;
+      gradeKey: string;
+    }[]
   >();
 
   for (const a of assignments) {
     const termIds =
       a.countedTermIds.length > 0 ? a.countedTermIds : [a.termId];
-    const gradeKey = a.grade === null ? "null" : String(a.grade);
+    const gradeKey = gradeKeyOf(a.grade);
     for (const termId of termIds) {
       const list = rowsByTerm.get(termId) ?? [];
       list.push({
         studentId: a.studentId,
         preferenceRank: a.preferenceRank,
+        leftover: a.leftover,
         gradeKey,
       });
       rowsByTerm.set(termId, list);
     }
   }
 
-  const byTerm: Record<string, RankCoverage> = {};
-  const byTermAndGrade: Record<string, Record<string, RankCoverage>> = {};
+  const byTerm: Record<string, BestRankCoverage> = {};
+  const byTermAndGrade: Record<string, Record<string, BestRankCoverage>> = {};
 
   for (const [termId, rows] of rowsByTerm) {
-    byTerm[termId] = coverageFromAssignments(rows);
+    byTerm[termId] = bestRankCoverage(rows);
 
     const byGradeRows = new Map<
       string,
-      { studentId: string; preferenceRank: number }[]
+      { studentId: string; preferenceRank: number; leftover?: boolean }[]
     >();
     for (const row of rows) {
       const list = byGradeRows.get(row.gradeKey) ?? [];
       list.push({
         studentId: row.studentId,
         preferenceRank: row.preferenceRank,
+        leftover: row.leftover,
       });
       byGradeRows.set(row.gradeKey, list);
     }
 
-    const gradeMap: Record<string, RankCoverage> = {};
+    const gradeMap: Record<string, BestRankCoverage> = {};
     for (const [gradeKey, gradeRows] of byGradeRows) {
-      gradeMap[gradeKey] = coverageFromAssignments(gradeRows);
+      gradeMap[gradeKey] = bestRankCoverage(gradeRows);
     }
     byTermAndGrade[termId] = gradeMap;
   }
 
   return { byTerm, byTermAndGrade };
+}
+
+function aggregateMissingSeats(
+  shortfalls: ElectiveSortResult["shortfalls"],
+): { total: number; byGrade: MissingSeatsByGrade } {
+  const byGrade: MissingSeatsByGrade = {};
+  let total = 0;
+  for (const s of shortfalls) {
+    const missing = Math.max(0, s.required - s.assigned);
+    total += missing;
+    const key = gradeKeyOf(s.grade);
+    const entry = byGrade[key] ?? { records: 0, missingSeats: 0 };
+    entry.records += 1;
+    entry.missingSeats += missing;
+    byGrade[key] = entry;
+  }
+  return { total, byGrade };
+}
+
+function aggregateLeftovers(
+  assignments: ElectiveAssignment[],
+): { total: number; byGrade: Record<string, number> } {
+  const byGrade: Record<string, number> = {};
+  let total = 0;
+  for (const a of assignments) {
+    if (!a.leftover) continue;
+    total += 1;
+    const key = gradeKeyOf(a.grade);
+    byGrade[key] = (byGrade[key] ?? 0) + 1;
+  }
+  return { total, byGrade };
+}
+
+function aggregateDisplacementMatrix(
+  displacements: ElectiveSortResult["displacements"],
+): Record<string, Record<string, number>> {
+  const matrix: Record<string, Record<string, number>> = {};
+  for (const d of displacements) {
+    const from = gradeKeyOf(d.displacedGrade);
+    const to = gradeKeyOf(d.beneficiaryGrade);
+    const row = matrix[from] ?? {};
+    row[to] = (row[to] ?? 0) + 1;
+    matrix[from] = row;
+  }
+  return matrix;
 }
 
 function aggregateClassSizes(
@@ -206,10 +271,6 @@ function aggregateClassSizes(
   return counts;
 }
 
-/**
- * Per term: histogram of total enrollment for courses offered in that term.
- * All-year courses appear under every term they cover, with the same headcount.
- */
 function aggregateCourseSizesByTerm(
   classFills: ElectiveSortResult["classFills"],
   courses: ElectiveCourse[],
@@ -284,7 +345,6 @@ async function resolveClient(client?: ElectiveClient): Promise<ElectiveClient> {
   return supabase;
 }
 
-/** Load non-empty submitted_notes for a school, with student name and grade. */
 async function loadSubmissionNotes(
   schoolId: string,
   client?: ElectiveClient,
@@ -331,15 +391,23 @@ async function loadSubmissionNotes(
   return { notes };
 }
 
-function printRankCoverage(coverage: RankCoverage, indent: string): void {
+function printBestRankCoverage(coverage: BestRankCoverage, indent: string): void {
   const rankNums = Object.keys(coverage.ranks)
     .map(Number)
     .sort((a, b) => a - b);
-  for (const r of rankNums) {
-    const { count, pct } = coverage.ranks[r]!;
-    const countLabel = Number.isInteger(count) ? String(count) : count.toFixed(1);
+  if (rankNums.length === 0) {
+    console.log(`${indent}(no ranked assignments)`);
+  } else {
+    for (const r of rankNums) {
+      const { studentsWith, pct } = coverage.ranks[r]!;
+      console.log(
+        `${indent}best = ${ordinal(r)} choice: ${studentsWith} student${studentsWith === 1 ? "" : "s"} (${pct.toFixed(1)}%)`,
+      );
+    }
+  }
+  if (coverage.leftoverOnlyStudents > 0) {
     console.log(
-      `${indent}${ordinal(r)} choice: ${countLabel} (${pct.toFixed(1)}%)`,
+      `${indent}leftover-only: ${coverage.leftoverOnlyStudents} student${coverage.leftoverOnlyStudents === 1 ? "" : "s"}`,
     );
   }
 }
@@ -349,16 +417,36 @@ function termLabel(term: ElectiveTerm): string {
   return `Term rank ${term.rank}`;
 }
 
+function ordinal(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
+
 /** Print the in-memory testsort report to stdout. */
 export function printTestSortReport(report: TestSortReport): void {
   const {
     result,
     terms,
-    byGrade,
-    byTerm,
-    byTermAndGrade,
+    missingSeatsTotal,
+    missingSeatsByGrade,
+    leftoverAssignments,
+    leftoverByGrade,
+    bestByGrade,
+    bestByTerm,
+    bestByTermAndGrade,
     courseSizeCountsByTerm,
     classSizeCounts,
+    displacementMatrix,
     submissionNotes,
   } = report;
 
@@ -369,15 +457,55 @@ export function printTestSortReport(report: TestSortReport): void {
   console.log(
     `Students with times_taken: ${Object.keys(result.timesTaken).length}`,
   );
-  console.log(`Shortfalls: ${result.shortfalls.length}`);
+  console.log(
+    `Shortfall records: ${result.shortfalls.length} (${missingSeatsTotal} missing seat${missingSeatsTotal === 1 ? "" : "s"})`,
+  );
+  console.log(`Leftover (unranked) assignments: ${leftoverAssignments}`);
   console.log(`Displacements: ${result.displacements.length}`);
 
+  console.log("\n--- Missing seats by grade ---");
+  console.log("(missing seats = sum of required − assigned; records = shortfall rows)");
+  const missKeys = sortGradeKeys(Object.keys(missingSeatsByGrade));
+  if (missKeys.length === 0) {
+    console.log("  (none)");
+  } else {
+    for (const key of missKeys) {
+      const label = key === "null" ? "unknown" : key;
+      const { records, missingSeats } = missingSeatsByGrade[key]!;
+      console.log(
+        `  Grade ${label}: ${missingSeats} missing seat${missingSeats === 1 ? "" : "s"} across ${records} record${records === 1 ? "" : "s"}`,
+      );
+    }
+    console.log(`  Total missing seats: ${missingSeatsTotal}`);
+  }
+
+  console.log("\n--- Leftover (unranked) fills by grade ---");
+  const leftoverKeys = sortGradeKeys(Object.keys(leftoverByGrade));
+  if (leftoverKeys.length === 0) {
+    console.log("  (none)");
+  } else {
+    for (const key of leftoverKeys) {
+      const label = key === "null" ? "unknown" : key;
+      const n = leftoverByGrade[key]!;
+      console.log(`  Grade ${label}: ${n}`);
+    }
+  }
+
   if (result.displacements.length > 0) {
-    console.log(`\n--- Displacements (${result.displacements.length}) ---`);
+    console.log(`\n--- Displacements (${result.displacements.length} hops) ---`);
     console.log(
-      "(a seated student slid further down their own list so a student with no",
+      "(same-grade preferred; older may bump younger; younger cannot bump older)",
     );
-    console.log(" usable open class could take their seat)");
+    console.log("  Matrix (displaced grade → beneficiary grade):");
+    for (const from of sortGradeKeys(Object.keys(displacementMatrix))) {
+      const row = displacementMatrix[from]!;
+      const parts = sortGradeKeys(Object.keys(row)).map(
+        (to) => `${to === "null" ? "?" : to}:${row[to]}`,
+      );
+      console.log(
+        `    ${from === "null" ? "?" : from} → ${parts.join(", ")}`,
+      );
+    }
     for (const d of result.displacements) {
       console.log(
         `  student=${d.displacedStudentId} grade=${d.displacedGrade} term=${d.termId}` +
@@ -389,44 +517,40 @@ export function printTestSortReport(report: TestSortReport): void {
     }
   }
 
-  console.log("\n--- Assignments by grade × preference rank ---");
+  console.log("\n--- Preference quality by grade (best assigned rank) ---");
   console.log(
-    "(pct = share of students who received that choice as one of their assigned classes;",
+    "(each student counted once by their best non-leftover seat; leftovers excluded)",
   );
-  console.log(
-    " count scales to the cohort's assignment total, so 100% → count equals assignments)",
-  );
-
-  for (const gradeKey of sortGradeKeys(Object.keys(byGrade))) {
+  for (const gradeKey of sortGradeKeys(Object.keys(bestByGrade))) {
     const label = gradeKey === "null" ? "unknown" : gradeKey;
-    const coverage = byGrade[gradeKey]!;
+    const coverage = bestByGrade[gradeKey]!;
     console.log(
-      `\nGrade ${label} — ${coverage.assignmentTotal} assignment(s), ${coverage.studentTotal} student(s):`,
+      `\nGrade ${label} — ${coverage.studentTotal} student(s) with seats, ${coverage.rankedStudentTotal} with ranked seats:`,
     );
-    printRankCoverage(coverage, "  ");
+    printBestRankCoverage(coverage, "  ");
   }
 
-  console.log("\n--- Assignments by term × preference rank ---");
+  console.log("\n--- Preference quality by term × grade ---");
   const orderedTerms = [...terms].sort((a, b) => a.rank - b.rank);
   for (const term of orderedTerms) {
-    const coverage = byTerm[term.id];
-    if (!coverage || coverage.assignmentTotal === 0) {
-      console.log(`\n${termLabel(term)} — 0 assignment(s)`);
+    const coverage = bestByTerm[term.id];
+    if (!coverage || coverage.studentTotal === 0) {
+      console.log(`\n${termLabel(term)} — 0 student(s)`);
       continue;
     }
     console.log(
-      `\n${termLabel(term)} — ${coverage.assignmentTotal} assignment(s), ${coverage.studentTotal} student(s):`,
+      `\n${termLabel(term)} — ${coverage.studentTotal} student(s), ${coverage.rankedStudentTotal} with ranked seats:`,
     );
-    printRankCoverage(coverage, "  ");
+    printBestRankCoverage(coverage, "  ");
 
-    const byGradeInTerm = byTermAndGrade[term.id] ?? {};
+    const byGradeInTerm = bestByTermAndGrade[term.id] ?? {};
     for (const gradeKey of sortGradeKeys(Object.keys(byGradeInTerm))) {
       const gradeLabel = gradeKey === "null" ? "unknown" : gradeKey;
       const gradeCoverage = byGradeInTerm[gradeKey]!;
       console.log(
-        `  Grade ${gradeLabel} — ${gradeCoverage.assignmentTotal} assignment(s), ${gradeCoverage.studentTotal} student(s):`,
+        `  Grade ${gradeLabel} — ${gradeCoverage.studentTotal} student(s):`,
       );
-      printRankCoverage(gradeCoverage, "    ");
+      printBestRankCoverage(gradeCoverage, "    ");
     }
   }
 
@@ -455,20 +579,17 @@ export function printTestSortReport(report: TestSortReport): void {
   console.log("\n========== end testsort ==========\n");
 }
 
-function ordinal(n: number): string {
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
-  switch (n % 10) {
-    case 1:
-      return `${n}st`;
-    case 2:
-      return `${n}nd`;
-    case 3:
-      return `${n}rd`;
-    default:
-      return `${n}th`;
-  }
-}
+/*
+ * ---------------------------------------------------------------------------
+ * LEGACY testsort reporting (commented out — unused)
+ * Previously reported "share of students who received rank R as one of their
+ * assigned classes" with a scaled count. Misleading for multi-seat quotas.
+ * ---------------------------------------------------------------------------
+ *
+ * function coverageFromAssignments(...) { ... "studentsWith" scaling ... }
+ * function aggregateByGrade(...) { ... }
+ * function aggregateByTerm(...) { ... }
+ */
 
 /**
  * Load school data from Supabase, run the sort in memory only, print results.
@@ -490,22 +611,33 @@ export async function testsort(
   }
 
   const result = runElectiveSort(loaded.data, options.seed);
-  const byGrade = aggregateByGrade(result.assignments);
-  const { byTerm, byTermAndGrade } = aggregateByTerm(result.assignments);
+  const { total: missingSeatsTotal, byGrade: missingSeatsByGrade } =
+    aggregateMissingSeats(result.shortfalls);
+  const { total: leftoverAssignments, byGrade: leftoverByGrade } =
+    aggregateLeftovers(result.assignments);
+  const bestByGrade = aggregateBestByGrade(result.assignments);
+  const { byTerm: bestByTerm, byTermAndGrade: bestByTermAndGrade } =
+    aggregateBestByTerm(result.assignments);
   const courseSizeCountsByTerm = aggregateCourseSizesByTerm(
     result.classFills,
     loaded.data.courses,
   );
   const classSizeCounts = aggregateClassSizes(result.classFills);
+  const displacementMatrix = aggregateDisplacementMatrix(result.displacements);
 
   const report: TestSortReport = {
     result,
     terms: loaded.data.terms,
-    byGrade,
-    byTerm,
-    byTermAndGrade,
+    missingSeatsTotal,
+    missingSeatsByGrade,
+    leftoverAssignments,
+    leftoverByGrade,
+    bestByGrade,
+    bestByTerm,
+    bestByTermAndGrade,
     courseSizeCountsByTerm,
     classSizeCounts,
+    displacementMatrix,
     submissionNotes: notesLoaded.notes,
   };
   printTestSortReport(report);
