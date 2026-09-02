@@ -20,8 +20,10 @@ import {
   linkedIdSet,
   mergeModelWithBookmarks,
   validateRanking,
+  type RankingModel,
 } from "../utils/courseRanking";
 import RankingAlignedGrid from "./RankingAlignedGrid";
+import RegisterRefreshDialog from "./RegisterRefreshDialog";
 import SubmitConfirmDialog from "./SubmitConfirmDialog";
 
 type RegisterPageProps = {
@@ -32,6 +34,8 @@ type RegisterPageProps = {
   profile: UserProfile;
   bookmarks: Set<string>;
   studentId: string | null;
+  /** Bumped when the user returns to the tab; triggers a rankings re-hydrate. */
+  refreshKey?: number;
   onNavigateToProfile?: () => void;
   onToggleBookmark: (courseId: string) => void;
   onUnsavedChange?: (dirty: boolean) => void;
@@ -41,6 +45,14 @@ function snapshotColumns(columns: string[][]): string {
   return JSON.stringify(columns);
 }
 
+/** Server rankings fetched on tab return that differ from the on-screen ones. */
+type PendingRefresh = {
+  model: RankingModel;
+  cols: string[][];
+  note: string;
+  hasOfficial: boolean;
+};
+
 function RegisterPage({
   courses,
   subjects,
@@ -49,13 +61,18 @@ function RegisterPage({
   profile,
   bookmarks,
   studentId,
+  refreshKey = 0,
   onNavigateToProfile,
   onToggleBookmark,
   onUnsavedChange,
 }: RegisterPageProps) {
   const profileComplete = isProfileComplete(profile);
   const grade = profile.grade ?? 9;
-  const { requiredRankings } = useSchoolRankings(profile.schoolId, profile.grade);
+  const { requiredRankings } = useSchoolRankings(
+    profile.schoolId,
+    profile.grade,
+    refreshKey,
+  );
 
   const termIds = useMemo(() => terms.map((t) => t.id), [terms]);
   const [model, setModel] = useState(() =>
@@ -79,6 +96,9 @@ function RegisterPage({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(!studentId);
   const [savedEpoch, setSavedEpoch] = useState(0);
+  const [pendingRefresh, setPendingRefresh] = useState<PendingRefresh | null>(
+    null,
+  );
 
   const savedColumnsRef = useRef(snapshotColumns([]));
   const skipNextDraftSave = useRef(false);
@@ -86,6 +106,8 @@ function RegisterPage({
   const neverSubmittedRef = useRef(true);
   const submittedColumnsRef = useRef<string[][]>([]);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Mirrors `notesDirty` so the refresh effect can read it without a dep. */
+  const notesDirtyRef = useRef(false);
 
   const courseById = useMemo(
     () => new Map(courses.map((course) => [course.id, course])),
@@ -181,6 +203,105 @@ function RegisterPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, coursesReady, requiredRankings, termKey]);
 
+  // On returning to the tab, compare the server's rankings with what's on
+  // screen. If they match, just sync bookkeeping; if they differ (edited in
+  // another tab or on another device), ask the student whether to keep the
+  // on-screen rankings or load the new ones.
+  useEffect(() => {
+    if (refreshKey === 0 || !studentId || !coursesReady) return;
+
+    let cancelled = false;
+    void (async () => {
+      const [officialRes, draftRes, notesRes] = await Promise.all([
+        loadSubmittedCourses(studentId),
+        loadDraftCourses(studentId),
+        loadSubmittedNotes(studentId),
+      ]);
+      if (cancelled) return;
+
+      const hasOfficial = officialRes.rankings.length > 0;
+      const rankings = hasOfficial ? officialRes.rankings : draftRes.rankings;
+
+      const preferenceByCourseId = new Map<string, number>();
+      for (const row of rankings) {
+        if (preferenceByCourseId.has(row.course_id)) continue;
+        preferenceByCourseId.set(
+          row.course_id,
+          row.preference ?? Number.MAX_SAFE_INTEGER,
+        );
+      }
+
+      const nextModel =
+        preferenceByCourseId.size > 0
+          ? buildModelFromPreferences(
+              bookmarks,
+              courses,
+              termIds,
+              preferenceByCourseId,
+            )
+          : buildInitialModel(bookmarks, courses, termIds);
+
+      const cols = termIds.map((termId) =>
+        columnIds(nextModel, termId).slice(0, requiredRankings),
+      );
+      const note = notesRes.note ?? "";
+
+      if (
+        snapshotColumns(cols) === snapshotColumns(submittedColumnsRef.current)
+      ) {
+        // Server matches the screen — quietly refresh bookkeeping (and the
+        // note, unless the student is mid-edit).
+        neverSubmittedRef.current = !hasOfficial;
+        savedColumnsRef.current = snapshotColumns(cols);
+        if (!notesDirtyRef.current) {
+          setAppealsNotes(note);
+          setSavedNotes(note);
+        }
+        setSavedEpoch((n) => n + 1);
+        return;
+      }
+
+      setPendingRefresh({ model: nextModel, cols, note, hasOfficial });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Runs only on tab-return refreshes; reads the latest catalog state then.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  /** "Load new rankings": replace the on-screen rankings with the server's. */
+  const applyNewRankings = () => {
+    if (!pendingRefresh) return;
+    neverSubmittedRef.current = !pendingRefresh.hasOfficial;
+    setModel(pendingRefresh.model);
+    if (!notesDirtyRef.current) setAppealsNotes(pendingRefresh.note);
+    setSavedNotes(pendingRefresh.note);
+    savedColumnsRef.current = snapshotColumns(pendingRefresh.cols);
+    skipNextDraftSave.current = true;
+    setSavedEpoch((n) => n + 1);
+    setPendingRefresh(null);
+  };
+
+  /** "Keep these": the on-screen rankings win over the server's newer copy. */
+  const keepMyRankings = () => {
+    if (!pendingRefresh) return;
+    neverSubmittedRef.current = !pendingRefresh.hasOfficial;
+    if (!pendingRefresh.hasOfficial && studentId) {
+      // Still a draft — re-assert this screen's rankings as the saved draft.
+      const cols = submittedColumnsRef.current;
+      void syncSubmittedCourses(studentId, cols, false);
+      savedColumnsRef.current = snapshotColumns(cols);
+    } else {
+      // An official submission was made elsewhere. Treat the on-screen
+      // rankings as unsaved so the student can resubmit to make them count.
+      savedColumnsRef.current = snapshotColumns(pendingRefresh.cols);
+    }
+    setSavedEpoch((n) => n + 1);
+    setPendingRefresh(null);
+  };
+
   const handleReorder = useCallback(
     (termId: string, newOrder: string[]) => {
       setModel((prev) => applyReorder(prev, termId, newOrder, termIds, linkedSet));
@@ -243,6 +364,7 @@ function RegisterPage({
   const notesDirty = hydrated && appealsNotes.trim() !== savedNotes.trim();
   // savedEpoch is bumped after hydrate / draft save / submit so this re-evaluates.
   const hasUnsaved = savedEpoch >= 0 && (columnsDirty || notesDirty);
+  notesDirtyRef.current = notesDirty;
 
   useEffect(() => {
     onUnsavedChange?.(hasUnsaved);
@@ -430,6 +552,12 @@ function RegisterPage({
           if (!submitting) setConfirmOpen(false);
         }}
         onConfirm={handleConfirmSubmit}
+      />
+
+      <RegisterRefreshDialog
+        open={pendingRefresh !== null}
+        onKeepMine={keepMyRankings}
+        onLoadNew={applyNewRankings}
       />
     </main>
   );

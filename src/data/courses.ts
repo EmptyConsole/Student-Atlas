@@ -265,6 +265,16 @@ export function formatMaxStudentCount(count: number | undefined): string {
   return String(count);
 }
 
+/** True when a course has an assigned instructor name to show. */
+export function hasAssignedTeacher(teacher: string | undefined): boolean {
+  return Boolean(teacher?.trim());
+}
+
+/** True when max enrollment is set (not unknown / blank). */
+export function hasKnownMaxStudentCount(count: number | undefined): boolean {
+  return count != null && count >= 0;
+}
+
 /** Formats a grade list compactly, e.g. [9,10,11,12] -> "Gr. 9-12". */
 export function formatGrades(grades: number[]): string {
   if (grades.length === 0) return "All grades";

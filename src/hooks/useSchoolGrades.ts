@@ -6,7 +6,7 @@ import { gradesFromSettings, parseGradeSettings } from "../utils/gradeSettings";
  * Loads the grade levels configured for a school (`schools.grade` keys).
  * Returns an empty list when the school has no per-grade settings yet.
  */
-export function useSchoolGrades(schoolId: string | null) {
+export function useSchoolGrades(schoolId: string | null, reloadKey?: number) {
   const [grades, setGrades] = useState<number[]>([]);
   const [loading, setLoading] = useState(Boolean(schoolId));
 
@@ -51,7 +51,7 @@ export function useSchoolGrades(schoolId: string | null) {
     return () => {
       isMounted = false;
     };
-  }, [schoolId]);
+  }, [schoolId, reloadKey]);
 
   return { grades, loading };
 }

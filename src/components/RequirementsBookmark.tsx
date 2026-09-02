@@ -23,12 +23,6 @@ function RequirementsBookmark({
         isActive ? "z-10 w-[98%]" : ""
       }`}
     >
-      {isActive && (
-        <span
-          className="requirements-bookmark-frame absolute -inset-0.5 z-0 rounded-xl"
-          aria-hidden="true"
-        />
-      )}
       <span
         className="relative z-[1] flex h-16 w-full items-center gap-3 rounded-xl border border-detail-300 px-4 shadow-sm transition-colors duration-150"
         style={{

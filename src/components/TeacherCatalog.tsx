@@ -4,6 +4,7 @@ import { Pencil, Search, Trash2 } from "lucide-react";
 import { buildSubject, type Subject } from "../data/subjects";
 import { matchesSearch, type Term } from "../data/courses";
 import { useCourses } from "../hooks/useCourses";
+import { useRefreshOnVisible } from "../hooks/useRefreshOnVisible";
 import { useSubjects } from "../hooks/useSubjects";
 import { useTerms } from "../hooks/useTerms";
 import {
@@ -151,6 +152,17 @@ function TeacherCatalog({
   const pendingScrollRef = useRef<number | null>(null);
   const activeRef = useRef(activeSubject);
   activeRef.current = activeSubject;
+
+  // Returning to the tab reloads the catalog (preserving scroll) so edits made
+  // in another tab/computer show up. The session token is untouched.
+  const refreshKey = useRefreshOnVisible();
+  useEffect(() => {
+    if (refreshKey === 0) return;
+    if (scrollRef.current) {
+      pendingScrollRef.current = scrollRef.current.scrollTop;
+    }
+    setReloadKey((k) => k + 1);
+  }, [refreshKey]);
 
   useEffect(() => {
     let mounted = true;

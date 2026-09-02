@@ -5,8 +5,9 @@ import { Bookmark, ChevronDown } from "lucide-react";
 import type { Subject } from "../data/subjects";
 import {
   formatGrades,
-  formatMaxStudentCount,
   formatRequirementOptions,
+  hasAssignedTeacher,
+  hasKnownMaxStudentCount,
   type Course,
   type Term,
 } from "../data/courses";
@@ -430,22 +431,26 @@ function CourseCard({
                   className={compact ? "mt-2" : "mt-3"}
                 />
 
-                <p className={`text-gray-700 ${compact ? "mt-1.5 text-xs" : "mt-1 text-sm"}`}>
-                  <span
-                    className="font-semibold"
-                    style={{ color: subject.accent }}
-                  >
-                    Teacher:{" "}
-                  </span>
-                  {course.teacher ?? "Unknown"}
-                </p>
+                {hasAssignedTeacher(course.teacher) && (
+                  <p className={`text-gray-700 ${compact ? "mt-1.5 text-xs" : "mt-1 text-sm"}`}>
+                    <span
+                      className="font-semibold"
+                      style={{ color: subject.accent }}
+                    >
+                      Teacher:{" "}
+                    </span>
+                    {course.teacher}
+                  </p>
+                )}
 
-                <p className={`text-gray-700 ${compact ? "mt-1 text-xs" : "mt-1 text-sm"}`}>
-                  <span className="font-semibold" style={{ color: subject.accent }}>
-                    Max students:{" "}
-                  </span>
-                  {formatMaxStudentCount(course.maxStudentCount)}
-                </p>
+                {hasKnownMaxStudentCount(course.maxStudentCount) && (
+                  <p className={`text-gray-700 ${compact ? "mt-1 text-xs" : "mt-1 text-sm"}`}>
+                    <span className="font-semibold" style={{ color: subject.accent }}>
+                      Max students:{" "}
+                    </span>
+                    {course.maxStudentCount}
+                  </p>
+                )}
 
                 <p className={`text-gray-700 ${compact ? "mt-1 text-xs" : "mt-1 text-sm"}`}>
                   <span className="font-semibold" style={{ color: subject.accent }}>

@@ -8,7 +8,11 @@ import { parseGradeSettings, rankingsForGrade } from "../utils/gradeSettings";
  * school and grade. Reads the per-grade counts in `schools.grade`, falling back
  * to the school-wide `schools.rankings` when the grade has no entry.
  */
-export function useSchoolRankings(schoolId: string | null, grade: number | null) {
+export function useSchoolRankings(
+  schoolId: string | null,
+  grade: number | null,
+  reloadKey?: number,
+) {
   const [requiredRankings, setRequiredRankings] = useState(DEFAULT_REQUIRED_RANKINGS);
   const [loading, setLoading] = useState(Boolean(schoolId));
 
@@ -60,7 +64,7 @@ export function useSchoolRankings(schoolId: string | null, grade: number | null)
     return () => {
       isMounted = false;
     };
-  }, [schoolId, grade]);
+  }, [schoolId, grade, reloadKey]);
 
   return { requiredRankings, loading };
 }

@@ -7,6 +7,7 @@ import RegisterPage from "./components/RegisterPage";
 import RegisterUnsavedDialog from "./components/RegisterUnsavedDialog";
 import { useProfile, type UserProfile } from "./hooks/useProfile";
 import { useCourses } from "./hooks/useCourses";
+import { useRefreshOnVisible } from "./hooks/useRefreshOnVisible";
 import { useSchoolGrades } from "./hooks/useSchoolGrades";
 import { useSubjects } from "./hooks/useSubjects";
 import { useTerms } from "./hooks/useTerms";
@@ -86,23 +87,28 @@ function App() {
     signOut,
   } = useProfile();
 
+  // Bumps whenever the user returns to this tab so all Supabase data refetches
+  // — updates made in another tab or on another computer come in automatically.
+  const refreshKey = useRefreshOnVisible();
+
   // Courses are lifted here so both CourseBrowser and Sidebar share the same
   // Supabase data (and therefore the same UUID-based course IDs for bookmarks).
   // Scoped to the student's selected school.
   const { courses, loading: coursesLoading, error: coursesError } = useCourses(
     profile.schoolId,
+    refreshKey,
   );
 
   // Subjects (sections + sidebar tabs) come from the Supabase `departments`
   // table so the catalog reflects whatever is configured there.
-  const { subjects } = useSubjects(profile.schoolId);
+  const { subjects } = useSubjects(profile.schoolId, refreshKey);
 
   // Terms drive term badges, filter chips, and the Register columns.
-  const { terms, termById } = useTerms(profile.schoolId);
+  const { terms, termById } = useTerms(profile.schoolId, refreshKey);
 
   // Grade levels the school actually uses (`schools.grade` keys) so filter
   // chips only offer grades the school allows.
-  const { grades: schoolGrades } = useSchoolGrades(profile.schoolId);
+  const { grades: schoolGrades } = useSchoolGrades(profile.schoolId, refreshKey);
 
   // Default the active subject to the first one once departments load.
   useEffect(() => {
@@ -198,6 +204,34 @@ function App() {
   const hasUnsavedChanges = savedProfile
     ? !profileSnapshotsEqual(snapshotProfile(profile), savedProfile)
     : false;
+
+  // On returning to the tab, re-pull the student's Supabase data (bookmarks,
+  // completed courses, notes) so changes made in another tab/computer show up.
+  // Skipped while the Profile page has unsaved edits so they aren't clobbered.
+  const hasUnsavedRef = useRef(hasUnsavedChanges);
+  hasUnsavedRef.current = hasUnsavedChanges;
+
+  useEffect(() => {
+    if (refreshKey === 0) return;
+    if (!studentId || !syncEnabled.current || hasUnsavedRef.current) return;
+
+    let cancelled = false;
+    loadStudentData(studentId).then(
+      ({ completedCourses, bookmarkIds, courseNotes }) => {
+        if (cancelled) return;
+        updateProfile({ completedCourses, courseNotes });
+        setBookmarks(bookmarkIds);
+        // The refresh only ran with no unsaved edits, so just advance the
+        // completed-courses part of the saved snapshot.
+        setSavedProfile((prev) =>
+          prev ? { ...prev, completedCourses } : prev,
+        );
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshKey, studentId, updateProfile]);
 
   // Push the Profile page edits to Supabase and advance the saved snapshot.
   const handleSaveProfileChanges = async (): Promise<{ error?: string }> => {
@@ -324,7 +358,7 @@ function App() {
             terms={terms}
             termById={termById}
             schoolGrades={schoolGrades}
-            loading={coursesLoading}
+            loading={coursesLoading && courses.length === 0}
             error={coursesError}
             profile={profile}
             bookmarks={bookmarks}
@@ -355,6 +389,7 @@ function App() {
           profile={profile}
           bookmarks={bookmarks}
           studentId={studentId}
+          refreshKey={refreshKey}
           onNavigateToProfile={() => handleNavigate("profile")}
           onToggleBookmark={toggleBookmark}
           onUnsavedChange={setRegisterDirty}

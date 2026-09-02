@@ -3,8 +3,9 @@ import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 import type { Subject } from "../data/subjects";
 import {
   formatGrades,
-  formatMaxStudentCount,
   formatRequirementOptions,
+  hasAssignedTeacher,
+  hasKnownMaxStudentCount,
   type Course,
   type Term,
 } from "../data/courses";
@@ -252,19 +253,23 @@ function TeacherCourseCard({
                   className={compact ? "mt-2" : "mt-3"}
                 />
 
-                <p className={`text-gray-700 ${compact ? "mt-1.5" : "mt-1"}`}>
-                  <span className="font-semibold" style={{ color: subject.accent }}>
-                    Teacher:{" "}
-                  </span>
-                  {course.teacher ?? "Unassigned"}
-                </p>
+                {hasAssignedTeacher(course.teacher) && (
+                  <p className={`text-gray-700 ${compact ? "mt-1.5" : "mt-1"}`}>
+                    <span className="font-semibold" style={{ color: subject.accent }}>
+                      Teacher:{" "}
+                    </span>
+                    {course.teacher}
+                  </p>
+                )}
 
-                <p className={`text-gray-700 ${compact ? "mt-1" : "mt-1"}`}>
-                  <span className="font-semibold" style={{ color: subject.accent }}>
-                    Max students:{" "}
-                  </span>
-                  {formatMaxStudentCount(course.maxStudentCount)}
-                </p>
+                {hasKnownMaxStudentCount(course.maxStudentCount) && (
+                  <p className={`text-gray-700 ${compact ? "mt-1" : "mt-1"}`}>
+                    <span className="font-semibold" style={{ color: subject.accent }}>
+                      Max students:{" "}
+                    </span>
+                    {course.maxStudentCount}
+                  </p>
+                )}
 
                 <p className={`text-gray-700 ${compact ? "mt-1" : "mt-1"}`}>
                   <span className="font-semibold" style={{ color: subject.accent }}>

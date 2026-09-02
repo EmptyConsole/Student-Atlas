@@ -4,7 +4,8 @@ import { Bookmark, GripVertical, Link2, X } from "lucide-react";
 import type { Subject } from "../data/subjects";
 import {
   formatGrades,
-  formatMaxStudentCount,
+  hasAssignedTeacher,
+  hasKnownMaxStudentCount,
   type Course,
   type Term,
 } from "../data/courses";
@@ -131,18 +132,22 @@ function CourseDetailModal({
           />
 
           <div className="mt-1.5 space-y-1.5 text-sm text-gray-700">
-            <p>
-              <span className="font-semibold" style={{ color: subject.accent }}>
-                Teacher:{" "}
-              </span>
-              {course.teacher ?? "Unknown"}
-            </p>
-            <p>
-              <span className="font-semibold" style={{ color: subject.accent }}>
-                Max students:{" "}
-              </span>
-              {formatMaxStudentCount(course.maxStudentCount)}
-            </p>
+            {hasAssignedTeacher(course.teacher) && (
+              <p>
+                <span className="font-semibold" style={{ color: subject.accent }}>
+                  Teacher:{" "}
+                </span>
+                {course.teacher}
+              </p>
+            )}
+            {hasKnownMaxStudentCount(course.maxStudentCount) && (
+              <p>
+                <span className="font-semibold" style={{ color: subject.accent }}>
+                  Max students:{" "}
+                </span>
+                {course.maxStudentCount}
+              </p>
+            )}
             <p>
               <span className="font-semibold" style={{ color: subject.accent }}>
                 Retakeable:{" "}

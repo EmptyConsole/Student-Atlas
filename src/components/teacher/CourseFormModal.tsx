@@ -415,7 +415,7 @@ function CourseFormModal({
       grades,
       subject: department.name,
       departmentId,
-      teacherName,
+      teacherName: teacherName.trim(),
       maxStudentCount,
       retakeable,
       prereqOptions: reqOptionsToRaw(prereq),
@@ -708,7 +708,7 @@ function CourseFormModal({
 
           <div>
             <label htmlFor="course-teacher" className={labelClass}>
-              Teacher
+              Teacher <span className="font-normal text-gray-500">(optional)</span>
             </label>
             <input
               id="course-teacher"
@@ -722,7 +722,8 @@ function CourseFormModal({
 
           <div>
             <label htmlFor="course-max-students" className={labelClass}>
-              Max number of students
+              Max number of students{" "}
+              <span className="font-normal text-gray-500">(optional)</span>
             </label>
             <input
               id="course-max-students"
