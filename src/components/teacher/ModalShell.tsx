@@ -11,6 +11,8 @@ type ModalShellProps = {
   /** When true, backdrop clicks and Escape do not close the modal. */
   busy?: boolean;
   maxWidthClass?: string;
+  /** Optional control rendered to the left of the close button. */
+  headerAction?: ReactNode;
 };
 
 /**
@@ -25,6 +27,7 @@ function ModalShell({
   footer,
   busy = false,
   maxWidthClass = "max-w-lg",
+  headerAction,
 }: ModalShellProps) {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -53,15 +56,18 @@ function ModalShell({
       >
         <div className="flex items-center justify-between gap-4 border-b border-main-200 px-6 py-4">
           <h2 className="text-xl font-bold text-gray-800">{title}</h2>
-          <button
-            type="button"
-            aria-label="Close"
-            disabled={busy}
-            onClick={onClose}
-            className="cursor-pointer rounded-full p-1 text-gray-400 transition-colors hover:bg-black/10 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            {headerAction}
+            <button
+              type="button"
+              aria-label="Close"
+              disabled={busy}
+              onClick={onClose}
+              className="cursor-pointer rounded-full p-1 text-gray-400 transition-colors hover:bg-black/10 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="px-6 py-5">{children}</div>

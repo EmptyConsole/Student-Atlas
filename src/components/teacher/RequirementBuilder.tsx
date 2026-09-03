@@ -130,14 +130,14 @@ function RequirementBuilder({
                 </button>
               </div>
 
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex flex-col gap-2">
                 <select
                   value=""
                   onChange={(e) => {
                     addCourse(groupIndex, e.target.value);
                     e.target.value = "";
                   }}
-                  className="h-9 flex-1 rounded-lg border border-main-300 bg-white px-2 text-sm text-gray-700 focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500"
+                  className="h-9 w-full min-w-0 rounded-lg border border-main-300 bg-white px-2 text-sm text-gray-700 focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500"
                 >
                   <option value="">+ Add course…</option>
                   {courses.map((course) => (
@@ -147,7 +147,7 @@ function RequirementBuilder({
                   ))}
                 </select>
 
-                <div className="flex flex-1 gap-1.5">
+                <div className="flex min-w-0 gap-1.5">
                   <input
                     type="text"
                     value={textDrafts[groupIndex] ?? ""}

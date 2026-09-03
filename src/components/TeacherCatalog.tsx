@@ -134,6 +134,9 @@ function TeacherCatalog({
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const [courseModal, setCourseModal] = useState<CourseModalState | null>(null);
+  const [courseFormVersion, setCourseFormVersion] = useState(0);
+  const pendingCourseRemountRef = useRef(false);
+  const [catalogNotice, setCatalogNotice] = useState<string | null>(null);
   const [departmentModal, setDepartmentModal] =
     useState<DepartmentModalState | null>(null);
   const [schoolModalInitial, setSchoolModalInitial] =
@@ -163,6 +166,15 @@ function TeacherCatalog({
     }
     setReloadKey((k) => k + 1);
   }, [refreshKey]);
+
+  const handleReloadCourseFromServer = () => {
+    pendingCourseRemountRef.current = true;
+    if (scrollRef.current) {
+      pendingScrollRef.current = scrollRef.current.scrollTop;
+    }
+    setCatalogNotice(null);
+    setReloadKey((k) => k + 1);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -240,6 +252,38 @@ function TeacherCatalog({
   const loading = subjectsLoading || coursesLoading;
   const initialLoading =
     loading && subjects.length === 0 && courses.length === 0;
+
+  // Keep an open edit modal's DisplayCourse in sync with refetched rows, and
+  // remount the form when the teacher asked to load the server version.
+  useEffect(() => {
+    if (!courseModal || courseModal.mode !== "edit") return;
+    if (loading) return;
+
+    const prevIds = new Set(courseIdsInItem(courseModal.item));
+    const match =
+      buildDisplayCourses(courses).find((item) =>
+        courseIdsInItem(item).some((id) => prevIds.has(id)),
+      ) ?? null;
+
+    if (!match) {
+      // Empty catalog while not loading is ambiguous (error / race) — don't
+      // treat it as a deletion of the course being edited.
+      if (courses.length === 0) return;
+      setCourseModal(null);
+      pendingCourseRemountRef.current = false;
+      setCatalogNotice("That course was deleted in another window.");
+      return;
+    }
+
+    setCourseModal({ mode: "edit", item: match });
+    if (pendingCourseRemountRef.current) {
+      pendingCourseRemountRef.current = false;
+      setCourseFormVersion((v) => v + 1);
+    }
+    // Only re-derive when the catalog data identity changes, not on every
+    // courseModal write from this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courses, loading, reloadKey]);
 
   // After a background reload, restore the catalog scroll position.
   useEffect(() => {
@@ -546,6 +590,18 @@ function TeacherCatalog({
         </div>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pt-2 pb-10">
+          {catalogNotice && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <span>{catalogNotice}</span>
+              <button
+                type="button"
+                onClick={() => setCatalogNotice(null)}
+                className="shrink-0 cursor-pointer rounded-lg border border-amber-400 bg-white px-3 py-1 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
           {initialLoading ? (
             <div className="flex items-center justify-center py-16">
               <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-main-300 border-t-main-600" />
@@ -580,13 +636,20 @@ function TeacherCatalog({
 
       {courseModal && (
         <CourseFormModal
+          key={`course-form-${courseFormVersion}-${
+            courseModal.mode === "edit"
+              ? repCourse(courseModal.item).id
+              : "add"
+          }`}
           mode={courseModal.mode}
+          schoolId={school.id}
           departments={departments}
           courses={courses}
           terms={terms}
           editingItem={courseModal.mode === "edit" ? courseModal.item : null}
           onClose={() => setCourseModal(null)}
           onSave={handleSaveCourse}
+          onReloadFromServer={handleReloadCourseFromServer}
         />
       )}
 

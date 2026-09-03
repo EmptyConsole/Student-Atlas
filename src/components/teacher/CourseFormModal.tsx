@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { HelpCircle, Plus, X } from "lucide-react";
 import {
   GRADE_COLORS,
   GRADES,
@@ -25,10 +25,19 @@ import {
   timeValueToMinutes,
   type ClassTime,
 } from "../../utils/classTime";
+import CourseEditorHelp from "./CourseEditorHelp";
 import ModalShell from "./ModalShell";
 import RequirementBuilder from "./RequirementBuilder";
 import UnsavedChangesDialog from "./UnsavedChangesDialog";
 import { useGuardedClose } from "./useGuardedClose";
+import {
+  clearCourseDraft,
+  courseDraftId,
+  readCourseDraft,
+  useCourseDraft,
+  type CourseDraftForm,
+} from "./useCourseDraft";
+import { useCourseConflict } from "./useCourseConflict";
 import {
   inputClass,
   labelClass,
@@ -39,12 +48,15 @@ import {
 
 type CourseFormModalProps = {
   mode: "add" | "edit";
+  schoolId: string;
   departments: DepartmentRow[];
   courses: Course[];
   terms: Term[];
   editingItem?: DisplayCourse | null;
   onClose: () => void;
   onSave: (input: CourseFormSubmit) => Promise<{ error?: string }>;
+  /** Refetch catalog + remount this form with fresh server values. */
+  onReloadFromServer?: () => void;
 };
 
 type TimeDraft = {
@@ -180,12 +192,14 @@ function editsForOffering(
 
 function CourseFormModal({
   mode,
+  schoolId,
   departments,
   courses,
   terms,
   editingItem,
   onClose,
   onSave,
+  onReloadFromServer,
 }: CourseFormModalProps) {
   const editingCourse = editingItem
     ? editingItem.kind === "single"
@@ -208,46 +222,87 @@ function CourseFormModal({
     return match?.id ?? "";
   }, [editingCourse, departments]);
 
-  const [title, setTitle] = useState(editingCourse?.title ?? "");
+  const draftId = courseDraftId(schoolId, mode, editingCourse?.id ?? null);
+  const restoredDraft = useRef(readCourseDraft(draftId)).current;
+  const [showRestoreBanner, setShowRestoreBanner] = useState(
+    () => restoredDraft != null,
+  );
+
+  const serverOfferings = useMemo(
+    () => initialOfferings(editingItem),
+    [editingItem],
+  );
+  const serverTimes = useMemo(() => initialTimes(editingItem), [editingItem]);
+
+  const [title, setTitle] = useState(
+    () => restoredDraft?.title ?? editingCourse?.title ?? "",
+  );
   const [shortDescription, setShortDescription] = useState(
-    editingCourse?.shortDescription ?? "",
+    () =>
+      restoredDraft?.shortDescription ?? editingCourse?.shortDescription ?? "",
   );
   const [longDescription, setLongDescription] = useState(
-    editingCourse?.longDescription ?? "",
+    () =>
+      restoredDraft?.longDescription ?? editingCourse?.longDescription ?? "",
   );
-  const [grades, setGrades] = useState<number[]>(editingCourse?.grades ?? []);
-  const [offerings, setOfferings] = useState<OfferingDraft[]>(() =>
-    initialOfferings(editingItem),
+  const [grades, setGrades] = useState<number[]>(
+    () => restoredDraft?.grades ?? editingCourse?.grades ?? [],
   );
-  const [classTimes, setClassTimes] = useState<TimeDraft[]>(() =>
-    initialTimes(editingItem),
+  const [offerings, setOfferings] = useState<OfferingDraft[]>(() => {
+    if (restoredDraft?.offerings) {
+      return restoredDraft.offerings.map((o) => ({
+        courseId: o.courseId,
+        terms: [...o.terms],
+        previousSchedule: o.previousSchedule ?? [],
+      }));
+    }
+    return initialOfferings(editingItem);
+  });
+  const [classTimes, setClassTimes] = useState<TimeDraft[]>(() => {
+    if (restoredDraft?.classTimes) {
+      return restoredDraft.classTimes.map((t) => ({
+        key: nextDraftKey(),
+        day: t.day,
+        start: t.start,
+        end: t.end,
+        original: t.original,
+      }));
+    }
+    return initialTimes(editingItem);
+  });
+  const [departmentId, setDepartmentId] = useState(
+    () => restoredDraft?.departmentId ?? initialDepartmentId,
   );
-  const [departmentId, setDepartmentId] = useState(initialDepartmentId);
-  const [teacherName, setTeacherName] = useState(editingCourse?.teacher ?? "");
+  const [teacherName, setTeacherName] = useState(
+    () => restoredDraft?.teacherName ?? editingCourse?.teacher ?? "",
+  );
   const [maxStudentCountInput, setMaxStudentCountInput] = useState(() => {
+    if (restoredDraft) return restoredDraft.maxStudentCountInput;
     const count = editingCourse?.maxStudentCount;
     return count != null && count >= 0 ? String(count) : "";
   });
   const [retakeable, setRetakeable] = useState(
-    editingCourse?.retakeable ?? false,
+    () => restoredDraft?.retakeable ?? editingCourse?.retakeable ?? false,
   );
   const [prereq, setPrereq] = useState<ReqOptions>(
-    editingCourse?.prereqOptions ?? [],
+    () => restoredDraft?.prereq ?? editingCourse?.prereqOptions ?? [],
   );
   const [coreq, setCoreq] = useState<ReqOptions>(
-    editingCourse?.coreqOptions ?? [],
+    () => restoredDraft?.coreq ?? editingCourse?.coreqOptions ?? [],
   );
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [reloadConfirmOpen, setReloadConfirmOpen] = useState(false);
 
   const initialSnapshot = useRef({
     title: editingCourse?.title ?? "",
     shortDescription: editingCourse?.shortDescription ?? "",
     longDescription: editingCourse?.longDescription ?? "",
     grades: [...(editingCourse?.grades ?? [])].sort((a, b) => a - b),
-    offerings: normalizeOfferingsSnapshot(initialOfferings(editingItem)),
-    classTimes: normalizeTimesSnapshot(initialTimes(editingItem)),
+    offerings: normalizeOfferingsSnapshot(serverOfferings),
+    classTimes: normalizeTimesSnapshot(serverTimes),
     departmentId: initialDepartmentId,
     teacherName: editingCourse?.teacher ?? "",
     maxStudentCountInput:
@@ -291,8 +346,107 @@ function CourseFormModal({
     coreq,
   ]);
 
-  const { requestClose, discardOpen, cancelDiscard, confirmDiscard } =
-    useGuardedClose(onClose, isDirty, saving);
+  const draftForm: CourseDraftForm = useMemo(
+    () => ({
+      title,
+      shortDescription,
+      longDescription,
+      grades,
+      offerings: offerings.map((o) => ({
+        courseId: o.courseId,
+        terms: o.terms,
+        previousSchedule: o.previousSchedule,
+      })),
+      classTimes: classTimes.map((t) => ({
+        day: t.day,
+        start: t.start,
+        end: t.end,
+        original: t.original,
+      })),
+      departmentId,
+      teacherName,
+      maxStudentCountInput,
+      retakeable,
+      prereq,
+      coreq,
+    }),
+    [
+      title,
+      shortDescription,
+      longDescription,
+      grades,
+      offerings,
+      classTimes,
+      departmentId,
+      teacherName,
+      maxStudentCountInput,
+      retakeable,
+      prereq,
+      coreq,
+    ],
+  );
+
+  useCourseDraft(draftId, draftForm, isDirty);
+
+  const { conflict } = useCourseConflict({
+    enabled: mode === "edit" && editingIds.length > 0,
+    schoolId,
+    courseIds: editingIds,
+    saving,
+  });
+
+  const {
+    requestClose,
+    discardOpen,
+    cancelDiscard,
+    confirmDiscard: rawConfirmDiscard,
+  } = useGuardedClose(onClose, isDirty, saving || helpOpen);
+
+  const confirmDiscard = useCallback(() => {
+    clearCourseDraft(draftId);
+    rawConfirmDiscard();
+  }, [draftId, rawConfirmDiscard]);
+
+  const discardRestoredDraft = useCallback(() => {
+    clearCourseDraft(draftId);
+    setShowRestoreBanner(false);
+    setTitle(initialSnapshot.current.title);
+    setShortDescription(initialSnapshot.current.shortDescription);
+    setLongDescription(initialSnapshot.current.longDescription);
+    setGrades([...initialSnapshot.current.grades]);
+    setOfferings(
+      serverOfferings.map((o) => ({
+        courseId: o.courseId,
+        terms: [...o.terms],
+        previousSchedule: o.previousSchedule,
+      })),
+    );
+    setClassTimes(
+      serverTimes.map((t) => ({
+        ...t,
+        key: nextDraftKey(),
+      })),
+    );
+    setDepartmentId(initialSnapshot.current.departmentId);
+    setTeacherName(initialSnapshot.current.teacherName);
+    setMaxStudentCountInput(initialSnapshot.current.maxStudentCountInput);
+    setRetakeable(initialSnapshot.current.retakeable);
+    setPrereq(initialSnapshot.current.prereq);
+    setCoreq(initialSnapshot.current.coreq);
+    setError(null);
+  }, [draftId, serverOfferings, serverTimes]);
+
+  const performReloadFromServer = useCallback(() => {
+    clearCourseDraft(draftId);
+    setShowRestoreBanner(false);
+    setReloadConfirmOpen(false);
+    onReloadFromServer?.();
+  }, [draftId, onReloadFromServer]);
+
+  const requestReloadFromServer = useCallback(() => {
+    if (isDirty) setReloadConfirmOpen(true);
+    else performReloadFromServer();
+  }, [isDirty, performReloadFromServer]);
 
   const builderCourses = useMemo(
     () =>
@@ -424,7 +578,10 @@ function CourseFormModal({
     });
     setSaving(false);
     if (result.error) setError(result.error);
-    else onClose();
+    else {
+      clearCourseDraft(draftId);
+      onClose();
+    }
   };
 
   return (
@@ -432,8 +589,19 @@ function CourseFormModal({
       <ModalShell
         title={mode === "add" ? "Add course" : "Edit course"}
         onClose={requestClose}
-        busy={saving}
+        busy={saving || helpOpen || reloadConfirmOpen}
         maxWidthClass="max-w-2xl"
+        headerAction={
+          <button
+            type="button"
+            aria-label="Course editor help"
+            disabled={saving}
+            onClick={() => setHelpOpen(true)}
+            className="cursor-pointer rounded-full p-1 text-gray-400 transition-colors hover:bg-black/10 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <HelpCircle className="h-5 w-5" />
+          </button>
+        }
         footer={
           <>
             <button
@@ -460,6 +628,54 @@ function CourseFormModal({
         }
       >
         <div className="flex flex-col gap-5">
+          {showRestoreBanner && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-main-300 bg-main-100 px-4 py-3 text-sm text-gray-700">
+              <span>Restored your unsaved changes.</span>
+              <button
+                type="button"
+                onClick={discardRestoredDraft}
+                className="cursor-pointer rounded-lg border border-main-400 bg-white px-3 py-1 text-xs font-semibold text-gray-700 transition-colors hover:bg-main-100"
+              >
+                Discard
+              </button>
+            </div>
+          )}
+
+          {conflict === "changed" && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <span>
+                This course was edited in another window. Your draft is still
+                here — load their version to replace it, or save to overwrite.
+              </span>
+              {onReloadFromServer && (
+                <button
+                  type="button"
+                  onClick={requestReloadFromServer}
+                  className="shrink-0 cursor-pointer rounded-lg border border-amber-400 bg-white px-3 py-1 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100"
+                >
+                  Load their version
+                </button>
+              )}
+            </div>
+          )}
+
+          {conflict === "deleted" && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <span>
+                This course was deleted in another window. Saving may fail.
+              </span>
+              {onReloadFromServer && (
+                <button
+                  type="button"
+                  onClick={requestReloadFromServer}
+                  className="shrink-0 cursor-pointer rounded-lg border border-amber-400 bg-white px-3 py-1 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100"
+                >
+                  Close and refresh
+                </button>
+              )}
+            </div>
+          )}
+
           {departments.length === 0 && (
             <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               Add a department first — every course belongs to one.
@@ -759,6 +975,21 @@ function CourseFormModal({
           onDiscard={confirmDiscard}
         />
       )}
+      {reloadConfirmOpen && (
+        <UnsavedChangesDialog
+          onStay={() => setReloadConfirmOpen(false)}
+          onDiscard={performReloadFromServer}
+          message={
+            conflict === "deleted"
+              ? "You have unsaved changes. Discard them and close this editor?"
+              : "You have unsaved changes. Discard them and load the version from the other window?"
+          }
+          confirmLabel={
+            conflict === "deleted" ? "Discard and close" : "Load their version"
+          }
+        />
+      )}
+      {helpOpen && <CourseEditorHelp onClose={() => setHelpOpen(false)} />}
     </>
   );
 }
