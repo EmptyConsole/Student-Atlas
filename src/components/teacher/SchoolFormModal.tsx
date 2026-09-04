@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, HelpCircle, Plus, Trash2 } from "lucide-react";
 import type { SchoolInput } from "../../lib/teacher";
 import { GRADES, type Term } from "../../data/courses";
 import { DEFAULT_REQUIRED_RANKINGS } from "../../utils/courseRanking";
 import type { GradeSettings } from "../../utils/gradeSettings";
 import ModalShell from "./ModalShell";
+import SchoolEditorHelp from "./SchoolEditorHelp";
 import UnsavedChangesDialog from "./UnsavedChangesDialog";
 import { useGuardedClose } from "./useGuardedClose";
 import {
@@ -193,6 +194,7 @@ function SchoolFormModal({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const initialSnapshot = useRef({
     name: initial?.name ?? "",
@@ -221,7 +223,7 @@ function SchoolFormModal({
   }, [name, website, city, stateField, password, gradeRows, terms]);
 
   const { requestClose, discardOpen, cancelDiscard, confirmDiscard } =
-    useGuardedClose(onClose, isDirty, saving);
+    useGuardedClose(onClose, isDirty, saving || helpOpen);
 
   const duplicateGrades = useMemo(() => {
     const seen = new Set<string>();
@@ -327,7 +329,18 @@ function SchoolFormModal({
       <ModalShell
         title={mode === "add" ? "Add school" : "Edit school"}
         onClose={requestClose}
-        busy={saving}
+        busy={saving || helpOpen}
+        headerAction={
+          <button
+            type="button"
+            aria-label="School editor help"
+            disabled={saving}
+            onClick={() => setHelpOpen(true)}
+            className="cursor-pointer rounded-full p-1 text-gray-400 transition-colors hover:bg-black/10 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <HelpCircle className="h-5 w-5" />
+          </button>
+        }
         footer={
           <>
             <button
@@ -338,17 +351,17 @@ function SchoolFormModal({
             >
               Cancel
             </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!canSave || saving}
-            className={primaryButtonClass}
-          >
-            {saving ? "Saving…" : mode === "add" ? "Create school" : "Save changes"}
-          </button>
-        </>
-      }
-    >
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!canSave || saving}
+              className={primaryButtonClass}
+            >
+              {saving ? "Saving…" : mode === "add" ? "Create school" : "Save changes"}
+            </button>
+          </>
+        }
+      >
       <div className="flex flex-col gap-5">
         <div>
           <label htmlFor="school-name" className={labelClass}>
@@ -584,6 +597,7 @@ function SchoolFormModal({
           onDiscard={confirmDiscard}
         />
       )}
+      {helpOpen && <SchoolEditorHelp onClose={() => setHelpOpen(false)} />}
     </>
   );
 }

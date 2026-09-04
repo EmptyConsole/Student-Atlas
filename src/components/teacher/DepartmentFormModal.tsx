@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from "react";
+import { HelpCircle } from "lucide-react";
 import type { DepartmentInput, DepartmentRow } from "../../lib/teacher";
+import DepartmentEditorHelp from "./DepartmentEditorHelp";
 import ModalShell from "./ModalShell";
 import UnsavedChangesDialog from "./UnsavedChangesDialog";
 import { useGuardedClose } from "./useGuardedClose";
@@ -31,6 +33,7 @@ function DepartmentFormModal({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const initialSnapshot = useRef({
     name: editingDepartment?.name ?? "",
@@ -47,7 +50,7 @@ function DepartmentFormModal({
   );
 
   const { requestClose, discardOpen, cancelDiscard, confirmDiscard } =
-    useGuardedClose(onClose, isDirty, saving);
+    useGuardedClose(onClose, isDirty, saving || helpOpen);
 
   const canSave = name.trim().length > 0;
 
@@ -66,7 +69,18 @@ function DepartmentFormModal({
       <ModalShell
         title={mode === "add" ? "Add department" : "Edit department"}
         onClose={requestClose}
-        busy={saving}
+        busy={saving || helpOpen}
+        headerAction={
+          <button
+            type="button"
+            aria-label="Department editor help"
+            disabled={saving}
+            onClick={() => setHelpOpen(true)}
+            className="cursor-pointer rounded-full p-1 text-gray-400 transition-colors hover:bg-black/10 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <HelpCircle className="h-5 w-5" />
+          </button>
+        }
         footer={
           <>
             <button
@@ -77,74 +91,75 @@ function DepartmentFormModal({
             >
               Cancel
             </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!canSave || saving}
-            className={primaryButtonClass}
-          >
-            {saving
-              ? "Saving…"
-              : mode === "add"
-                ? "Add department"
-                : "Save changes"}
-          </button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-5">
-        <div>
-          <label htmlFor="dept-name" className={labelClass}>
-            Name
-          </label>
-          <input
-            id="dept-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Computer Science"
-            className={inputClass}
-            autoFocus
-          />
-        </div>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!canSave || saving}
+              className={primaryButtonClass}
+            >
+              {saving
+                ? "Saving…"
+                : mode === "add"
+                  ? "Add department"
+                  : "Save changes"}
+            </button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-5">
+          <div>
+            <label htmlFor="dept-name" className={labelClass}>
+              Name
+            </label>
+            <input
+              id="dept-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Computer Science"
+              className={inputClass}
+              autoFocus
+            />
+          </div>
 
-        <div>
-          <label htmlFor="dept-subtitle" className={labelClass}>
-            Subtitle
-          </label>
-          <input
-            id="dept-subtitle"
-            type="text"
-            value={subtitle}
-            onChange={(e) => setSubtitle(e.target.value)}
-            placeholder="Short tagline shown in the sidebar"
-            className={inputClass}
-          />
-        </div>
+          <div>
+            <label htmlFor="dept-subtitle" className={labelClass}>
+              Subtitle
+            </label>
+            <input
+              id="dept-subtitle"
+              type="text"
+              value={subtitle}
+              onChange={(e) => setSubtitle(e.target.value)}
+              placeholder="Short tagline shown in the sidebar"
+              className={inputClass}
+            />
+          </div>
 
-        <div>
-          <label htmlFor="dept-gradreq" className={labelClass}>
-            Graduation requirement
-          </label>
-          <textarea
-            id="dept-gradreq"
-            value={graduationRequirement}
-            onChange={(e) => setGraduationRequirement(e.target.value)}
-            rows={3}
-            placeholder="e.g. Two years required to graduate."
-            className={textareaClass}
-          />
-        </div>
+          <div>
+            <label htmlFor="dept-gradreq" className={labelClass}>
+              Graduation requirement
+            </label>
+            <textarea
+              id="dept-gradreq"
+              value={graduationRequirement}
+              onChange={(e) => setGraduationRequirement(e.target.value)}
+              rows={3}
+              placeholder="e.g. Two years required to graduate."
+              className={textareaClass}
+            />
+          </div>
 
-        {error && <p className="text-sm font-medium text-red-600">{error}</p>}
-      </div>
-    </ModalShell>
+          {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+        </div>
+      </ModalShell>
       {discardOpen && (
         <UnsavedChangesDialog
           onStay={cancelDiscard}
           onDiscard={confirmDiscard}
         />
       )}
+      {helpOpen && <DepartmentEditorHelp onClose={() => setHelpOpen(false)} />}
     </>
   );
 }
