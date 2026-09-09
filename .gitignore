@@ -1,3 +1,11 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+*.local
+
 # Logs
 logs
 *.log
@@ -7,12 +15,20 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Environment / secrets
+# Never commit Supabase service-role keys, TEACHER_SESSION_SECRET, or Resend keys.
+.env
+.env.*
+!.env.example
 
-# Editor directories and files
+# Deployment
+.vercel
+
+# Supabase CLI local state (project ref + pooler connection string)
+supabase/.temp
+supabase/.branches
+
+# Editor / OS
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -22,4 +38,31 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-.vercel
+
+# ---------------------------------------------------------------------------
+# School-specific SQL (NOT committed)
+#
+# scripts/ holds two kinds of SQL. Schema, RLS, and stored-function scripts are
+# tracked, because they are what a fresh Supabase project needs. Anything that
+# carries a real school's catalog, student records, or a teacher password is
+# ignored and lives only on the machine that runs it.
+#
+# Ignored below:
+#   nueva-*.sql        real course catalog, descriptions, and prerequisites
+#   *-students.sql     bulk student seed rows
+#   test*-school.sql   demo seeds that call set_school_password() in plaintext
+# ---------------------------------------------------------------------------
+scripts/nueva-*.sql
+scripts/*-students.sql
+scripts/test-school.sql
+scripts/test2-school.sql
+
+# Generators that emit the seeds above (they embed the same passwords)
+scripts/_gen/
+
+# Catch-all for local-only SQL, database dumps, and exports
+scripts/local/
+*.dump
+*.sql.gz
+*-dump.sql
+*-export.sql

@@ -1,18 +1,29 @@
--- Assignment columns + reorder_terms RPC
+-- Elective / assignment columns + reorder_terms RPC
+--
+-- School-agnostic schema migration. Run this on a fresh Supabase project
+-- BEFORE scripts/teacher-auth.sql, which revokes grants on reorder_terms and
+-- therefore expects the function to already exist.
 --
 -- Adds:
---   courses.students          text[]     — self-describing per-class rosters
---   students.times_taken      integer[]  — flat [term_rank, day, start, end] quads
---   schools.electives_assigned integer   — NOT NULL DEFAULT 0
+--   courses.term_options       uuid[]     — terms.id values this offering runs in
+--   courses.schedule           integer[]  — flat [day, start, end] triples
+--   courses.students           text[]     — self-describing per-class rosters
+--   students.times_taken       integer[]  — flat [term_rank, day, start, end] quads
+--   schools.electives_assigned integer    — NOT NULL DEFAULT 0
+--   terms.position             smallint   — register display order
 --
--- Sets electives_assigned = 2 for The Nueva School.
---
--- Also creates public.reorder_terms(school_id, ordered_term_ids) which
--- atomically remaps students.times_taken term ranks, then writes 0-based
--- terms.position values. Call this instead of updating position row-by-row.
+-- Also creates public.reorder_terms(school_id, ordered_term_ids), which
+-- atomically remaps students.times_taken term ranks and then writes 0-based
+-- terms.position values. Call this instead of updating position row-by-row,
+-- otherwise already-assigned schedules end up pointing at the wrong term.
 --
 -- Encoding notes
 -- --------------
+-- courses.schedule: flat 2D integer[] of [day, start_minute, end_minute]
+--   triples, ordered by day then start. Minutes are from midnight, start
+--   inclusive and end exclusive. `day` is a rotation-day index, not a weekday.
+--   Each triple is one section with its own capacity.
+--
 -- courses.students: each element is 'day,start,end|uuid1,uuid2,...'
 --   The part before '|' matches a row of courses.schedule. A class with no
 --   roster yet simply has no entry, so adding a class time to schedule
@@ -24,13 +35,19 @@
 --   Left NULL by this script.
 --
 -- Idempotent: re-running is safe (ADD COLUMN IF NOT EXISTS, CREATE OR REPLACE
--- FUNCTION, electives_assigned re-set to 2). Wrapped in a transaction.
+-- FUNCTION). Wrapped in a transaction.
 
 BEGIN;
 
 ----------------------------------------------------------------------
 -- 0. DDL
 ----------------------------------------------------------------------
+ALTER TABLE public.courses
+  ADD COLUMN IF NOT EXISTS term_options uuid[];
+
+ALTER TABLE public.courses
+  ADD COLUMN IF NOT EXISTS schedule integer[];
+
 ALTER TABLE public.courses
   ADD COLUMN IF NOT EXISTS students text[];
 
@@ -40,33 +57,11 @@ ALTER TABLE public.students
 ALTER TABLE public.schools
   ADD COLUMN IF NOT EXISTS electives_assigned integer NOT NULL DEFAULT 0;
 
-----------------------------------------------------------------------
--- 1. Resolve school; abort if missing
-----------------------------------------------------------------------
-DO $$
-DECLARE
-  v_school_id uuid;
-BEGIN
-  SELECT id INTO v_school_id
-  FROM schools
-  WHERE name = 'The Nueva School'
-  LIMIT 1;
-
-  IF v_school_id IS NULL THEN
-    RAISE EXCEPTION
-      'The Nueva School not found. Run the Nueva catalog import scripts first.';
-  END IF;
-END $$;
+ALTER TABLE public.terms
+  ADD COLUMN IF NOT EXISTS position smallint;
 
 ----------------------------------------------------------------------
--- 2. Set electives_assigned for Nueva
-----------------------------------------------------------------------
-UPDATE schools
-SET electives_assigned = 2
-WHERE name = 'The Nueva School';
-
-----------------------------------------------------------------------
--- 3. Permanent reorder_terms function
+-- 1. Permanent reorder_terms function
 --
 -- Remap must happen BEFORE positions are overwritten, so old ranks are
 -- still readable from the current position/created_at order.
@@ -167,65 +162,58 @@ BEGIN
 END;
 $fn$;
 
-GRANT EXECUTE ON FUNCTION public.reorder_terms(uuid, uuid[]) TO anon, authenticated;
+----------------------------------------------------------------------
+-- 2. Grants
+--
+-- Term reordering is a catalog write, so it runs server-side with the
+-- service role via /api/teacher-mutate. The browser must not call it.
+-- scripts/teacher-auth.sql re-asserts this revoke; keeping it here means a
+-- fresh project is never briefly exposed.
+----------------------------------------------------------------------
+REVOKE ALL ON FUNCTION public.reorder_terms(uuid, uuid[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.reorder_terms(uuid, uuid[]) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.reorder_terms(uuid, uuid[]) TO service_role;
 
 ----------------------------------------------------------------------
--- 4. Verification
+-- 3. Verification
 ----------------------------------------------------------------------
 DO $$
 DECLARE
-  v_assigned int;
-  v_students_type text;
-  v_times_type text;
-  v_electives_type text;
+  v_missing text;
 BEGIN
-  SELECT electives_assigned INTO v_assigned
-  FROM schools
-  WHERE name = 'The Nueva School'
-  LIMIT 1;
+  SELECT string_agg(x.tbl || '.' || x.col, ', ')
+  INTO v_missing
+  FROM (VALUES
+    ('courses',  'term_options'),
+    ('courses',  'schedule'),
+    ('courses',  'students'),
+    ('students', 'times_taken'),
+    ('schools',  'electives_assigned'),
+    ('terms',    'position')
+  ) AS x(tbl, col)
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns ic
+    WHERE ic.table_schema::text = 'public'
+      AND ic.table_name::text = x.tbl
+      AND ic.column_name::text = x.col
+  );
 
-  IF v_assigned IS DISTINCT FROM 2 THEN
-    RAISE EXCEPTION
-      'Expected electives_assigned = 2 for The Nueva School, got %',
-      v_assigned;
+  IF v_missing IS NOT NULL THEN
+    RAISE EXCEPTION 'Missing columns after migration: %', v_missing;
   END IF;
 
-  SELECT format_type(a.atttypid, a.atttypmod) INTO v_students_type
-  FROM pg_attribute a
-  JOIN pg_class c ON c.oid = a.attrelid
-  JOIN pg_namespace n ON n.oid = c.relnamespace
-  WHERE n.nspname = 'public'
-    AND c.relname = 'courses'
-    AND a.attname = 'students'
-    AND NOT a.attisdropped;
-
-  SELECT format_type(a.atttypid, a.atttypmod) INTO v_times_type
-  FROM pg_attribute a
-  JOIN pg_class c ON c.oid = a.attrelid
-  JOIN pg_namespace n ON n.oid = c.relnamespace
-  WHERE n.nspname = 'public'
-    AND c.relname = 'students'
-    AND a.attname = 'times_taken'
-    AND NOT a.attisdropped;
-
-  SELECT format_type(a.atttypid, a.atttypmod) INTO v_electives_type
-  FROM pg_attribute a
-  JOIN pg_class c ON c.oid = a.attrelid
-  JOIN pg_namespace n ON n.oid = c.relnamespace
-  WHERE n.nspname = 'public'
-    AND c.relname = 'schools'
-    AND a.attname = 'electives_assigned'
-    AND NOT a.attisdropped;
-
-  IF v_students_type IS NULL OR v_times_type IS NULL OR v_electives_type IS NULL THEN
-    RAISE EXCEPTION 'One or more new columns are missing';
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'reorder_terms'
+  ) THEN
+    RAISE EXCEPTION 'public.reorder_terms was not created';
   END IF;
 
-  RAISE NOTICE 'courses.students type: %', v_students_type;
-  RAISE NOTICE 'students.times_taken type: %', v_times_type;
-  RAISE NOTICE 'schools.electives_assigned type: %', v_electives_type;
-  RAISE NOTICE 'The Nueva School electives_assigned: %', v_assigned;
-  RAISE NOTICE 'Assignment columns seed OK.';
+  RAISE NOTICE 'Assignment columns + reorder_terms OK.';
 END $$;
 
 COMMIT;
