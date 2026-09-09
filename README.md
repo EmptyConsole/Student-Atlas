@@ -114,19 +114,19 @@ npm run dev
 `npm run dev` serves the app and the `api/` functions together —
 `vite.local-api.ts` mounts the serverless handlers on the Vite dev server, so you
 do not need `vercel dev`. Note that `npm run preview` serves built assets only and
-does *not* include the API middleware, so the teacher gate and email flows will not
+does _not_ include the API middleware, so the teacher gate and email flows will not
 work there.
 
 ### Environment variables
 
-| Variable | Used by | Purpose |
-| --- | --- | --- |
-| `VITE_SUPABASE_URL` | browser, api, scripts | Supabase project URL |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | browser, api, scripts | Anon key for client reads |
-| `SUPABASE_SERVICE_ROLE_KEY` | api only | Bypasses RLS for catalog writes, password RPCs, and OTP storage |
-| `TEACHER_SESSION_SECRET` | api only | Signs teacher session tokens; falls back to the service-role key |
-| `RESEND_API_KEY` | api only | Outbound email |
-| `EMAIL_OTP_PEPPER` | api only | Optional extra secret for OTP hashing |
+| Variable                        | Used by               | Purpose                                                          |
+| ------------------------------- | --------------------- | ---------------------------------------------------------------- |
+| `VITE_SUPABASE_URL`             | browser, api, scripts | Supabase project URL                                             |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | browser, api, scripts | Anon key for client reads                                        |
+| `SUPABASE_SERVICE_ROLE_KEY`     | api only              | Bypasses RLS for catalog writes, password RPCs, and OTP storage  |
+| `TEACHER_SESSION_SECRET`        | api only              | Signs teacher session tokens; falls back to the service-role key |
+| `RESEND_API_KEY`                | api only              | Outbound email                                                   |
+| `EMAIL_OTP_PEPPER`              | api only              | Optional extra secret for OTP hashing                            |
 
 Only the `VITE_`-prefixed variables reach the browser. The rest must stay
 server-side.
@@ -141,20 +141,20 @@ The tracked scripts are the reusable ones. Run `assignment-columns.sql` before
 `teacher-auth.sql`, since the latter revokes grants on `reorder_terms` and expects
 that function to exist:
 
-| Script | Purpose |
-| --- | --- |
-| `assignment-columns.sql` | Adds the elective columns (`courses.term_options`, `courses.schedule`, `courses.students`, `students.times_taken`, `schools.electives_assigned`, `terms.position`) and the `reorder_terms` RPC |
-| `teacher-auth.sql` | Moves passwords into `school_secrets` as bcrypt hashes, adds the verify/set RPCs, revokes anon write grants |
-| `teacher-rls.sql` | Read policies for catalog tables |
-| `submitted-courses-rls.sql`, `submitted-notes-rls.sql` | Policies for student submission tables |
-| `email-verification-codes.sql` | OTP table, RLS on with no policies |
-| `class-time-maintenance.sql` | `add/edit/remove_class_time` and `cleanup_class_times` |
-| `elective-assignment-apply.sql` | `apply_elective_assignments` RPC the sort writes through |
-| `school-grade-settings.sql` | Adds `schools.grade` |
-| `student-delete-cascade.sql` | Cascading FKs so deleting a student cleans up child rows |
-| `wipe-sort-assignments.sql` | Clears assignment results |
-| `drop-terms-season-year.sql`, `drop-skipped-emails.sql` | Legacy cleanups |
-| `migrate-courses.sql` | Small generic demo catalog |
+| Script                                                  | Purpose                                                                                                                                                                                        |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `assignment-columns.sql`                                | Adds the elective columns (`courses.term_options`, `courses.schedule`, `courses.students`, `students.times_taken`, `schools.electives_assigned`, `terms.position`) and the `reorder_terms` RPC |
+| `teacher-auth.sql`                                      | Moves passwords into `school_secrets` as bcrypt hashes, adds the verify/set RPCs, revokes anon write grants                                                                                    |
+| `teacher-rls.sql`                                       | Read policies for catalog tables                                                                                                                                                               |
+| `submitted-courses-rls.sql`, `submitted-notes-rls.sql`  | Policies for student submission tables                                                                                                                                                         |
+| `email-verification-codes.sql`                          | OTP table, RLS on with no policies                                                                                                                                                             |
+| `class-time-maintenance.sql`                            | `add/edit/remove_class_time` and `cleanup_class_times`                                                                                                                                         |
+| `elective-assignment-apply.sql`                         | `apply_elective_assignments` RPC the sort writes through                                                                                                                                       |
+| `school-grade-settings.sql`                             | Adds `schools.grade`                                                                                                                                                                           |
+| `student-delete-cascade.sql`                            | Cascading FKs so deleting a student cleans up child rows                                                                                                                                       |
+| `wipe-sort-assignments.sql`                             | Clears assignment results                                                                                                                                                                      |
+| `drop-terms-season-year.sql`, `drop-skipped-emails.sql` | Legacy cleanups                                                                                                                                                                                |
+| `migrate-courses.sql`                                   | Small generic demo catalog                                                                                                                                                                     |
 
 School-specific seeds — real catalogs, bulk student data, and demo seeds that set
 teacher passwords in plaintext — are **not** in this repository (see
