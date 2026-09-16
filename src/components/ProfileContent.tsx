@@ -599,7 +599,10 @@ function ProfileContent({
 
                   <div>
                     <span className="mb-3 block text-sm font-semibold text-gray-700">
-                      Courses Taken
+                      Courses Taken{" "}
+                      <span className="font-normal text-gray-500">
+                        (not required)
+                      </span>
                     </span>
                     {prereqLoading ? (
                       <div className="flex items-center gap-2 py-3 text-sm text-gray-400">
