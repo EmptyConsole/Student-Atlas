@@ -1,30 +1,113 @@
-import { supabase } from "./supabase";
 import type { UserProfile } from "../hooks/useProfile";
 
+// Every student read and write goes through /api/student with the session
+// token issued by /api/verify-email-code. The anon key has no access to the
+// student tables, and the server only ever touches the token's own student.
+
 // ---------------------------------------------------------------------------
-// Internal helpers
+// Session + email proofs
 // ---------------------------------------------------------------------------
 
-/** course title → Supabase course UUID */
-async function fetchCourseMapByTitles(titles: string[]): Promise<Map<string, string>> {
-  if (titles.length === 0) return new Map();
-  const { data, error } = await supabase
-    .from("courses")
-    .select("id, title")
-    .in("title", titles);
-  if (error || !data) return new Map();
-  return new Map(data.map((c) => [c.title, c.id]));
+const SESSION_KEY = "student-atlas-session";
+
+type StoredSession = { token: string; expiresAt: number };
+
+function readSession(): StoredSession | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredSession>;
+    if (typeof parsed.token !== "string" || typeof parsed.expiresAt !== "number") return null;
+    if (parsed.expiresAt <= Date.now()) return null;
+    return { token: parsed.token, expiresAt: parsed.expiresAt };
+  } catch {
+    return null;
+  }
 }
 
-/** Supabase course UUID → course title */
-async function fetchCourseMapByIds(ids: string[]): Promise<Map<string, string>> {
-  if (ids.length === 0) return new Map();
-  const { data, error } = await supabase
-    .from("courses")
-    .select("id, title")
-    .in("id", ids);
-  if (error || !data) return new Map();
-  return new Map(data.map((c) => [c.id, c.title]));
+function storeSession(token: string, expiresAt: number) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ token, expiresAt }));
+}
+
+export function hasStudentSession(): boolean {
+  return readSession() !== null;
+}
+
+export function clearStudentSession() {
+  localStorage.removeItem(SESSION_KEY);
+  pendingProofs.clear();
+}
+
+let onSessionExpired: (() => void) | null = null;
+
+/** Called when the server rejects the session, so the app can sign out. */
+export function setStudentSessionExpiredHandler(handler: (() => void) | null) {
+  onSessionExpired = handler;
+}
+
+/**
+ * Email proofs from verified signup / email-change codes, keyed by purpose.
+ * Kept in memory only: they are single-use and expire after a few minutes.
+ */
+const pendingProofs = new Map<"signup" | "email_change", { email: string; proof: string }>();
+
+function takeProof(purpose: "signup" | "email_change", email: string): string | null {
+  const entry = pendingProofs.get(purpose);
+  if (!entry || entry.email !== email.trim().toLowerCase()) return null;
+  return entry.proof;
+}
+
+// ---------------------------------------------------------------------------
+// Server API plumbing
+// ---------------------------------------------------------------------------
+
+type ApiResponse = Record<string, unknown> & { error?: string };
+
+async function postJson(
+  path: string,
+  body: unknown,
+  token?: string,
+): Promise<{ status: number; body: ApiResponse }> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  const parsed = (await res.json().catch(() => ({}))) as ApiResponse;
+  return { status: res.status, body: parsed };
+}
+
+/** Runs one /api/student action with the stored session. */
+async function callStudentApi(
+  body: Record<string, unknown>,
+  fallbackError: string,
+): Promise<{ data?: ApiResponse; error?: string }> {
+  const session = readSession();
+  if (!session) {
+    onSessionExpired?.();
+    return { error: "Your session expired. Log in again." };
+  }
+
+  let status: number;
+  let payload: ApiResponse;
+  try {
+    ({ status, body: payload } = await postJson("/api/student", body, session.token));
+  } catch {
+    return { error: `${fallbackError}. Check your connection and try again.` };
+  }
+
+  if (status === 401) {
+    clearStudentSession();
+    onSessionExpired?.();
+    return { error: payload.error ?? "Your session expired. Log in again." };
+  }
+  if (status >= 400) {
+    return { error: payload.error ?? fallbackError };
+  }
+  return { data: payload };
 }
 
 // ---------------------------------------------------------------------------
@@ -43,63 +126,49 @@ export type SubmitResult = {
   hydratedData?: HydratedStudentData;
 };
 
+type Snapshot = {
+  studentId: string;
+  profile: Pick<UserProfile, "schoolId" | "name" | "email" | "grade">;
+  completedCourses: Record<string, "prereq" | "coreq">;
+  bookmarkIds: string[];
+  courseNotes: Record<string, string>;
+};
+
+function hydrate(snapshot: Snapshot): HydratedStudentData {
+  return {
+    studentId: snapshot.studentId,
+    profile: {
+      ...snapshot.profile,
+      completedCourses: snapshot.completedCourses,
+      courseNotes: snapshot.courseNotes,
+    },
+    bookmarkIds: new Set(snapshot.bookmarkIds),
+  };
+}
+
 // ---------------------------------------------------------------------------
-// Load a student's full data from Supabase
+// Load the signed-in student's data
 // ---------------------------------------------------------------------------
 
-export async function loadStudentData(studentId: string): Promise<{
+export async function loadStudentData(): Promise<{
   completedCourses: Record<string, "prereq" | "coreq">;
   bookmarkIds: Set<string>;
   courseNotes: Record<string, string>;
 }> {
-  const [completedRes, enrolledRes, bookmarkedRes, notesRes] = await Promise.all([
-    supabase
-      .from("completed_courses")
-      .select("course_id")
-      .eq("student_id", studentId),
-    supabase
-      .from("enrolled_courses")
-      .select("course_id")
-      .eq("student_id", studentId),
-    supabase
-      .from("bookmarked_courses")
-      .select("course_id")
-      .eq("student_id", studentId),
-    supabase
-      .from("course_notes")
-      .select("course_id, note")
-      .eq("student_id", studentId),
-  ]);
-
-  const completedIds = (completedRes.data ?? []).map((r) => r.course_id);
-  const enrolledIds = (enrolledRes.data ?? []).map((r) => r.course_id);
-  const bookmarkedIds = (bookmarkedRes.data ?? []).map((r) => r.course_id);
-
-  const allCourseIds = [...new Set([...completedIds, ...enrolledIds])];
-  const idToTitle = await fetchCourseMapByIds(allCourseIds);
-
-  const completedCourses: Record<string, "prereq" | "coreq"> = {};
-  for (const id of completedIds) {
-    const title = idToTitle.get(id);
-    if (title) completedCourses[title] = "prereq";
-  }
-  for (const id of enrolledIds) {
-    const title = idToTitle.get(id);
-    if (title) completedCourses[title] = "coreq";
-  }
-
-  const courseNotes: Record<string, string> = {};
-  for (const row of notesRes.data ?? []) {
-    if (row.note) courseNotes[row.course_id] = row.note;
-  }
-
-  return { completedCourses, bookmarkIds: new Set(bookmarkedIds), courseNotes };
+  const { data } = await callStudentApi({ action: "load" }, "Failed to load your data");
+  const snapshot = data as Snapshot | undefined;
+  return {
+    completedCourses: snapshot?.completedCourses ?? {},
+    bookmarkIds: new Set(snapshot?.bookmarkIds ?? []),
+    courseNotes: snapshot?.courseNotes ?? {},
+  };
 }
 
 // ---------------------------------------------------------------------------
 // Submit profile (new user insert OR returning user hydration)
 // ---------------------------------------------------------------------------
 
+/** Runs after the signup email code is verified; uses its email proof. */
 export async function submitProfile(profile: UserProfile): Promise<SubmitResult> {
   const name = profile.name.trim();
   const email = profile.email.trim();
@@ -108,59 +177,33 @@ export async function submitProfile(profile: UserProfile): Promise<SubmitResult>
     return { error: "Please select a school and fill in your name, email, and grade." };
   }
 
-  const schoolId = profile.schoolId;
+  const proof = takeProof("signup", email);
+  if (!proof) {
+    return { error: "Verify your email before creating your profile." };
+  }
 
   try {
-    const { data: existing, error: existingError } = await supabase
-      .from("students")
-      .select("id, name, email, grade")
-      .eq("email", email)
-      .limit(1);
-
-    if (existingError) throw existingError;
-
-    // ---- Returning user: push form edits, then load Supabase data ----
-    if (existing && existing.length > 0) {
-      const student = existing[0];
-      await syncStudentProfile(student.id, name, email, profile.grade, schoolId);
-      await syncStudentCourses(student.id, profile.completedCourses);
-      const { completedCourses, bookmarkIds, courseNotes } = await loadStudentData(student.id);
-      return {
-        studentId: student.id,
-        hydratedData: {
-          studentId: student.id,
-          profile: {
-            schoolId,
-            name,
-            email,
-            grade: profile.grade,
-            completedCourses,
-            courseNotes,
-          },
-          bookmarkIds,
-        },
-      };
+    const { status, body } = await postJson("/api/student", {
+      action: "createStudent",
+      proof,
+      name,
+      grade: profile.grade,
+      schoolId: profile.schoolId,
+      completedCourses: profile.completedCourses,
+    });
+    if (status >= 400 || typeof body.token !== "string") {
+      return { error: body.error ?? "Something went wrong. Please try again." };
     }
+    pendingProofs.delete("signup");
+    storeSession(body.token, body.expiresAt as number);
 
-    // ---- New user: insert ----
-    const { data: inserted, error: insertError } = await supabase
-      .from("students")
-      .insert({ name, email, grade: profile.grade, school_id: schoolId })
-      .select("id")
-      .single();
-
-    if (insertError) throw insertError;
-
-    const studentId = inserted.id;
-
-    // Sync any prereq/coreq selections made during onboarding
-    await syncStudentCourses(studentId, profile.completedCourses);
-
-    return { studentId };
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Something went wrong. Please try again.";
-    return { error: message };
+    const snapshot = body.snapshot as Snapshot;
+    if (body.existing) {
+      return { studentId: snapshot.studentId, hydratedData: hydrate(snapshot) };
+    }
+    return { studentId: snapshot.studentId };
+  } catch {
+    return { error: "Something went wrong. Please try again." };
   }
 }
 
@@ -169,84 +212,33 @@ export async function submitProfile(profile: UserProfile): Promise<SubmitResult>
 // ---------------------------------------------------------------------------
 
 export async function syncStudentCourses(
-  studentId: string,
   completedCourses: Record<string, "prereq" | "coreq" | null>,
 ): Promise<{ error?: string }> {
-  const prereqTitles: string[] = [];
-  const coreqTitles: string[] = [];
-
-  for (const [title, type] of Object.entries(completedCourses)) {
-    if (type === "prereq") prereqTitles.push(title);
-    else if (type === "coreq") coreqTitles.push(title);
-  }
-
-  const allTitles = [...new Set([...prereqTitles, ...coreqTitles])];
-  const titleToId = await fetchCourseMapByTitles(allTitles);
-
-  const prereqIds = prereqTitles
-    .map((t) => titleToId.get(t))
-    .filter((id): id is string => id !== undefined);
-
-  const coreqIds = coreqTitles
-    .map((t) => titleToId.get(t))
-    .filter((id): id is string => id !== undefined);
-
-  const [completedDelete, enrolledDelete] = await Promise.all([
-    supabase.from("completed_courses").delete().eq("student_id", studentId),
-    supabase.from("enrolled_courses").delete().eq("student_id", studentId),
-  ]);
-
-  if (completedDelete.error) return { error: completedDelete.error.message };
-  if (enrolledDelete.error) return { error: enrolledDelete.error.message };
-
-  if (prereqIds.length > 0) {
-    const { error } = await supabase
-      .from("completed_courses")
-      .insert(prereqIds.map((course_id) => ({ student_id: studentId, course_id })));
-    if (error) return { error: error.message };
-  }
-  if (coreqIds.length > 0) {
-    const { error } = await supabase
-      .from("enrolled_courses")
-      .insert(coreqIds.map((course_id) => ({ student_id: studentId, course_id })));
-    if (error) return { error: error.message };
-  }
-
-  return {};
+  const { error } = await callStudentApi(
+    { action: "saveCourses", completedCourses },
+    "Failed to save your courses",
+  );
+  return error ? { error } : {};
 }
 
 // ---------------------------------------------------------------------------
 // Sync bookmarks → bookmarked_courses
 // ---------------------------------------------------------------------------
 
-export async function syncStudentBookmarks(
-  studentId: string,
-  bookmarkIds: Set<string>,
-): Promise<{ error?: string }> {
-  const { error: deleteError } = await supabase
-    .from("bookmarked_courses")
-    .delete()
-    .eq("student_id", studentId);
-
-  if (deleteError) return { error: deleteError.message };
-
-  const ids = [...bookmarkIds];
-  if (ids.length > 0) {
-    const { error: insertError } = await supabase
-      .from("bookmarked_courses")
-      .insert(ids.map((course_id) => ({ student_id: studentId, course_id })));
-    if (insertError) return { error: insertError.message };
-  }
-
-  return {};
+export async function syncStudentBookmarks(bookmarkIds: Set<string>): Promise<{ error?: string }> {
+  const { error } = await callStudentApi(
+    { action: "saveBookmarks", courseIds: [...bookmarkIds] },
+    "Failed to save your bookmarks",
+  );
+  return error ? { error } : {};
 }
 
 // ---------------------------------------------------------------------------
 // Sync profile fields (name, email, grade) → students row
 // ---------------------------------------------------------------------------
 
+/** A changed email is only accepted with the proof from its verification code. */
 export async function syncStudentProfile(
-  studentId: string,
   name: string,
   email: string,
   grade: number | null,
@@ -256,86 +248,49 @@ export async function syncStudentProfile(
   const trimmedEmail = email.trim();
   if (!trimmedName || !trimmedEmail || grade === null || !schoolId) return {};
 
-  const { error } = await supabase
-    .from("students")
-    .update({ name: trimmedName, email: trimmedEmail, grade, school_id: schoolId })
-    .eq("id", studentId);
-
-  if (error) return { error: error.message };
+  const { error } = await callStudentApi(
+    {
+      action: "saveProfile",
+      name: trimmedName,
+      email: trimmedEmail,
+      grade,
+      schoolId,
+      emailProof: takeProof("email_change", trimmedEmail),
+    },
+    "Failed to save your profile",
+  );
+  if (error) return { error };
+  pendingProofs.delete("email_change");
   return {};
 }
 
 // ---------------------------------------------------------------------------
-// Sync submitted course rankings → submitted_courses table
+// Submitted course rankings → submitted_courses table
 // ---------------------------------------------------------------------------
 
+type RankingRow = { course_id: string; preference: number | null };
+
 /**
- * Loads the student's official rankings (`submitted = true`), ordered by
- * preference ascending. Used to restore the Register page on open.
+ * Loads the student's official rankings (`submitted = true`) and drafts
+ * (`submitted = false`), each ordered by preference ascending, plus their
+ * latest submission note. Used to restore the Register page on open.
  */
-export async function loadSubmittedCourses(
-  studentId: string,
-): Promise<{
-  rankings: { course_id: string; preference: number | null }[];
+export async function loadRankings(): Promise<{
+  submitted: RankingRow[];
+  drafts: RankingRow[];
+  note: string;
   error?: string;
 }> {
-  const { data, error } = await supabase
-    .from("submitted_courses")
-    .select("course_id, preference")
-    .eq("student_id", studentId)
-    .eq("submitted", true)
-    .order("preference", { ascending: true });
-
-  if (error) {
-    return { rankings: [], error: error.message };
-  }
-
-  return { rankings: data ?? [] };
-}
-
-/**
- * Loads draft rankings (`submitted = false`) for students who have never
- * officially submitted. Restored on Register when no submitted=true rows exist.
- */
-export async function loadDraftCourses(
-  studentId: string,
-): Promise<{
-  rankings: { course_id: string; preference: number | null }[];
-  error?: string;
-}> {
-  const { data, error } = await supabase
-    .from("submitted_courses")
-    .select("course_id, preference")
-    .eq("student_id", studentId)
-    .eq("submitted", false)
-    .order("preference", { ascending: true });
-
-  if (error) {
-    return { rankings: [], error: error.message };
-  }
-
-  return { rankings: data ?? [] };
-}
-
-/**
- * Loads the student's latest submission note, if any.
- */
-export async function loadSubmittedNotes(
-  studentId: string,
-): Promise<{ note: string; error?: string }> {
-  const { data, error } = await supabase
-    .from("submitted_notes")
-    .select("note")
-    .eq("student_id", studentId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    return { note: "", error: error.message };
-  }
-
-  return { note: data?.note?.trim() ? data.note : "" };
+  const { data, error } = await callStudentApi(
+    { action: "loadRankings" },
+    "Failed to load your rankings",
+  );
+  if (error || !data) return { submitted: [], drafts: [], note: "", error };
+  return {
+    submitted: (data.submitted as RankingRow[]) ?? [],
+    drafts: (data.drafts as RankingRow[]) ?? [],
+    note: (data.note as string) ?? "",
+  };
 }
 
 /**
@@ -349,50 +304,14 @@ export async function loadSubmittedNotes(
  * set.
  */
 export async function syncSubmittedCourses(
-  studentId: string,
   columnOrders: string[][],
   submitted: boolean,
 ): Promise<{ error?: string }> {
-  let deleteQuery = supabase
-    .from("submitted_courses")
-    .delete()
-    .eq("student_id", studentId);
-
-  // Draft: keep submitted=true rows. Final submit: wipe drafts + old official.
-  if (!submitted) {
-    deleteQuery = deleteQuery.eq("submitted", false);
-  }
-
-  const { error: deleteError } = await deleteQuery;
-
-  if (deleteError) {
-    return { error: deleteError.message };
-  }
-
-  const seen = new Set<string>();
-  const rows: {
-    student_id: string;
-    course_id: string;
-    preference: number;
-    submitted: boolean;
-  }[] = [];
-
-  for (const order of columnOrders) {
-    for (const [i, course_id] of order.entries()) {
-      if (seen.has(course_id)) continue;
-      seen.add(course_id);
-      rows.push({ student_id: studentId, course_id, preference: i + 1, submitted });
-    }
-  }
-
-  if (rows.length > 0) {
-    const { error: insertError } = await supabase.from("submitted_courses").insert(rows);
-    if (insertError) {
-      return { error: insertError.message };
-    }
-  }
-
-  return {};
+  const { error } = await callStudentApi(
+    { action: "saveRankings", columnOrders, submitted },
+    "Failed to save your rankings",
+  );
+  return error ? { error } : {};
 }
 
 // ---------------------------------------------------------------------------
@@ -406,22 +325,14 @@ export async function syncSubmittedCourses(
  * itself already succeeded.
  */
 export async function sendRankingsEmail(
-  studentId: string,
   columns: { termName: string; courseIds: string[] }[],
   note: string | null,
 ): Promise<void> {
-  try {
-    const res = await fetch("/api/send-elective-registration", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ studentId, columns, note }),
-    });
-    if (!res.ok) {
-      console.error("Failed to send rankings email:", await res.text());
-    }
-  } catch (err) {
-    console.error("Failed to send rankings email:", err);
-  }
+  const { error } = await callStudentApi(
+    { action: "sendConfirmation", columns, note },
+    "Failed to send rankings email",
+  );
+  if (error) console.error("Failed to send rankings email:", error);
 }
 
 // ---------------------------------------------------------------------------
@@ -429,55 +340,25 @@ export async function sendRankingsEmail(
 // ---------------------------------------------------------------------------
 
 export async function syncCourseNotes(
-  studentId: string,
   courseNotes: Record<string, string>,
 ): Promise<{ error?: string }> {
-  const { error: deleteError } = await supabase
-    .from("course_notes")
-    .delete()
-    .eq("student_id", studentId);
-
-  if (deleteError) return { error: deleteError.message };
-
-  const entries = Object.entries(courseNotes).filter(([, note]) => note.trim());
-  if (entries.length > 0) {
-    const { error: insertError } = await supabase
-      .from("course_notes")
-      .insert(
-        entries.map(([course_id, note]) => ({
-          student_id: studentId,
-          course_id,
-          note: note.trim(),
-        })),
-      );
-    if (insertError) return { error: insertError.message };
-  }
-
-  return {};
+  const { error } = await callStudentApi(
+    { action: "saveNotes", courseNotes },
+    "Failed to save your notes",
+  );
+  return error ? { error } : {};
 }
 
 // ---------------------------------------------------------------------------
 // Sync submission note → submitted_notes table (one row per student)
 // ---------------------------------------------------------------------------
 
-export async function syncSubmittedNotes(
-  studentId: string,
-  note: string | null,
-): Promise<{ error?: string }> {
-  const { error: deleteError } = await supabase
-    .from("submitted_notes")
-    .delete()
-    .eq("student_id", studentId);
-
-  if (deleteError) return { error: deleteError.message };
-
-  const { error: insertError } = await supabase
-    .from("submitted_notes")
-    .insert({ student_id: studentId, note: note ?? null });
-
-  if (insertError) return { error: insertError.message };
-
-  return {};
+export async function syncSubmittedNotes(note: string | null): Promise<{ error?: string }> {
+  const { error } = await callStudentApi(
+    { action: "saveSubmissionNote", note },
+    "Failed to save your note",
+  );
+  return error ? { error } : {};
 }
 
 // ---------------------------------------------------------------------------
@@ -506,20 +387,31 @@ export async function sendEmailVerification(
   }
 }
 
+/**
+ * Checks the code. A login code starts a session; signup and email-change
+ * codes leave an email proof for the save that follows.
+ */
 export async function verifyEmailCode(
   email: string,
   purpose: EmailVerificationPurpose,
   code: string,
 ): Promise<{ error?: string }> {
   try {
-    const res = await fetch("/api/verify-email-code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim(), purpose, code: code.trim() }),
-    });
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    if (!res.ok) {
+    const { status, body } = await postJson(
+      "/api/verify-email-code",
+      { email: email.trim(), purpose, code: code.trim() },
+      purpose === "email_change" ? readSession()?.token : undefined,
+    );
+    if (status >= 400) {
       return { error: body.error ?? "Verification failed." };
+    }
+
+    if (purpose === "login") {
+      if (typeof body.token !== "string") return { error: "Verification failed." };
+      storeSession(body.token, body.expiresAt as number);
+    } else {
+      if (typeof body.proof !== "string") return { error: "Verification failed." };
+      pendingProofs.set(purpose, { email: email.trim().toLowerCase(), proof: body.proof });
     }
     return {};
   } catch {
@@ -528,7 +420,7 @@ export async function verifyEmailCode(
 }
 
 // ---------------------------------------------------------------------------
-// Log in by email — look up an existing student and hydrate their data
+// Log in by email — hydrate the account the verified login code signed into
 // ---------------------------------------------------------------------------
 
 export type LoginByEmailResult = {
@@ -538,75 +430,23 @@ export type LoginByEmailResult = {
 };
 
 export async function loginByEmail(email: string): Promise<LoginByEmailResult> {
-  const trimmed = email.trim();
-  if (!trimmed) return { error: "Please enter your email." };
+  if (!email.trim()) return { error: "Please enter your email." };
 
-  try {
-    const { data, error } = await supabase
-      .from("students")
-      .select("id, name, email, grade, school_id")
-      .ilike("email", trimmed)
-      .limit(1);
+  const { data, error } = await callStudentApi({ action: "load" }, "Failed to load your account");
+  if (error || !data) return { error: error ?? "Something went wrong. Please try again." };
 
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      return { error: "No account found with that email." };
-    }
-
-    const student = data[0];
-    const { completedCourses, bookmarkIds, courseNotes } = await loadStudentData(student.id);
-
-    return {
-      studentId: student.id,
-      hydratedData: {
-        studentId: student.id,
-        profile: {
-          schoolId: student.school_id,
-          name: student.name,
-          email: student.email,
-          grade: student.grade,
-          completedCourses,
-          courseNotes,
-        },
-        bookmarkIds,
-      },
-    };
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Something went wrong. Please try again.";
-    return { error: message };
-  }
+  const snapshot = data as Snapshot;
+  return { studentId: snapshot.studentId, hydratedData: hydrate(snapshot) };
 }
 
 // ---------------------------------------------------------------------------
-// Delete a student account and all associated data
+// Delete the signed-in student's account and all associated data
 // ---------------------------------------------------------------------------
 
-export async function deleteStudentAccount(studentId: string): Promise<{ error?: string }> {
-  try {
-    // Child rows must go first: their FKs to students(id) would otherwise block
-    // the final students delete. Errors are checked so a failed child delete
-    // can't silently leave the account (and its bookmarks) behind.
-    const childDeletes = await Promise.all([
-      supabase.from("bookmarked_courses").delete().eq("student_id", studentId),
-      supabase.from("completed_courses").delete().eq("student_id", studentId),
-      supabase.from("enrolled_courses").delete().eq("student_id", studentId),
-      supabase.from("course_notes").delete().eq("student_id", studentId),
-      supabase.from("submitted_courses").delete().eq("student_id", studentId),
-      supabase.from("submitted_notes").delete().eq("student_id", studentId),
-    ]);
-    const childError = childDeletes.find((r) => r.error)?.error;
-    if (childError) return { error: childError.message };
-
-    const { error: studentError } = await supabase
-      .from("students")
-      .delete()
-      .eq("id", studentId);
-    if (studentError) return { error: studentError.message };
-
-    return {};
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to delete account." };
-  }
+export async function deleteStudentAccount(): Promise<{ error?: string }> {
+  const { error } = await callStudentApi(
+    { action: "deleteAccount" },
+    "Failed to delete account",
+  );
+  return error ? { error } : {};
 }

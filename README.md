@@ -125,6 +125,7 @@ work there.
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | browser, api, scripts | Anon key for client reads                                        |
 | `SUPABASE_SERVICE_ROLE_KEY`     | api only              | Bypasses RLS for catalog writes, password RPCs, and OTP storage  |
 | `TEACHER_SESSION_SECRET`        | api only              | Signs teacher session tokens; falls back to the service-role key |
+| `STUDENT_SESSION_SECRET`        | api only              | Signs student session tokens; falls back to the service-role key |
 | `RESEND_API_KEY`                | api only              | Outbound email                                                   |
 | `EMAIL_OTP_PEPPER`              | api only              | Optional extra secret for OTP hashing                            |
 
@@ -146,7 +147,7 @@ that function to exist:
 | `assignment-columns.sql`                                | Adds the elective columns (`courses.term_options`, `courses.schedule`, `courses.students`, `students.times_taken`, `schools.electives_assigned`, `terms.position`) and the `reorder_terms` RPC |
 | `teacher-auth.sql`                                      | Moves passwords into `school_secrets` as bcrypt hashes, adds the verify/set RPCs, revokes anon write grants                                                                                    |
 | `teacher-rls.sql`                                       | Read policies for catalog tables                                                                                                                                                               |
-| `submitted-courses-rls.sql`, `submitted-notes-rls.sql`  | Policies for student submission tables                                                                                                                                                         |
+| `student-rls.sql`                                       | Locks student tables to the service role (run after deploying `/api/student`); link tables SELECT-only                                                                                         |
 | `email-verification-codes.sql`                          | OTP table, RLS on with no policies                                                                                                                                                             |
 | `class-time-maintenance.sql`                            | `add/edit/remove_class_time` and `cleanup_class_times`                                                                                                                                         |
 | `elective-assignment-apply.sql`                         | `apply_elective_assignments` RPC the sort writes through                                                                                                                                       |

@@ -12,11 +12,12 @@ Two different keys, two different privileges.
 
 | Client | Key | Where | What it can do |
 | ------ | --- | ----- | -------------- |
-| Browser singleton in `src/lib/supabase.ts` | `VITE_SUPABASE_PUBLISHABLE_KEY` (anon) | Vite app, hooks, `src/lib/students.ts` reads, `api/send-elective-registration.ts` | Catalog **SELECT**. Student-table read/write. Cannot write catalog tables or call teacher RPCs. |
-| Service-role client created inside `api/` | `SUPABASE_SERVICE_ROLE_KEY` | `teacher-login`, `teacher-mutate`, `send-email-verification`, `verify-email-code` | Bypasses RLS. Catalog writes, password RPCs, OTP storage, cascade deletes. |
+| Browser singleton in `src/lib/supabase.ts` | `VITE_SUPABASE_PUBLISHABLE_KEY` (anon) | Vite app, hooks, `src/lib/teacher.ts` reads | Catalog **SELECT** only. No access to student tables. Cannot write catalog tables or call teacher RPCs. |
+| Service-role client created inside `api/` | `SUPABASE_SERVICE_ROLE_KEY` | `teacher-login`, `teacher-mutate`, `student`, `send-email-verification`, `verify-email-code` | Bypasses RLS. Catalog writes, student reads/writes, password RPCs, OTP storage, cascade deletes. |
 
 Only `VITE_`-prefixed variables reach the browser. Never put the service-role
-key, `TEACHER_SESSION_SECRET`, or a school password in client code.
+key, `TEACHER_SESSION_SECRET`, `STUDENT_SESSION_SECRET`, or a school password in
+client code.
 
 `api/` files must not import from `src/` (Vercel’s bundler will miss them). They
 create their own `createClient(...)` and duplicate any small helpers.
@@ -26,9 +27,13 @@ create their own `createClient(...)` and duplicate any small helpers.
 ```
 Browser (anon key)
   reads:  schools, terms, departments, teachers, courses
-  writes: students, completed_courses, enrolled_courses,
-          bookmarked_courses, course_notes,
-          submitted_courses, submitted_notes
+  writes: nothing
+
+/api/student (service role + student HMAC session)
+  students, completed_courses, enrolled_courses,
+  bookmarked_courses, course_notes,
+  submitted_courses, submitted_notes
+  ranking confirmation email (Resend)
 
 /api/teacher-login  (service role)
   verify_school_password / set_school_password
@@ -48,10 +53,14 @@ Teacher catalog writes never go through the anon key. The browser posts to
 session is valid 12 hours and is scoped to one school. Destructive actions ask
 for the password again.
 
-Student identity is an email one-time code, then a `studentId` in
-`localStorage`. Writes to student tables are not bound to that verified email —
-the anon policies are permissive. Email verification gates the UI, not the
-database.
+Student identity is an email one-time code. `/api/verify-email-code` returns a
+signed student session (login, 30 days) or a short-lived email proof (signup and
+email change, 10 minutes). The browser sends the session as a Bearer token to
+`/api/student`, which takes the student id from the token — never from the
+request body — so a student can only read and change their own rows. Changing
+the account email needs a proof for the new address. Tokens are signed with
+`STUDENT_SESSION_SECRET` (falls back to the service-role key) and can never
+verify as teacher tokens.
 
 ## Tables
 
@@ -83,7 +92,7 @@ RLS on, no policies, grants revoked from anon/authenticated. Only
 (`prereq_options` / `coreq_options` as OR-of-AND groups of course UUIDs or free
 text). `students` holds per-section rosters (`'day,start,end|uuid,uuid,...'`).
 
-### Student records (anon read + write)
+### Student records (service role only, via `/api/student`)
 
 **`students`** — name, unique email, grade, graduation year, `school_id`.
 `times_taken` is a flat `[term_rank, day, start, end]` schedule of assigned
@@ -124,14 +133,14 @@ Every exposed table has RLS enabled.
 
 | Tables | Anon policy | Why |
 | ------ | ----------- | --- |
-| `schools`, `terms`, `departments`, `teachers`, `courses` | SELECT only | Catalog is public to the app; writes go through the service role. `teacher-auth.sql` also **revokes** INSERT/UPDATE/DELETE grants so a future write policy cannot reopen client writes. |
-| `submitted_courses`, `submitted_notes` | SELECT/INSERT/UPDATE/DELETE | Student ranking tables. Same permissive pattern as bookmarks. |
-| `students` and the other student junctions | permissive (app writes with anon) | Not tightened yet. The app trusts `studentId` in `localStorage`. |
+| `schools`, `terms`, `departments`, `teachers`, `courses` | SELECT only | Catalog is public to the app; writes go through the service role. INSERT/UPDATE/DELETE grants are **revoked** so a future write policy cannot reopen client writes. |
+| `course_prerequisites`, `course_corequisites`, `graduation_requirements` | SELECT only | Catalog-owned link tables, same lockdown. |
+| `students`, `completed_courses`, `enrolled_courses`, `bookmarked_courses`, `course_notes`, `submitted_courses`, `submitted_notes` | RLS on, **no policies, all grants revoked** | Only `/api/student` (service role) touches them. |
 | `school_secrets`, `email_verification_codes` | RLS on, **no policies** | Unreadable by any client. Service role bypasses RLS. |
 
-`scripts/teacher-rls.sql` is the catalog SELECT policies.
-`scripts/submitted-courses-rls.sql` and `submitted-notes-rls.sql` cover the
-ranking tables.
+`scripts/teacher-rls.sql` is the catalog SELECT policies. The catalog write
+lockdown is section 0 of `scripts/restore-courses.sql`.
+`scripts/student-rls.sql` locks the student tables and the link tables.
 
 ## Stored functions (RPCs)
 
@@ -171,17 +180,19 @@ load + engine with no write — it prints a report. Both CLIs and the wrappers
 **Student catalog** — `useCourses`, `useTerms`, `useSubjects`, `useSchools`,
 `useSchoolRankings`, `useSchoolGrades` all SELECT with the anon client.
 
-**Student profile / register** — `src/lib/students.ts` reads and writes the
-student tables with the anon client (bookmarks, notes, completed/enrolled,
-submissions).
+**Student profile / register** — `src/lib/students.ts` POSTs every student
+read and write (profile, bookmarks, notes, completed courses, rankings) to
+`/api/student` with the stored session. A 401 clears the session and sends the
+student back to the login screen.
 
 **Teacher editor** — `src/lib/teacher.ts` SELECTs catalog rows with the anon
 client, then POSTs mutations to `/api/teacher-mutate`. Conflict checks
 (`useCourseConflict`) also SELECT courses with anon.
 
 **Email** — `/api/send-email-verification` inserts hashed codes with the service
-role. `/api/verify-email-code` consumes them. `/api/send-elective-registration`
-loads the student + ranked courses with the anon key, then sends mail through
+role. `/api/verify-email-code` consumes them and issues the student session or
+proof. The ranking confirmation email is the `sendConfirmation` action on
+`/api/student`; it always goes to the signed-in student's own address, through
 Resend (not Supabase).
 
 ## Applying schema changes
@@ -192,14 +203,15 @@ project:
 1. `assignment-columns.sql` — elective columns + `reorder_terms`
 2. `teacher-auth.sql` — `school_secrets`, password RPCs, revoke catalog writes
 3. `teacher-rls.sql` — catalog SELECT policies (also recreated by teacher-auth)
-4. `submitted-courses-rls.sql`, `submitted-notes-rls.sql`
-5. `email-verification-codes.sql`
-6. `class-time-maintenance.sql`
-7. `school-grade-settings.sql` — `schools.grade`
-8. `student-delete-cascade.sql`
+4. `email-verification-codes.sql`
+5. `class-time-maintenance.sql`
+6. `school-grade-settings.sql` — `schools.grade`
+7. `student-delete-cascade.sql`
+8. `student-rls.sql` — lock student tables (after `/api/student` is deployed)
 
 <!--
-9. `elective-assignment-apply.sql` — `apply_elective_assignments` for sort
+9. `elective-assignment-apply.sql` — `apply_elective_assignments` for sort.
+   The sort CLI now needs the service-role key: anon cannot read students.
 -->
 
 School-specific seeds (real catalogs, bulk students, demo passwords) are gitignored.

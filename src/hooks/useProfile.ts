@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { CourseCompletion } from "../data/courses";
+import { clearStudentSession } from "../lib/students";
 
 export type { CourseCompletion };
 
@@ -108,6 +109,7 @@ export function useProfile() {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(ONBOARDED_KEY);
     localStorage.removeItem(STUDENT_ID_KEY);
+    clearStudentSession();
     setProfile({ ...DEFAULT_PROFILE });
     setOnboarded(false);
     setStudentIdState(null);

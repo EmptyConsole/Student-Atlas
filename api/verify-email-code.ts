@@ -1,10 +1,18 @@
 // Vercel serverless function: verify a 6-digit email verification code.
 // Self-contained (no imports outside api/) so Vercel's function bundler includes everything.
+//
+// A correct code is the only way to get student credentials for /api/student:
+//   login        -> a student session for the account with that email
+//   signup       -> a short-lived email proof for `createStudent`
+//   email_change -> a short-lived email proof for the new address (requires
+//                   the student's current session)
 
-import { createHash } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
 const MAX_ATTEMPTS = 5;
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const PROOF_TTL_MS = 10 * 60 * 1000;
 
 type EmailVerificationPurpose = "signup" | "login" | "email_change";
 
@@ -39,6 +47,64 @@ function hashCode(code: string, email: string, purpose: string): string {
   return createHash("sha256")
     .update(`${pepper}:${purpose}:${email}:${code}`)
     .digest("hex");
+}
+
+// ---------------------------------------------------------------------------
+// Student tokens (kept in sync with api/student.ts)
+// ---------------------------------------------------------------------------
+
+function sessionSecret(): string {
+  return (
+    process.env.STUDENT_SESSION_SECRET ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    ""
+  );
+}
+
+function base64url(input: Buffer | string): string {
+  return Buffer.from(input)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+function signPayload(payload: Record<string, unknown>): string {
+  const body = base64url(JSON.stringify(payload));
+  const signature = base64url(
+    createHmac("sha256", sessionSecret()).update(`student.${body}`).digest(),
+  );
+  return `${body}.${signature}`;
+}
+
+function studentIdFromSession(token: string): string | null {
+  const [body, signature] = token.split(".");
+  if (!body || !signature) return null;
+
+  const expected = base64url(
+    createHmac("sha256", sessionSecret()).update(`student.${body}`).digest(),
+  );
+  const a = Buffer.from(signature);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+
+  try {
+    const parsed = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as {
+      typ?: unknown;
+      stu?: unknown;
+      exp?: unknown;
+    };
+    if (parsed.typ !== "session" || typeof parsed.stu !== "string") return null;
+    if (typeof parsed.exp !== "number" || parsed.exp <= Date.now()) return null;
+    return parsed.stu;
+  } catch {
+    return null;
+  }
+}
+
+/** Escapes `%`, `_`, and `\` so an email can be matched exactly with ILIKE. */
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -78,6 +144,15 @@ export async function POST(request: Request): Promise<Response> {
   const code = (payload.code ?? "").trim();
   if (!/^\d{6}$/.test(code)) {
     return json({ error: "Enter the 6-digit code from your email." }, 400);
+  }
+
+  // Checked before the code is consumed so an expired session doesn't burn it.
+  if (purpose === "email_change") {
+    const header = request.headers.get("authorization") ?? "";
+    const token = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
+    if (!token || !studentIdFromSession(token)) {
+      return json({ error: "Your session expired. Log in again." }, 401);
+    }
   }
 
   const { data: rows, error: lookupError } = await supabase
@@ -144,5 +219,36 @@ export async function POST(request: Request): Promise<Response> {
     return json({ error: "Something went wrong. Please try again." }, 500);
   }
 
-  return json({ ok: true }, 200);
+  if (purpose === "login") {
+    const { data: students, error: studentError } = await supabase
+      .from("students")
+      .select("id")
+      .ilike("email", escapeLike(email))
+      .limit(1);
+    if (studentError) {
+      console.error("login lookup error:", studentError);
+      return json({ error: "Something went wrong. Please try again." }, 500);
+    }
+    const studentId = students?.[0]?.id as string | undefined;
+    if (!studentId) {
+      return json({ error: "No account found with that email." }, 404);
+    }
+    const expiresAt = Date.now() + SESSION_TTL_MS;
+    return json(
+      {
+        ok: true,
+        token: signPayload({ typ: "session", stu: studentId, exp: expiresAt }),
+        expiresAt,
+      },
+      200,
+    );
+  }
+
+  const proof = signPayload({
+    typ: "proof",
+    purpose,
+    email,
+    exp: Date.now() + PROOF_TTL_MS,
+  });
+  return json({ ok: true, proof }, 200);
 }

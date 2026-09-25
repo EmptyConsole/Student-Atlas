@@ -5,7 +5,7 @@ import CourseBrowser from "./components/CourseBrowser";
 import ProfilePage from "./components/ProfilePage";
 import RegisterPage from "./components/RegisterPage";
 import RegisterUnsavedDialog from "./components/RegisterUnsavedDialog";
-import { useProfile, type UserProfile } from "./hooks/useProfile";
+import { DEFAULT_PROFILE, useProfile, type UserProfile } from "./hooks/useProfile";
 import { useCourses } from "./hooks/useCourses";
 import { useRefreshOnVisible } from "./hooks/useRefreshOnVisible";
 import { useSchoolGrades } from "./hooks/useSchoolGrades";
@@ -20,6 +20,8 @@ import {
   syncStudentProfile,
   syncCourseNotes,
   deleteStudentAccount,
+  hasStudentSession,
+  setStudentSessionExpiredHandler,
 } from "./lib/students";
 import type { AppView } from "./types/app";
 
@@ -139,7 +141,17 @@ function App() {
       return;
     }
 
-    loadStudentData(studentId).then(({ completedCourses, bookmarkIds, courseNotes }) => {
+    // Accounts from before student sessions (or with an expired one) have to
+    // verify their email again before any data loads.
+    if (!hasStudentSession()) {
+      signOut();
+      setActiveView("profile");
+      syncEnabled.current = true;
+      setSavedProfile(snapshotProfile(DEFAULT_PROFILE));
+      return;
+    }
+
+    loadStudentData().then(({ completedCourses, bookmarkIds, courseNotes }) => {
       updateProfile({ completedCourses, courseNotes });
       setBookmarks(bookmarkIds);
       setSavedProfile({
@@ -156,7 +168,7 @@ function App() {
   // Sync bookmark changes → bookmarked_courses
   useEffect(() => {
     if (!studentId || !syncEnabled.current) return;
-    syncStudentBookmarks(studentId, bookmarks);
+    syncStudentBookmarks(bookmarks);
   }, [studentId, bookmarks]);
 
   // Sync course notes → course_notes table.
@@ -164,7 +176,7 @@ function App() {
   useEffect(() => {
     if (!studentId || !syncEnabled.current) return;
     const timer = setTimeout(() => {
-      syncCourseNotes(studentId, profile.courseNotes);
+      syncCourseNotes(profile.courseNotes);
     }, 800);
     return () => clearTimeout(timer);
   }, [studentId, profile.courseNotes]);
@@ -216,7 +228,7 @@ function App() {
     if (!studentId || !syncEnabled.current || hasUnsavedRef.current) return;
 
     let cancelled = false;
-    loadStudentData(studentId).then(
+    loadStudentData().then(
       ({ completedCourses, bookmarkIds, courseNotes }) => {
         if (cancelled) return;
         updateProfile({ completedCourses, courseNotes });
@@ -238,7 +250,6 @@ function App() {
     if (!studentId) return {};
 
     const profileResult = await syncStudentProfile(
-      studentId,
       profile.name,
       profile.email,
       profile.grade,
@@ -246,10 +257,7 @@ function App() {
     );
     if (profileResult.error) return { error: profileResult.error };
 
-    const coursesResult = await syncStudentCourses(
-      studentId,
-      profile.completedCourses,
-    );
+    const coursesResult = await syncStudentCourses(profile.completedCourses);
     if (coursesResult.error) return { error: coursesResult.error };
 
     setSavedProfile(snapshotProfile(profile));
@@ -291,12 +299,21 @@ function App() {
     setActiveView("courses");
   };
 
+  // A rejected session mid-use drops the student back to the login screen.
+  useEffect(() => {
+    setStudentSessionExpiredHandler(() => {
+      handleSignOut();
+      setActiveView("profile");
+    });
+    return () => setStudentSessionExpiredHandler(null);
+  });
+
   const handleDeleteAccount = async (): Promise<{ error?: string }> => {
     if (!studentId) return {};
     // Stop bookmark/note sync first so nothing is re-written to Supabase while
     // (or after) the account rows are being deleted.
     syncEnabled.current = false;
-    const result = await deleteStudentAccount(studentId);
+    const result = await deleteStudentAccount();
     if (result.error) {
       syncEnabled.current = true;
       return { error: result.error };

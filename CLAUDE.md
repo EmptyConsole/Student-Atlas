@@ -13,7 +13,7 @@ This product is for students, teachers, and counselors. Copy and UI should stay 
 - Browser code uses the Supabase anon key (`VITE_SUPABASE_PUBLISHABLE_KEY`). Never put `SUPABASE_SERVICE_ROLE_KEY`, `TEACHER_SESSION_SECRET`, or school passwords in client code.
 - Catalog writes (schools, terms, departments, courses, teachers) go through `/api/teacher-mutate` with the HMAC session from `/api/teacher-login`. The anon role is SELECT-only on those tables. Do not add client-side catalog mutations.
 - Files under `api/` must stay self-contained: no imports from `src/` (Vercel’s bundler will miss them). Duplicate small helpers if needed.
-- Student tables (`students`, `completed_courses`, `enrolled_courses`, `bookmarked_courses`, `course_notes`, `submitted_courses`, `submitted_notes`) are still written from the client with the anon key. Teacher cascade deletes that touch those tables run server-side with the service role.
+- Student tables (`students`, `completed_courses`, `enrolled_courses`, `bookmarked_courses`, `course_notes`, `submitted_courses`, `submitted_notes`) are read and written only through `/api/student` with the signed student session from `/api/verify-email-code`. The student id always comes from the token, never the request body. The anon role has no access to those tables (`scripts/student-rls.sql`). Do not add client-side student table queries. Teacher cascade deletes run server-side with the service role.
 - Schema and RLS live in `scripts/*.sql` and are applied in the Supabase SQL Editor. `scripts/supabase-schema.sql` is context only — not executable. Keep `src/types/database.ts` in sync with the real schema.
 - Keep `src/utils/electiveSort.ts` pure (no I/O). Load/apply lives in `src/lib/loadElectiveData.ts`, `applyElectiveAssignments.ts`, and `sort.ts`. Prefer tests in `*.test.ts` (Vitest) for sort, ranking, and grade settings.
 - Use design tokens from `src/index.css`: `main-*` (blue) and `detail-*` (cream). Body font is `font-sans`. Do not introduce a new palette.
@@ -32,7 +32,7 @@ This product is for students, teachers, and counselors. Copy and UI should stay 
 - `src/utils/` — pure helpers: `electiveSort.ts` (DA engine), `classTime.ts`, `courseRanking.ts`, `gradeSettings.ts`
 - `src/data/` — course/subject types and static fallbacks used by the UI
 - `src/types/` — `database.ts` (generated-style Supabase types), `app.ts` (view union)
-- `api/` — Vercel functions: `teacher-login`, `teacher-mutate`, email verification, elective-registration email
+- `api/` — Vercel functions: `teacher-login`, `teacher-mutate`, `student` (all student data + ranking email), email verification
 - `scripts/` — SQL (schema, RLS, school seeds) and CLIs (`npm run sort`, `npm run testsort`, `npm run migrate-courses`)
 - `public/` — static assets (logo)
 - `.cursor/rules/` — always-on design tokens and notes

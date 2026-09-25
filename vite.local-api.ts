@@ -8,8 +8,7 @@ const API_HANDLERS: Record<string, () => Promise<ApiHandler>> = {
     (await import("./api/send-email-verification")).POST,
   "/api/verify-email-code": async () =>
     (await import("./api/verify-email-code")).POST,
-  "/api/send-elective-registration": async () =>
-    (await import("./api/send-elective-registration")).POST,
+  "/api/student": async () => (await import("./api/student")).POST,
   "/api/teacher-login": async () => (await import("./api/teacher-login")).POST,
   "/api/teacher-mutate": async () => (await import("./api/teacher-mutate")).POST,
 };
@@ -48,9 +47,11 @@ export function localApiPlugin(): Plugin {
         try {
           const handler = await loader();
           const body = await readBody(req);
+          const headers: Record<string, string> = { "Content-Type": "application/json" };
+          if (req.headers.authorization) headers.Authorization = req.headers.authorization;
           const request = new Request(`http://localhost${url}`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: body.length > 0 ? body : undefined,
           });
           const response = await handler(request);

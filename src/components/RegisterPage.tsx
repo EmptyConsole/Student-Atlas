@@ -3,9 +3,7 @@ import { type Course, type Term } from "../data/courses";
 import { type Subject } from "../data/subjects";
 import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
 import {
-  loadDraftCourses,
-  loadSubmittedCourses,
-  loadSubmittedNotes,
+  loadRankings,
   sendRankingsEmail,
   syncSubmittedCourses,
   syncSubmittedNotes,
@@ -151,16 +149,12 @@ function RegisterPage({
     setHydrated(false);
 
     void (async () => {
-      const [officialRes, draftRes, notesRes] = await Promise.all([
-        loadSubmittedCourses(studentId),
-        loadDraftCourses(studentId),
-        loadSubmittedNotes(studentId),
-      ]);
+      const saved = await loadRankings();
       if (cancelled) return;
 
-      const hasOfficial = officialRes.rankings.length > 0;
+      const hasOfficial = saved.submitted.length > 0;
       neverSubmittedRef.current = !hasOfficial;
-      const rankings = hasOfficial ? officialRes.rankings : draftRes.rankings;
+      const rankings = hasOfficial ? saved.submitted : saved.drafts;
 
       const preferenceByCourseId = new Map<string, number>();
       for (const row of rankings) {
@@ -184,7 +178,7 @@ function RegisterPage({
       const cols = termIds.map((termId) =>
         columnIds(nextModel, termId).slice(0, requiredRankings),
       );
-      const note = notesRes.note ?? "";
+      const note = saved.note;
 
       setModel(nextModel);
       setAppealsNotes(note);
@@ -212,15 +206,11 @@ function RegisterPage({
 
     let cancelled = false;
     void (async () => {
-      const [officialRes, draftRes, notesRes] = await Promise.all([
-        loadSubmittedCourses(studentId),
-        loadDraftCourses(studentId),
-        loadSubmittedNotes(studentId),
-      ]);
-      if (cancelled) return;
+      const saved = await loadRankings();
+      if (cancelled || saved.error) return;
 
-      const hasOfficial = officialRes.rankings.length > 0;
-      const rankings = hasOfficial ? officialRes.rankings : draftRes.rankings;
+      const hasOfficial = saved.submitted.length > 0;
+      const rankings = hasOfficial ? saved.submitted : saved.drafts;
 
       const preferenceByCourseId = new Map<string, number>();
       for (const row of rankings) {
@@ -244,7 +234,7 @@ function RegisterPage({
       const cols = termIds.map((termId) =>
         columnIds(nextModel, termId).slice(0, requiredRankings),
       );
-      const note = notesRes.note ?? "";
+      const note = saved.note;
 
       if (
         snapshotColumns(cols) === snapshotColumns(submittedColumnsRef.current)
@@ -291,7 +281,7 @@ function RegisterPage({
     if (!pendingRefresh.hasOfficial && studentId) {
       // Still a draft — re-assert this screen's rankings as the saved draft.
       const cols = submittedColumnsRef.current;
-      void syncSubmittedCourses(studentId, cols, false);
+      void syncSubmittedCourses(cols, false);
       savedColumnsRef.current = snapshotColumns(cols);
     } else {
       // An official submission was made elsewhere. Treat the on-screen
@@ -327,7 +317,7 @@ function RegisterPage({
     const cols = submittedColumns;
     draftTimerRef.current = setTimeout(() => {
       draftTimerRef.current = null;
-      void syncSubmittedCourses(studentId, cols, false).then(({ error }) => {
+      void syncSubmittedCourses(cols, false).then(({ error }) => {
         if (!error) {
           savedColumnsRef.current = snapshotColumns(cols);
           setSavedEpoch((n) => n + 1);
@@ -355,7 +345,7 @@ function RegisterPage({
       // Only write if a debounced save was waiting — avoids wiping a restored
       // draft during Strict Mode remount or when nothing changed.
       if (!hadPending) return;
-      void syncSubmittedCourses(studentId, submittedColumnsRef.current, false);
+      void syncSubmittedCourses(submittedColumnsRef.current, false);
     };
   }, [studentId]);
 
@@ -394,8 +384,8 @@ function RegisterPage({
     const cols = submittedColumns;
 
     const [coursesResult, notesResult] = await Promise.all([
-      syncSubmittedCourses(studentId, cols, true),
-      syncSubmittedNotes(studentId, noteValue),
+      syncSubmittedCourses(cols, true),
+      syncSubmittedNotes(noteValue),
     ]);
 
     setSubmitting(false);
@@ -410,7 +400,6 @@ function RegisterPage({
     // Email the student a copy of their rankings (non-blocking; the
     // submission already succeeded even if the email fails).
     void sendRankingsEmail(
-      studentId,
       terms.map((term, i) => ({
         termName: term.name,
         courseIds: cols[i] ?? [],
