@@ -45,7 +45,6 @@ import {
   secondaryButtonClass,
   textareaClass,
 } from "./formStyles";
-import { chipClass, iconButtonClass } from "../controlStyles";
 
 type CourseFormModalProps = {
   mode: "add" | "edit";
@@ -598,7 +597,7 @@ function CourseFormModal({
             aria-label="Course editor help"
             disabled={saving}
             onClick={() => setHelpOpen(true)}
-            className={`${iconButtonClass} disabled:cursor-not-allowed disabled:opacity-50`}
+            className="cursor-pointer rounded-full p-1 text-gray-400 transition-colors hover:bg-black/10 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <HelpCircle className="h-5 w-5" />
           </button>
@@ -630,12 +629,12 @@ function CourseFormModal({
       >
         <div className="flex flex-col gap-5">
           {showRestoreBanner && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-main-100 px-4 py-3 text-sm text-ink">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-main-300 bg-main-100 px-4 py-3 text-sm text-gray-700">
               <span>Restored your unsaved changes.</span>
               <button
                 type="button"
                 onClick={discardRestoredDraft}
-                className="inline-flex h-8 shrink-0 cursor-pointer items-center rounded-full border border-line bg-white px-3 text-xs font-medium text-primary transition-colors hover:bg-main-100"
+                className="cursor-pointer rounded-lg border border-main-400 bg-white px-3 py-1 text-xs font-semibold text-gray-700 transition-colors hover:bg-main-100"
               >
                 Discard
               </button>
@@ -757,12 +756,12 @@ function CourseFormModal({
                     type="button"
                     aria-pressed={active}
                     onClick={() => toggleGrade(grade)}
-                    className={`${chipClass} ${
-                      active
-                        ? "font-semibold"
-                        : "border-line bg-white font-medium text-ink-secondary hover:bg-main-100 hover:text-ink"
-                    }`}
-                    style={active ? { backgroundColor: bg, color: fg, borderColor: fg } : undefined}
+                    className="cursor-pointer rounded-full border-2 px-3 py-1 text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2"
+                    style={{
+                      backgroundColor: active ? bg : "transparent",
+                      color: active ? fg : "#6b7280",
+                      borderColor: bg,
+                    }}
                   >
                     {grade}
                   </button>
@@ -781,7 +780,7 @@ function CourseFormModal({
               </div>
             ) : (
               <>
-                <p className="mb-2 text-xs text-ink-muted">
+                <p className="mb-2 text-xs text-gray-400">
                   Pick every term this course spans (e.g. two terms for a
                   year-long course). Use "Add another offering" only when
                   students should rank separate term combinations
@@ -791,7 +790,7 @@ function CourseFormModal({
                   {offerings.map((offering, index) => (
                     <div
                       key={offering.courseId ?? `new-${index}`}
-                      className="flex items-start gap-2 rounded-xl border border-line bg-white p-3"
+                      className="flex items-start gap-2 rounded-xl border border-main-300 bg-white p-3"
                     >
                       <div className="flex flex-wrap gap-2">
                         {terms.map((term) => {
@@ -803,12 +802,12 @@ function CourseFormModal({
                               type="button"
                               aria-pressed={active}
                               onClick={() => toggleTerm(index, term.id)}
-                              className={`${chipClass} ${
-                                active
-                                  ? "font-semibold"
-                                  : "border-line bg-white font-medium text-ink-secondary hover:bg-main-100 hover:text-ink"
-                              }`}
-                              style={active ? { backgroundColor: bg, color: fg, borderColor: fg } : undefined}
+                              className="cursor-pointer rounded-full border-2 px-3 py-1 text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2"
+                              style={{
+                                backgroundColor: active ? bg : "transparent",
+                                color: active ? fg : "#6b7280",
+                                borderColor: bg,
+                              }}
                             >
                               {term.name}
                             </button>
@@ -831,7 +830,7 @@ function CourseFormModal({
                 <button
                   type="button"
                   onClick={addOffering}
-                  className="mt-2 flex cursor-pointer items-center gap-1.5 h-9 rounded-full border border-line bg-white px-4 text-sm font-medium text-primary transition-colors hover:bg-main-100"
+                  className="mt-2 flex cursor-pointer items-center gap-1.5 rounded-lg border border-main-400 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-main-100"
                 >
                   <Plus className="h-4 w-4" />
                   Add another offering
@@ -842,7 +841,7 @@ function CourseFormModal({
 
           <div>
             <span className={labelClass}>Class times</span>
-            <p className="mb-2 text-xs text-ink-muted">
+            <p className="mb-2 text-xs text-gray-400">
               Day is a rotation-day number (1, 2, …). Times are shown in AM/PM
               and stored as minutes from midnight.
             </p>
@@ -851,9 +850,9 @@ function CourseFormModal({
                 {classTimes.map((time) => (
                   <div
                     key={time.key}
-                    className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white p-3"
+                    className="flex flex-wrap items-center gap-2 rounded-xl border border-main-300 bg-white p-3"
                   >
-                    <label className="flex items-center gap-1.5 text-xs font-medium text-ink-secondary">
+                    <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
                       Day
                       <input
                         type="number"
@@ -875,7 +874,7 @@ function CourseFormModal({
                       className={`${inputClass} w-auto`}
                       aria-label="Start time"
                     />
-                    <span className="text-sm text-ink-secondary">to</span>
+                    <span className="text-sm text-gray-500">to</span>
                     <input
                       type="time"
                       value={time.end}
@@ -900,7 +899,7 @@ function CourseFormModal({
             <button
               type="button"
               onClick={addTime}
-              className="flex cursor-pointer items-center gap-1.5 h-9 rounded-full border border-line bg-white px-4 text-sm font-medium text-primary transition-colors hover:bg-main-100"
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-main-400 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-main-100"
             >
               <Plus className="h-4 w-4" />
               Add time
@@ -912,7 +911,7 @@ function CourseFormModal({
             value={prereq}
             onChange={setPrereq}
             courses={builderCourses}
-            accent="var(--color-primary)"
+            accent="#4169e1"
           />
 
           <RequirementBuilder
@@ -920,12 +919,12 @@ function CourseFormModal({
             value={coreq}
             onChange={setCoreq}
             courses={builderCourses}
-            accent="var(--color-primary)"
+            accent="#4169e1"
           />
 
           <div>
             <label htmlFor="course-teacher" className={labelClass}>
-              Teacher <span className="font-normal text-ink-secondary">(optional)</span>
+              Teacher <span className="font-normal text-gray-500">(optional)</span>
             </label>
             <input
               id="course-teacher"
@@ -940,7 +939,7 @@ function CourseFormModal({
           <div>
             <label htmlFor="course-max-students" className={labelClass}>
               Max number of students{" "}
-              <span className="font-normal text-ink-secondary">(optional)</span>
+              <span className="font-normal text-gray-500">(optional)</span>
             </label>
             <input
               id="course-max-students"
@@ -953,14 +952,14 @@ function CourseFormModal({
             />
           </div>
 
-          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-line bg-white px-4 py-3">
+          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-main-300 bg-white px-4 py-3 shadow-sm">
             <input
               type="checkbox"
               checked={retakeable}
               onChange={(e) => setRetakeable(e.target.checked)}
-              className="h-4 w-4 shrink-0 accent-primary"
+              className="h-4 w-4 shrink-0 accent-[#4169e1]"
             />
-            <span className="text-sm font-medium text-ink">
+            <span className="text-sm font-medium text-gray-800">
               Repeatable (students may take this more than once)
             </span>
           </label>

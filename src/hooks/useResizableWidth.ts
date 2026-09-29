@@ -4,8 +4,6 @@ type UseResizableWidthOptions = {
   defaultWidth: number;
   minWidth: number;
   maxWidth: number;
-  /** 1 when dragging right widens (left panel), -1 when dragging left widens (right panel). */
-  direction?: 1 | -1;
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -37,7 +35,6 @@ export function useResizableWidth(
   storageKey: string,
   options: UseResizableWidthOptions,
 ) {
-  const direction = options.direction ?? 1;
   const [width, setWidth] = useState(() => readStoredWidth(storageKey, options));
   const widthRef = useRef(width);
   widthRef.current = width;
@@ -54,7 +51,7 @@ export function useResizableWidth(
       const onMove = (moveEvent: PointerEvent) => {
         if (moveEvent.pointerId !== event.pointerId) return;
         const next = clamp(
-          startWidth + (moveEvent.clientX - startX) * direction,
+          startWidth + (moveEvent.clientX - startX),
           options.minWidth,
           options.maxWidth,
         );
@@ -83,7 +80,7 @@ export function useResizableWidth(
       handle.addEventListener("pointerup", onUp);
       handle.addEventListener("pointercancel", onUp);
     },
-    [direction, options.maxWidth, options.minWidth, storageKey],
+    [options.maxWidth, options.minWidth, storageKey],
   );
 
   return { width, onResizePointerDown };

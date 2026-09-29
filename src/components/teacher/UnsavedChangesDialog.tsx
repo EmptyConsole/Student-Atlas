@@ -42,7 +42,7 @@ function UnsavedChangesDialog({
           </>
         }
       >
-        <p className="text-sm leading-relaxed text-ink-secondary">{message}</p>
+        <p className="text-sm leading-relaxed text-gray-600">{message}</p>
       </ModalShell>
     </div>
   );

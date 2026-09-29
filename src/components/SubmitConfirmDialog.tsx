@@ -1,11 +1,5 @@
 import { useEffect } from "react";
 import { motion } from "motion/react";
-import {
-  dialogBackdropClass,
-  dialogPanelClass,
-  primaryButtonClass,
-  secondaryButtonClass,
-} from "./controlStyles";
 
 type SubmitConfirmDialogProps = {
   open: boolean;
@@ -40,7 +34,7 @@ function SubmitConfirmDialog({
 
   return (
     <div
-      className={dialogBackdropClass}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
       onClick={() => {
         if (!submitting) onCancel();
       }}
@@ -53,20 +47,20 @@ function SubmitConfirmDialog({
         initial={{ opacity: 0, scale: 0.95, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 400, damping: 30 }}
-        className={dialogPanelClass}
+        className="w-full max-w-md rounded-2xl border border-main-300 bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h2
           id="submit-confirm-title"
-          className="text-xl leading-7 font-semibold text-ink"
+          className="text-xl font-bold text-gray-800"
         >
           Submit your rankings?
         </h2>
-        <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+        <p className="mt-3 text-sm leading-relaxed text-gray-600">
           Are you sure you want to submit your course rankings? This will send
           your preferences to your teachers.
         </p>
-        <ul className="mt-4 space-y-1 text-sm text-ink">
+        <ul className="mt-4 space-y-1 text-sm text-gray-700">
           <li>
             <span className="font-semibold">Grade:</span> {grade}
           </li>
@@ -83,7 +77,7 @@ function SubmitConfirmDialog({
             type="button"
             disabled={submitting}
             onClick={onCancel}
-            className={secondaryButtonClass}
+            className="cursor-pointer rounded-lg border border-main-400 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition-all duration-150 hover:scale-105 hover:bg-main-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
           </button>
@@ -91,7 +85,7 @@ function SubmitConfirmDialog({
             type="button"
             disabled={submitting}
             onClick={onConfirm}
-            className={primaryButtonClass}
+            className="cursor-pointer rounded-lg border-0 bg-[#4169e1] px-4 py-2 text-sm font-semibold text-white transition-all duration-150 hover:scale-105 hover:bg-[#3557c7] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? "Submitting…" : "Confirm submit"}
           </button>

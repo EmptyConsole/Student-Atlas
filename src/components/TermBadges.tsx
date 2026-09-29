@@ -31,7 +31,7 @@ function TermBadges({
       {valid.map((offering, index) => (
         <span key={index} className="inline-flex items-center gap-1.5">
           {index > 0 && (
-            <span className="text-xs font-semibold text-ink-muted">/</span>
+            <span className="text-xs font-semibold text-gray-400">/</span>
           )}
           {offering.map((termId, termIndex) => {
             const term = termById.get(termId);
@@ -39,7 +39,7 @@ function TermBadges({
             return (
               <span key={termId} className="inline-flex items-center gap-1.5">
                 {termIndex > 0 && (
-                  <span className="text-xs font-semibold text-ink-muted">+</span>
+                  <span className="text-xs font-semibold text-gray-400">+</span>
                 )}
                 <span
                   className="rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap"

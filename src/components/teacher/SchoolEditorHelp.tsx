@@ -21,9 +21,9 @@ function SchoolEditorHelp({ onClose }: SchoolEditorHelpProps) {
           </button>
         }
       >
-        <div className="flex flex-col gap-4 text-sm leading-relaxed text-ink-secondary">
+        <div className="flex flex-col gap-4 text-sm leading-relaxed text-gray-600">
           <section>
-            <h3 className="mb-1 font-semibold text-ink">
+            <h3 className="mb-1 font-semibold text-gray-800">
               Name, website, city, state
             </h3>
             <p>
@@ -33,7 +33,7 @@ function SchoolEditorHelp({ onClose }: SchoolEditorHelpProps) {
           </section>
 
           <section>
-            <h3 className="mb-1 font-semibold text-ink">Teacher password</h3>
+            <h3 className="mb-1 font-semibold text-gray-800">Teacher password</h3>
             <p>
               Required when creating a school. Teachers enter it to unlock
               editing — keep it away from students. When editing, leave the
@@ -43,7 +43,7 @@ function SchoolEditorHelp({ onClose }: SchoolEditorHelpProps) {
           </section>
 
           <section>
-            <h3 className="mb-1 font-semibold text-ink">Courses by grade</h3>
+            <h3 className="mb-1 font-semibold text-gray-800">Courses by grade</h3>
             <p>
               For each grade: how many courses a student must rank per term, and
               how many electives the sort assigns them per term. Grades not on
@@ -53,7 +53,7 @@ function SchoolEditorHelp({ onClose }: SchoolEditorHelpProps) {
           </section>
 
           <section>
-            <h3 className="mb-1 font-semibold text-ink">Terms</h3>
+            <h3 className="mb-1 font-semibold text-gray-800">Terms</h3>
             <p>
               Add every term students register for (for example Fall and
               Spring). Order matters — use the arrows to rearrange. You need at

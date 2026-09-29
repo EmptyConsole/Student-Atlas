@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Header from "./components/Header";
-import BookmarksPanel from "./components/BookmarksPanel";
+import Sidebar from "./components/Sidebar";
 import CourseBrowser from "./components/CourseBrowser";
 import ProfilePage from "./components/ProfilePage";
 import RegisterPage from "./components/RegisterPage";
@@ -71,19 +71,8 @@ function profileSnapshotsEqual(a: ProfileSnapshot, b: ProfileSnapshot): boolean 
   );
 }
 
-const BOOKMARKS_OPEN_KEY = "student-atlas-bookmarks-open";
-
-function loadBookmarksOpen(): boolean {
-  try {
-    return localStorage.getItem(BOOKMARKS_OPEN_KEY) !== "false";
-  } catch {
-    return true;
-  }
-}
-
 function App() {
   const [activeView, setActiveView] = useState<AppView>("courses");
-  const [bookmarksOpen, setBookmarksOpen] = useState(loadBookmarksOpen);
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
   const [activeSubject, setActiveSubject] = useState<string>("");
   const [registerDirty, setRegisterDirty] = useState(false);
@@ -104,7 +93,7 @@ function App() {
   // — updates made in another tab or on another computer come in automatically.
   const refreshKey = useRefreshOnVisible();
 
-  // Courses are lifted here so both CourseBrowser and BookmarksPanel share the same
+  // Courses are lifted here so both CourseBrowser and Sidebar share the same
   // Supabase data (and therefore the same UUID-based course IDs for bookmarks).
   // Scoped to the student's selected school.
   const { courses, loading: coursesLoading, error: coursesError } = useCourses(
@@ -112,7 +101,7 @@ function App() {
     refreshKey,
   );
 
-  // Subjects (sections + department chips) come from the Supabase `departments`
+  // Subjects (sections + sidebar tabs) come from the Supabase `departments`
   // table so the catalog reflects whatever is configured there.
   const { subjects } = useSubjects(profile.schoolId, refreshKey);
 
@@ -342,18 +331,6 @@ function App() {
     });
   };
 
-  const toggleBookmarksPanel = () => {
-    setBookmarksOpen((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(BOOKMARKS_OPEN_KEY, String(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
-  };
-
   const handleNavigate = (view: AppView) => {
     if (activeView === "register" && registerDirty && view !== "register") {
       setPendingNav(view);
@@ -383,6 +360,15 @@ function App() {
       <Header activeView={activeView} onNavigate={handleNavigate} />
       {activeView === "courses" && (
         <div className="flex flex-1 overflow-hidden">
+          <Sidebar
+            courses={courses}
+            subjects={subjects}
+            termById={termById}
+            bookmarks={bookmarks}
+            onToggleBookmark={toggleBookmark}
+            activeSubject={activeSubject}
+            onSelectSubject={setActiveSubject}
+          />
           <CourseBrowser
             courses={courses}
             subjects={subjects}
@@ -397,20 +383,7 @@ function App() {
             onUpdateCourseNote={updateCourseNote}
             activeSubject={activeSubject}
             onActiveSubjectChange={setActiveSubject}
-            bookmarksOpen={bookmarksOpen}
-            onToggleBookmarksPanel={toggleBookmarksPanel}
           />
-          {bookmarksOpen && (
-            <BookmarksPanel
-              courses={courses}
-              subjects={subjects}
-              termById={termById}
-              bookmarks={bookmarks}
-              onToggleBookmark={toggleBookmark}
-              onSelectSubject={setActiveSubject}
-              onClose={toggleBookmarksPanel}
-            />
-          )}
         </div>
       )}
       {activeView === "profile" && (

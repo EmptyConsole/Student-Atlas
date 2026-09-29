@@ -12,7 +12,6 @@ import {
   secondaryButtonClass,
   textareaClass,
 } from "./formStyles";
-import { iconButtonClass } from "../controlStyles";
 
 type DepartmentFormModalProps = {
   mode: "add" | "edit";
@@ -77,7 +76,7 @@ function DepartmentFormModal({
             aria-label="Department editor help"
             disabled={saving}
             onClick={() => setHelpOpen(true)}
-            className={`${iconButtonClass} disabled:cursor-not-allowed disabled:opacity-50`}
+            className="cursor-pointer rounded-full p-1 text-gray-400 transition-colors hover:bg-black/10 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <HelpCircle className="h-5 w-5" />
           </button>
@@ -132,7 +131,7 @@ function DepartmentFormModal({
               type="text"
               value={subtitle}
               onChange={(e) => setSubtitle(e.target.value)}
-              placeholder="Short tagline shown under the department heading"
+              placeholder="Short tagline shown in the sidebar"
               className={inputClass}
             />
           </div>

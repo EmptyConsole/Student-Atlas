@@ -1,24 +1,26 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Bookmark, X } from "lucide-react";
-import type { Subject } from "../data/subjects";
+import { Bookmark } from "lucide-react";
+import { REQUIREMENTS_KEY, type Subject } from "../data/subjects";
 import type { Course, Term } from "../data/courses";
-import { buildDisplayCourses, repCourse } from "../utils/courseGrouping";
-import { iconButtonClass } from "./controlStyles";
+import {
+  buildDisplayCourses,
+  repCourse,
+} from "../utils/courseGrouping";
 import MarqueeText, { Marquee } from "./MarqueeText";
+import RequirementsBookmark from "./RequirementsBookmark";
 import ResizableAside from "./ResizableAside";
+import SubjectBookmark from "./SubjectBookmark";
 import TermBadges from "./TermBadges";
 
-export const BOOKMARKS_PANEL_ID = "bookmarks-panel";
-
-type BookmarksPanelProps = {
+type SidebarProps = {
   courses: Course[];
   subjects: Subject[];
   termById: Map<string, Term>;
   bookmarks: Set<string>;
   onToggleBookmark: (id: string) => void;
+  activeSubject: string;
   onSelectSubject: (name: string) => void;
-  onClose: () => void;
 };
 
 type BookmarkEntry = {
@@ -26,6 +28,7 @@ type BookmarkEntry = {
   title: string;
   /** Bookmarked offering rows for multi-row courses (term badges). */
   offerings?: string[][];
+  subject: string;
   onRemove: () => void;
 };
 
@@ -56,34 +59,35 @@ function BookmarkRow({
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="flex w-full items-start gap-1 rounded-lg px-1 py-1 transition-colors hover:bg-main-100"
+      className="flex w-full items-start gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-white/60"
     >
       <button
         type="button"
         onClick={entry.onRemove}
         aria-label={`Remove ${entry.title} bookmark`}
-        className="inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-main-600"
+        className="mt-0.5 shrink-0 cursor-pointer rounded p-0.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
         style={{ color: accent }}
       >
-        <Bookmark className="h-4 w-4" fill={accent} />
+        <Bookmark className="h-3.5 w-3.5" fill={accent} />
       </button>
       <button
         type="button"
         onClick={onSelect}
-        className="min-w-0 flex-1 cursor-pointer py-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-main-600"
+        className="min-w-0 flex-1 cursor-pointer text-left focus:outline-none focus-visible:ring-2"
+        style={{ color: accent }}
       >
         <MarqueeText
           text={entry.title}
           active={hovered}
-          className="text-sm font-medium text-ink"
+          className="text-xs font-medium"
         />
         {entry.offerings && entry.offerings.length > 0 && (
-          <Marquee active={hovered} className="mt-1">
+          <Marquee active={hovered} className="mt-0.5">
             <TermBadges
               offerings={entry.offerings}
               termById={termById}
               wrap={false}
-              className="origin-left scale-90"
+              className="scale-90 origin-left"
             />
           </Marquee>
         )}
@@ -92,16 +96,17 @@ function BookmarkRow({
   );
 }
 
-/** Right-side panel listing bookmarked courses, grouped by department. */
-function BookmarksPanel({
+function Sidebar({
   courses,
   subjects,
   termById,
   bookmarks,
   onToggleBookmark,
+  activeSubject,
   onSelectSubject,
-  onClose,
-}: BookmarksPanelProps) {
+}: SidebarProps) {
+  const activeItemRef = useRef<HTMLLIElement>(null);
+
   const entriesBySubject = useMemo(() => {
     const map = new Map<string, BookmarkEntry[]>();
     for (const subject of subjects) map.set(subject.name, []);
@@ -124,6 +129,7 @@ function BookmarksPanel({
           scrollId: course.id,
           title: course.title,
           offerings: bookmarkedOfferings.map((o) => o.termOptions),
+          subject: course.subject,
           onRemove: () => {
             for (const offering of bookmarkedOfferings) {
               onToggleBookmark(offering.courseId);
@@ -137,6 +143,7 @@ function BookmarksPanel({
       map.get(course.subject)?.push({
         scrollId: course.id,
         title: course.title,
+        subject: course.subject,
         onRemove: () => onToggleBookmark(course.id),
       });
     }
@@ -144,10 +151,19 @@ function BookmarksPanel({
     return map;
   }, [courses, subjects, termById, bookmarks, onToggleBookmark]);
 
-  const total = [...entriesBySubject.values()].reduce(
-    (sum, list) => sum + list.length,
-    0,
-  );
+  const handleSelectRequirements = () => {
+    onSelectSubject(REQUIREMENTS_KEY);
+    document
+      .getElementById(`subject-${REQUIREMENTS_KEY}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleSelect = (name: string) => {
+    onSelectSubject(name);
+    document
+      .getElementById(`subject-${name}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const handleBookmarkSelect = (courseId: string, subjectName: string) => {
     onSelectSubject(subjectName);
@@ -156,90 +172,95 @@ function BookmarksPanel({
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  return (
-    <ResizableAside
-      id={BOOKMARKS_PANEL_ID}
-      side="right"
-      label="Bookmarked courses"
-      storageKey="student-atlas-bookmarks-width"
-    >
-      <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-line pr-2 pl-4">
-        <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
-          Bookmarks
-          <span className="rounded-full bg-main-200 px-2 py-0.5 text-xs font-medium text-ink-secondary">
-            {total}
-          </span>
-        </h2>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close bookmarks"
-          className={iconButtonClass}
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
+  useEffect(() => {
+    activeItemRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }, [activeSubject]);
 
-      <div className="flex-1 overflow-y-auto px-3 py-4">
-        {total === 0 ? (
-          <p className="px-1 text-sm leading-relaxed text-ink-muted">
-            No bookmarks yet. Use the bookmark icon on a course to save it here.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <AnimatePresence initial={false}>
-              {subjects.map((subject) => {
-                const entries = entriesBySubject.get(subject.name) ?? [];
-                if (entries.length === 0) return null;
-                return (
-                  <motion.section
-                    key={subject.name}
-                    layout
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <h3 className="mb-1 flex items-center gap-2 px-1 text-xs font-semibold tracking-wide text-ink-secondary uppercase">
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: subject.accent }}
-                        aria-hidden="true"
-                      />
-                      <span className="truncate">{subject.name}</span>
-                    </h3>
-                    <ul className="flex flex-col gap-0.5">
+  return (
+    <ResizableAside storageKey="student-atlas-sidebar-width">
+      <nav aria-label="Course subjects" className="flex-1 overflow-y-auto py-3">
+        <ul className="flex flex-col gap-1.5">
+          <li
+            ref={activeSubject === REQUIREMENTS_KEY ? activeItemRef : null}
+            className="flex flex-col items-end"
+          >
+            <RequirementsBookmark
+              isActive={activeSubject === REQUIREMENTS_KEY}
+              onClick={handleSelectRequirements}
+            />
+          </li>
+          {subjects.map((subject) => {
+            const isActive = activeSubject === subject.name;
+            const subjectBookmarks = entriesBySubject.get(subject.name) ?? [];
+
+            return (
+              <li
+                key={subject.name}
+                ref={isActive ? activeItemRef : null}
+                className="flex flex-col items-end"
+              >
+                <SubjectBookmark
+                  label={subject.name}
+                  description={subject.description}
+                  color={subject.color}
+                  tint={subject.tint}
+                  accent={subject.accent}
+                  isActive={isActive}
+                  onClick={() => handleSelect(subject.name)}
+                />
+
+                <AnimatePresence initial={false}>
+                  {subjectBookmarks.length > 0 && (
+                    <motion.ul
+                      layout
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="mt-1 flex w-[98%] flex-col gap-1 pr-3 pl-[calc(40px+0.85rem)]"
+                    >
                       <AnimatePresence initial={false}>
-                        {entries.map((entry) => (
+                        {subjectBookmarks.map((entry) => (
                           <motion.li
                             key={entry.scrollId}
                             layout
                             initial={{ opacity: 0, x: 12 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: 12 }}
-                            transition={{ type: "spring", stiffness: 400, damping: 34 }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 400,
+                              damping: 34,
+                            }}
+                            className="flex items-center gap-1.5"
                           >
                             <BookmarkRow
                               entry={entry}
                               accent={subject.accent}
                               termById={termById}
                               onSelect={() =>
-                                handleBookmarkSelect(entry.scrollId, subject.name)
+                                handleBookmarkSelect(
+                                  entry.scrollId,
+                                  subject.name,
+                                )
                               }
                             />
                           </motion.li>
                         ))}
                       </AnimatePresence>
-                    </ul>
-                  </motion.section>
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        )}
-      </div>
+                    </motion.ul>
+                  )}
+                </AnimatePresence>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
     </ResizableAside>
   );
 }
 
-export default BookmarksPanel;
+export default Sidebar;

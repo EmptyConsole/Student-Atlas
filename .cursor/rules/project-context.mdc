@@ -7,45 +7,29 @@ alwaysApply: true
 
 Internal notes for developers and AI. Not part of the user-facing app.
 
-Source of truth for design tokens is `design/tokens.json`, mirrored in `src/index.css` (`@theme`) and `src/components/controlStyles.ts` (shared button, field, tab, card, and dialog classes). Change all three together.
-
 ## Color Palette
 
 ### Main (blue scale, light to saturated)
 
 | Token    | Hex       |
 | -------- | --------- |
-| main-100 | `#eff3fd` |
-| main-200 | `#e1e9fc` |
-| main-300 | `#cedbf8` |
-| main-400 | `#bdcdf2` |
-| main-500 | `#a9bdea` |
-| main-600 | `#97ade0` |
-| main-700 | `#859dd6` |
+| main-100 | `#edf2fb` |
+| main-200 | `#e2eafc` |
+| main-300 | `#d7e3fc` |
+| main-400 | `#ccdbfd` |
+| main-500 | `#c1d3fe` |
+| main-600 | `#b6ccfe` |
+| main-700 | `#abc4ff` |
 
 ### Other / Sub Detail (warm neutrals and creams)
 
 | Token      | Hex       |
 | ---------- | --------- |
-| detail-100 | `#fbf8ef` |
-| detail-200 | `#f4efd4` |
-| detail-300 | `#e6d4a4` |
-| detail-400 | `#f7f4ec` |
-| detail-500 | `#ebe4cc` |
-
-### Roles
-
-| Token             | Hex       | Use                                  |
-| ----------------- | --------- | ------------------------------------ |
-| primary           | `#2b56da` | Filled buttons, selected tabs, links |
-| primary-pressed   | `#294aae` | Hover/pressed filled buttons         |
-| ink               | `#1c212e` | Headings and body text               |
-| ink-secondary     | `#585f6f` | Supporting text                      |
-| ink-muted         | `#676f7e` | Placeholders, hints, counts          |
-| line              | `#c8d1e4` | Borders and dividers                 |
-| surface-muted     | `#f4f6f8` | Neutral badges and quiet fills       |
-
-Department colors (`src/data/subjects.ts`) are accents only: a 4px card edge, chip dots, and grade badges. Cards stay white.
+| detail-100 | `#fffff0` |
+| detail-200 | `#fffdd0` |
+| detail-300 | `#f3e5ab` |
+| detail-400 | `#faf9f6` |
+| detail-500 | `#f5f5dc` |
 
 ## Typography
 
@@ -53,4 +37,4 @@ The site's main font is `font-sans` (Tailwind utility class).
 
 ## Project Notes
 
-- Student catalog layout: department chips above the course list (`DepartmentTabs`), bookmarks in a resizable right panel (`BookmarksPanel`). Teacher catalog uses the same chips. Full and Compact are a segmented switch.
+_Add internal notes here as they come up._

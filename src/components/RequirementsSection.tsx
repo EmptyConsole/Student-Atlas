@@ -25,7 +25,7 @@ function RequirementsSection({ subjects }: RequirementsSectionProps) {
       id={`subject-${REQUIREMENTS_KEY}`}
       data-subject={REQUIREMENTS_KEY}
       aria-labelledby="requirements-heading"
-      className="scroll-mt-6 rounded-2xl border border-line bg-white p-5"
+      className="scroll-mt-4 rounded-2xl border border-main-300 bg-white p-4 shadow-sm"
     >
       <div
         role="button"
@@ -39,18 +39,18 @@ function RequirementsSection({ subjects }: RequirementsSectionProps) {
             toggleCollapsed();
           }
         }}
-        className="flex cursor-pointer items-center gap-3 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-main-600"
+        className="flex cursor-pointer items-start gap-3 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500"
       >
         <ChevronDown
-          className="h-5 w-5 shrink-0 text-ink-secondary transition-transform duration-200"
+          className="mt-0.5 h-5 w-5 shrink-0 transition-transform duration-200"
           style={{ transform: collapsed ? "rotate(180deg)" : "rotate(0deg)" }}
         />
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <GraduationCap className="h-6 w-6 shrink-0 text-primary" aria-hidden="true" />
-          <h2
-            id="requirements-heading"
-            className="text-xl leading-7 font-semibold text-ink"
-          >
+          <GraduationCap
+            className="h-6 w-6 shrink-0 text-gray-700"
+            aria-hidden="true"
+          />
+          <h2 id="requirements-heading" className="text-xl font-bold text-gray-800">
             Requirements
           </h2>
         </div>
@@ -67,27 +67,33 @@ function RequirementsSection({ subjects }: RequirementsSectionProps) {
             className="overflow-hidden"
           >
             {subjectsWithRequirements.length === 0 ? (
-              <p className="mt-4 pl-8 text-sm text-ink-muted">
+              <p className="mt-3 pl-11 text-sm text-gray-400">
                 No graduation requirements listed.
               </p>
             ) : (
-              <ul className="mt-4 grid gap-x-6 gap-y-4 pl-8 md:grid-cols-2">
+              <ul className="mt-3 flex flex-col gap-3 pl-11">
                 {subjectsWithRequirements.map((subject) => {
                   const Icon = getSubjectIcon(subject.name);
                   return (
                     <li key={subject.name} className="flex items-start gap-3">
                       <span
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                        className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
                         style={{ backgroundColor: subject.tint }}
                         aria-hidden="true"
                       >
-                        <Icon className="h-4 w-4" style={{ color: subject.accent }} />
+                        <Icon
+                          className="h-4 w-4"
+                          style={{ color: subject.accent }}
+                        />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-base leading-snug font-semibold text-ink">
+                        <p
+                          className="text-base font-bold leading-snug"
+                          style={{ color: subject.accent }}
+                        >
                           {subject.name}
                         </p>
-                        <p className="mt-0.5 text-sm leading-snug text-ink-secondary">
+                        <p className="mt-0.5 text-sm leading-snug text-gray-600">
                           {subject.graduationRequirement}
                         </p>
                       </div>

@@ -1,6 +1,5 @@
 import { LogOut } from "lucide-react";
 import AtlasWordmark from "./AtlasWordmark";
-import { textButtonClass } from "./controlStyles";
 
 type TeacherHeaderProps = {
   onSwitchSchool?: () => void;
@@ -8,7 +7,7 @@ type TeacherHeaderProps = {
 
 function TeacherHeader({ onSwitchSchool }: TeacherHeaderProps) {
   return (
-    <header className="flex h-16 w-full shrink-0 items-center gap-4 border-b border-line bg-main-200 px-4 sm:px-6">
+    <header className="flex h-16 w-full items-center bg-main-200 px-4 sm:px-6">
       <div className="flex items-center gap-3">
         <img
           src="/BetterEmptyConsoleLogo copy.png"
@@ -21,7 +20,7 @@ function TeacherHeader({ onSwitchSchool }: TeacherHeaderProps) {
         <button
           type="button"
           onClick={onSwitchSchool}
-          className={`${textButtonClass} ml-auto`}
+          className="ml-auto flex h-10 cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-gray-600 transition-colors hover:bg-main-100 hover:text-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500"
         >
           <LogOut className="h-4 w-4" />
           Switch school

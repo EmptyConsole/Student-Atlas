@@ -35,7 +35,7 @@ import {
   type SchoolInput,
   type UnlockedSession,
 } from "../lib/teacher";
-import DepartmentTabs from "./DepartmentTabs";
+import TeacherSidebar from "./TeacherSidebar";
 import TeacherSubjectSection from "./TeacherSubjectSection";
 import AddMenu, { type AddKind } from "./teacher/AddMenu";
 import CourseFormModal from "./teacher/CourseFormModal";
@@ -46,14 +46,7 @@ import SchoolFormModal, {
 } from "./teacher/SchoolFormModal";
 import ConfirmDeleteDialog from "./teacher/ConfirmDeleteDialog";
 import ModalShell from "./teacher/ModalShell";
-import {
-  dangerOutlineButtonClass,
-  primaryButtonClass,
-  searchInputClass,
-  secondaryButtonClass,
-  spinnerClass,
-  warningCalloutClass,
-} from "./controlStyles";
+import { primaryButtonClass, secondaryButtonClass } from "./teacher/formStyles";
 import CatalogLayoutToggle, {
   LAYOUT_SWITCH_TRANSITION,
 } from "./CatalogLayoutToggle";
@@ -438,7 +431,7 @@ function TeacherCatalog({
     if (!deleteState) return null;
 
     const cannotBeUndone = (
-      <strong className="mt-1.5 block text-ink">This cannot be undone.</strong>
+      <strong className="mt-1.5 block text-gray-700">This cannot be undone.</strong>
     );
 
     if (deleteState.kind === "course") {
@@ -537,80 +530,73 @@ function TeacherCatalog({
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-detail-400">
-        <div className="z-20 shrink-0 border-b border-line bg-detail-400">
-          <div className="mx-auto w-full max-w-[1280px] px-4 pt-5 sm:px-6">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-3">
-              <div className="min-w-0 flex-1">
-                <h1 className="truncate text-xl leading-7 font-semibold text-ink">
-                  {school.name}
-                </h1>
-                <p className="truncate text-sm text-ink-secondary">Teacher editing</p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <AddMenu onSelect={handleAdd} />
-                <button
-                  type="button"
-                  onClick={handleEditSchool}
-                  className={secondaryButtonClass}
-                >
-                  <Pencil className="h-4 w-4" />
-                  Edit school
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeleteError(null);
-                    setDeleteState({ kind: "school" });
-                  }}
-                  className={dangerOutlineButtonClass}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Delete school
-                </button>
-              </div>
-            </div>
+      <TeacherSidebar
+        subjects={subjects}
+        activeSubject={activeSubject}
+        onSelectSubject={setActiveSubject}
+      />
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <div className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute top-1/2 left-3.5 h-5 w-5 -translate-y-1/2 text-ink-muted" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search courses by title or description..."
-                  aria-label="Search courses"
-                  className={searchInputClass}
-                />
-              </div>
+      <main className="flex flex-1 flex-col overflow-hidden bg-detail-400">
+        <div className="sticky top-0 z-20 flex flex-col gap-3 border-b border-dashed border-main-400 bg-detail-400/95 px-6 pt-6 pb-4 backdrop-blur">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-2xl font-bold text-gray-800">
+                {school.name}
+              </h1>
+              <p className="truncate text-sm text-gray-500">Teacher editing</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
               <CatalogLayoutToggle
                 compact={catalogLayout === "teacher"}
                 onToggle={toggleCatalogLayout}
+                ariaLabelFull="Student preview on — switch to compact teacher view"
+                ariaLabelCompact="Compact teacher view — switch to student preview"
+                titleFull="Student preview (click for compact view)"
+                titleCompact="Compact teacher view (click for student preview)"
               />
+              <AddMenu onSelect={handleAdd} />
+              <button
+                type="button"
+                onClick={handleEditSchool}
+                className="flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-main-400 bg-white px-4 text-sm font-semibold text-gray-700 shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-main-100 active:scale-95"
+              >
+                <Pencil className="h-4 w-4" />
+                Edit school
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteError(null);
+                  setDeleteState({ kind: "school" });
+                }}
+                className="flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-600 shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-red-50 active:scale-95"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete school
+              </button>
             </div>
+          </div>
 
-            {subjects.length > 0 ? (
-              <DepartmentTabs
-                subjects={subjects}
-                activeSubject={activeSubject}
-                onSelectSubject={setActiveSubject}
-                className="mt-3 pb-4"
-              />
-            ) : (
-              <div className="h-4" />
-            )}
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-3.5 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search courses by title or description..."
+              className="h-12 w-full rounded-xl border border-main-400 bg-white pr-4 pl-11 text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500"
+            />
           </div>
         </div>
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1280px] px-4 pt-6 pb-12 sm:px-6">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pt-2 pb-10">
           {catalogNotice && (
-            <div className={`${warningCalloutClass} mb-4 flex flex-wrap items-center justify-between gap-3`}>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               <span>{catalogNotice}</span>
               <button
                 type="button"
                 onClick={() => setCatalogNotice(null)}
-                className="inline-flex h-8 shrink-0 cursor-pointer items-center rounded-full border border-amber-400 bg-white px-3 text-xs font-medium text-amber-900 transition-colors hover:bg-amber-100"
+                className="shrink-0 cursor-pointer rounded-lg border border-amber-400 bg-white px-3 py-1 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100"
               >
                 Dismiss
               </button>
@@ -618,13 +604,13 @@ function TeacherCatalog({
           )}
           {initialLoading ? (
             <div className="flex items-center justify-center py-16">
-              <div className={spinnerClass} />
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-main-300 border-t-main-600" />
             </div>
           ) : subjects.length === 0 && courses.length === 0 ? (
             <div className="mx-auto max-w-md py-16 text-center">
-              <p className="text-ink-secondary">
+              <p className="text-gray-500">
                 This school has no departments yet. Use{" "}
-                <span className="font-semibold text-ink">Add</span> to
+                <span className="font-semibold text-gray-700">Add</span> to
                 create your first department, then add courses.
               </p>
             </div>
@@ -645,7 +631,6 @@ function TeacherCatalog({
               </AnimatePresence>
             </LayoutGroup>
           )}
-          </div>
         </div>
       </main>
 
@@ -727,7 +712,7 @@ function TeacherCatalog({
             </>
           }
         >
-          <p className="text-sm leading-relaxed text-ink-secondary">
+          <p className="text-sm leading-relaxed text-gray-600">
             {createdSchool.name} was created. Switch to it now to add
             departments and courses?
           </p>

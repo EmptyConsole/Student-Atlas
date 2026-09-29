@@ -23,9 +23,9 @@ This product is for students, teachers, and counselors. Copy and UI should stay 
 
 # Project Structure
 
-- `src/App.tsx` — student shell: header, catalog (department chips + bookmarks panel) / register / profile views
+- `src/App.tsx` — student shell: header, sidebar, catalog / register / profile views
 - `src/main.tsx` — router: `/teacher` → teacher app, `/*` → student app
-- `src/components/` — student UI (`CourseBrowser`, `DepartmentTabs`, `BookmarksPanel`, `RegisterPage`, `ProfilePage`, `Header`, …); shared control classes in `controlStyles.ts`
+- `src/components/` — student UI (`CourseBrowser`, `RegisterPage`, `ProfilePage`, `Header`, `Sidebar`, …)
 - `src/components/teacher/` — teacher catalog forms, modals, and unsaved-change guards
 - `src/hooks/` — data hooks (`useCourses`, `useProfile`, `useSubjects`, `useTerms`, school settings)
 - `src/lib/` — Supabase client, student sync, teacher API wrappers, elective sort orchestration
