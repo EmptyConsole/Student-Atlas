@@ -4,7 +4,7 @@ import { buildSubjects, type Subject } from "../data/subjects";
 
 /**
  * Loads the school's departments from Supabase and turns them into the app's
- * Subject list (section headers + sidebar tabs). Editing the `departments` table
+ * Subject list (section headers + department chips). Editing the `departments` table
  * in Supabase is reflected here on the next load; colors are assigned by order
  * and loop once there are more departments than palette entries.
  */

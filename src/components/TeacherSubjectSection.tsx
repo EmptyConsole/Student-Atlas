@@ -6,6 +6,7 @@ import type { Term } from "../data/courses";
 import { offeringsOf, repCourse, type DisplayCourse } from "../utils/courseGrouping";
 import TeacherCourseCard from "./TeacherCourseCard";
 import { LAYOUT_SWITCH_TRANSITION } from "./CatalogLayoutToggle";
+import { iconButtonCompactClass } from "./controlStyles";
 
 type TeacherSubjectSectionProps = {
   subject: Subject;
@@ -60,43 +61,41 @@ function TeacherSubjectSection({
     <section
       id={`subject-${subject.name}`}
       data-subject={subject.name}
-      className="scroll-mt-4"
+      className="scroll-mt-6"
     >
-      <div className="mb-3 flex items-start gap-3">
-        <span
-          className="mt-1 h-6 w-2 shrink-0 rounded-full"
-          style={{ backgroundColor: subject.color }}
-          aria-hidden="true"
-        />
+      <div className="mb-4 flex items-start gap-2">
         <button
           type="button"
           aria-expanded={!collapsed}
           aria-label={collapsed ? `Expand ${subject.name}` : `Collapse ${subject.name}`}
           onClick={() => setCollapsed((c) => !c)}
-          className="cursor-pointer rounded-full p-1.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
-          style={{ color: subject.accent, outlineColor: subject.accent }}
+          className={`${iconButtonCompactClass} -ml-1 text-ink-secondary`}
         >
           <ChevronDown
             className="h-5 w-5 shrink-0 transition-transform duration-200"
             style={{ transform: collapsed ? "rotate(180deg)" : "rotate(0deg)" }}
           />
         </button>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold" style={{ color: subject.accent }}>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1">
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: subject.accent }}
+              aria-hidden="true"
+            />
+            <h2 className="text-xl leading-7 font-semibold text-ink">
               {subject.name}
             </h2>
-            <span className="text-sm font-medium text-gray-400">
+            <span className="text-sm text-ink-muted">
               {items.length} {items.length === 1 ? "course" : "courses"}
             </span>
             {editable && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 <button
                   type="button"
                   aria-label={`Edit ${subject.name} department`}
                   onClick={onEditDepartment}
-                  className="cursor-pointer rounded-full p-1.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
-                  style={{ color: subject.accent }}
+                  className={`${iconButtonCompactClass} text-ink-secondary hover:text-primary`}
                 >
                   <Pencil className="h-4 w-4" />
                 </button>
@@ -104,16 +103,21 @@ function TeacherSubjectSection({
                   type="button"
                   aria-label={`Delete ${subject.name} department`}
                   onClick={onDeleteDepartment}
-                  className="cursor-pointer rounded-full p-1.5 text-red-500 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
+                  className={`${iconButtonCompactClass} text-red-600`}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             )}
           </div>
+          {subject.description && (
+            <p className="text-sm leading-snug text-ink-secondary">
+              {subject.description}
+            </p>
+          )}
           {!collapsed && subject.graduationRequirement && (
-            <p className="text-sm leading-snug text-gray-600">
-              <span className="font-bold">Graduation Requirement: </span>
+            <p className="text-sm leading-snug text-ink-secondary">
+              <span className="font-semibold text-ink">Graduation Requirement: </span>
               {subject.graduationRequirement}
             </p>
           )}
@@ -142,7 +146,7 @@ function TeacherSubjectSection({
                 }
               >
                 {items.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-main-300 px-4 py-6 text-center text-sm text-gray-400">
+                  <p className="rounded-2xl border border-dashed border-line bg-white/60 px-4 py-6 text-center text-sm text-ink-muted">
                     No courses in this department yet.
                   </p>
                 ) : compact ? (

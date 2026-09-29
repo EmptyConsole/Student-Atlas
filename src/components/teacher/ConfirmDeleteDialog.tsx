@@ -107,13 +107,13 @@ function ConfirmDeleteDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <div className="text-sm leading-relaxed text-gray-600">{message}</div>
+        <div className="text-sm leading-relaxed text-ink-secondary">{message}</div>
 
         {nameToMatch != null && (
           <div>
             <label htmlFor="delete-name" className={labelClass}>
               Type the school name{" "}
-              <span className="font-normal text-gray-400">
+              <span className="font-normal text-ink-muted">
                 ({nameToMatch})
               </span>{" "}
               to confirm

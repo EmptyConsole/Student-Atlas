@@ -1,20 +1,20 @@
-/** Sentinel value for the Requirements sidebar tab and scroll-spy target. */
+/** Sentinel value for the Requirements department tab and scroll-spy target. */
 export const REQUIREMENTS_KEY = "__requirements__";
 
 export type Subject = {
   name: string;
-  /** Sidebar tagline from the Supabase `departments.subtitle` column. */
+  /** Tagline under the section heading, from the Supabase `departments.subtitle` column. */
   description: string;
   /**
    * Optional graduation requirement for the department, shown under the section
    * heading. Comes from the Supabase `departments.graduation_requirement` column.
    */
   graduationRequirement?: string;
-  /** Pastel color used for the sidebar bookmark tab. */
+  /** Mid-tone pastel for the department. */
   color: string;
-  /** Very light pastel tint used as the course card background. */
+  /** Very light pastel tint behind grade badges and department icons. */
   tint: string;
-  /** Slightly stronger accent (text/badges) that reads on the tint. */
+  /** Stronger department color for card edges, tab dots, and badge text on the tint. */
   accent: string;
 };
 

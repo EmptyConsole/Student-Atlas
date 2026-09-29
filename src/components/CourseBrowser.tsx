@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
-import { Search } from "lucide-react";
+import { Bookmark, Search } from "lucide-react";
 import type { Subject } from "../data/subjects";
 import {
   DEFAULT_FILTERS,
@@ -11,9 +11,16 @@ import {
 } from "../data/courses";
 import type { UserProfile } from "../hooks/useProfile";
 import { buildDisplayCourses, repCourse, type DisplayCourse } from "../utils/courseGrouping";
+import { BOOKMARKS_PANEL_ID } from "./BookmarksPanel";
 import CatalogLayoutToggle, {
   LAYOUT_SWITCH_TRANSITION,
 } from "./CatalogLayoutToggle";
+import {
+  searchInputClass,
+  spinnerClass,
+  toolbarButtonClass,
+} from "./controlStyles";
+import DepartmentTabs from "./DepartmentTabs";
 import FilterPanel from "./FilterPanel";
 import RequirementsSection from "./RequirementsSection";
 import SubjectSection from "./SubjectSection";
@@ -33,6 +40,8 @@ type CourseBrowserProps = {
   onUpdateCourseNote: (courseId: string, note: string) => void;
   activeSubject: string;
   onActiveSubjectChange: (name: string) => void;
+  bookmarksOpen: boolean;
+  onToggleBookmarksPanel: () => void;
 };
 
 type BrowserLayout = "full" | "compact";
@@ -63,6 +72,8 @@ function CourseBrowser({
   onUpdateCourseNote,
   activeSubject,
   onActiveSubjectChange,
+  bookmarksOpen,
+  onToggleBookmarksPanel,
 }: CourseBrowserProps) {
   const [search, setSearch] = useState("");
   const [browserLayout, setBrowserLayout] = useState<BrowserLayout>(loadBrowserLayout);
@@ -77,6 +88,11 @@ function CourseBrowser({
   activeRef.current = activeSubject;
 
   const compact = browserLayout === "compact";
+
+  const bookmarkCount = useMemo(
+    () => courses.filter((course) => bookmarks.has(course.id)).length,
+    [courses, bookmarks],
+  );
 
   const itemsBySubject = useMemo(() => {
     const map = new Map<string, DisplayCourse[]>();
@@ -151,42 +167,70 @@ function CourseBrowser({
   );
 
   return (
-    <main className="flex flex-1 flex-col overflow-hidden bg-detail-400">
-      <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-dashed border-main-400 bg-detail-400/95 px-6 pt-6 pb-4 backdrop-blur">
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3.5 h-5 w-5 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search courses by title or description..."
-            className="h-12 w-full rounded-xl border border-main-400 bg-white pr-4 pl-11 text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500"
+    <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-detail-400">
+      <div className="z-20 shrink-0 border-b border-line bg-detail-400">
+        <div className="mx-auto w-full max-w-[1280px] px-4 pt-5 sm:px-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute top-1/2 left-3.5 h-5 w-5 -translate-y-1/2 text-ink-muted" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search courses by title or description..."
+                aria-label="Search courses"
+                className={searchInputClass}
+              />
+            </div>
+            <CatalogLayoutToggle compact={compact} onToggle={toggleBrowserLayout} />
+            <FilterPanel
+              filters={filters}
+              onChange={setFilters}
+              terms={terms}
+              grades={schoolGrades}
+            />
+            <button
+              type="button"
+              onClick={onToggleBookmarksPanel}
+              aria-expanded={bookmarksOpen}
+              aria-controls={BOOKMARKS_PANEL_ID}
+              className={toolbarButtonClass(bookmarksOpen)}
+            >
+              <Bookmark className="h-5 w-5" fill={bookmarksOpen ? "currentColor" : "none"} />
+              <span className="hidden sm:inline">Bookmarks</span>
+              {bookmarkCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-white">
+                  {bookmarkCount}
+                </span>
+              )}
+            </button>
+          </div>
+          <DepartmentTabs
+            subjects={subjects}
+            activeSubject={activeSubject}
+            onSelectSubject={onActiveSubjectChange}
+            showRequirements
+            className="mt-3 pb-4"
           />
         </div>
-        <CatalogLayoutToggle compact={compact} onToggle={toggleBrowserLayout} />
-        <FilterPanel
-          filters={filters}
-          onChange={setFilters}
-          terms={terms}
-          grades={schoolGrades}
-        />
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pt-2 pb-10">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[1280px] px-4 pt-6 pb-12 sm:px-6">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="text-center">
-              <p className="text-gray-500 mb-2">Loading courses...</p>
-              <div className="inline-block h-8 w-8 border-4 border-main-300 border-t-main-600 rounded-full animate-spin" />
+              <p className="mb-2 text-ink-secondary">Loading courses...</p>
+              <div className={spinnerClass} />
             </div>
           </div>
         ) : error ? (
           <div className="flex items-center justify-center py-16">
             <div className="text-center">
-              <p className="text-red-500 font-semibold mb-2">
+              <p className="mb-2 font-semibold text-red-600">
                 Error loading courses
               </p>
-              <p className="text-gray-500 text-sm">{error}</p>
+              <p className="text-sm text-ink-secondary">{error}</p>
             </div>
           </div>
         ) : (
@@ -221,7 +265,7 @@ function CourseBrowser({
                 ))}
 
                 {!hasResults && (
-                  <p className="py-16 text-center text-gray-400">
+                  <p className="py-16 text-center text-ink-muted">
                     No courses match "{search}".
                   </p>
                 )}
@@ -229,6 +273,7 @@ function CourseBrowser({
             </AnimatePresence>
           </LayoutGroup>
         )}
+        </div>
       </div>
     </main>
   );

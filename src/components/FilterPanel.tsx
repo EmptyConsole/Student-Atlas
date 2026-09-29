@@ -8,6 +8,7 @@ import {
   type Filters,
   type Term,
 } from "../data/courses";
+import { chipClass, toolbarButtonClass } from "./controlStyles";
 
 type FilterPanelProps = {
   filters: Filters;
@@ -27,30 +28,24 @@ function Chip({
   bg,
   fg,
   onClick,
-  boldOutlineWhenActive = false,
 }: {
   label: string;
   active: boolean;
   bg: string;
   fg: string;
   onClick: () => void;
-  boldOutlineWhenActive?: boolean;
 }) {
-  const showBoldOutline = active && boldOutlineWhenActive;
-
   return (
     <button
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`cursor-pointer rounded-full px-3 py-1 text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 ${
-        showBoldOutline ? "border-4" : "border-2"
+      className={`${chipClass} ${
+        active
+          ? "font-semibold"
+          : "border-line bg-white font-medium text-ink-secondary hover:bg-main-100 hover:text-ink"
       }`}
-      style={{
-        backgroundColor: active ? bg : "transparent",
-        color: active ? fg : "#6b7280",
-        borderColor: showBoldOutline ? fg : bg,
-      }}
+      style={active ? { backgroundColor: bg, color: fg, borderColor: fg } : undefined}
     >
       {label}
     </button>
@@ -106,26 +101,28 @@ function FilterPanel({ filters, onChange, terms, grades }: FilterPanelProps) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex h-12 cursor-pointer items-center gap-2 rounded-xl border border-main-400 bg-white px-4 font-medium text-gray-700 shadow-sm transition-transform duration-150 hover:scale-[1.02] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        className={toolbarButtonClass(open)}
       >
         <SlidersHorizontal className="h-5 w-5" />
         <span>Filter</span>
         {activeCount > 0 && (
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-main-600 px-1.5 text-xs font-bold text-[#2c4a8a]">
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-white">
             {activeCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 z-30 mt-2 w-72 rounded-2xl border border-main-300 bg-white p-4 shadow-lg">
-          <div className="mb-3 flex items-center justify-between">
-            <h4 className="text-sm font-bold text-gray-700">Grade</h4>
+        <div className="absolute right-0 z-30 mt-2 w-80 rounded-2xl border border-line bg-white p-5 shadow-overlay">
+          <div className="mb-3 flex h-6 items-center justify-between">
+            <h4 className="text-sm font-semibold text-ink">Grade</h4>
             {activeCount > 0 && (
               <button
                 type="button"
                 onClick={clearAll}
-                className="flex cursor-pointer items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700"
+                className="-mr-2 flex h-8 cursor-pointer items-center gap-1 rounded-lg px-2 text-xs font-medium text-primary hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-600"
               >
                 <X className="h-3.5 w-3.5" /> Clear
               </button>
@@ -150,7 +147,7 @@ function FilterPanel({ filters, onChange, terms, grades }: FilterPanelProps) {
 
           {terms.length > 0 && (
             <>
-              <h4 className="mt-4 mb-3 text-sm font-bold text-gray-700">Term</h4>
+              <h4 className="mt-5 mb-3 text-sm font-semibold text-ink">Term</h4>
               <div className="flex flex-wrap gap-2">
                 {terms.map((term) => {
                   const { bg, fg } = termColor(term.position);
@@ -169,7 +166,7 @@ function FilterPanel({ filters, onChange, terms, grades }: FilterPanelProps) {
             </>
           )}
 
-          <h4 className="mt-4 mb-3 text-sm font-bold text-gray-700">
+          <h4 className="mt-5 mb-3 text-sm font-semibold text-ink">
             Prerequisites
           </h4>
           <div className="flex flex-wrap gap-2">
@@ -178,7 +175,6 @@ function FilterPanel({ filters, onChange, terms, grades }: FilterPanelProps) {
               active={filters.sortByPrerequisites}
               bg={YES_CHIP.bg}
               fg={YES_CHIP.fg}
-              boldOutlineWhenActive
               onClick={() =>
                 onChange({ ...filters, sortByPrerequisites: true })
               }
@@ -188,7 +184,6 @@ function FilterPanel({ filters, onChange, terms, grades }: FilterPanelProps) {
               active={!filters.sortByPrerequisites}
               bg={NO_CHIP.bg}
               fg={NO_CHIP.fg}
-              boldOutlineWhenActive
               onClick={() =>
                 onChange({ ...filters, sortByPrerequisites: false })
               }

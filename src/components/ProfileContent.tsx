@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { GRADE_COLORS } from "../data/courses";
 import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
 import { useSchoolGrades } from "../hooks/useSchoolGrades";
@@ -9,7 +9,17 @@ import {
   verifyEmailCode,
   type EmailVerificationPurpose,
 } from "../lib/students";
-import type { ProfileSection } from "./ProfileSidebar";
+import {
+  cardClass,
+  chipClass,
+  inputClass,
+  labelClass,
+  pageTitleClass,
+  primaryButtonClass,
+  prominentButtonClass,
+  secondaryButtonClass,
+  secondaryProminentButtonClass,
+} from "./controlStyles";
 import SchoolPicker from "./SchoolPicker";
 
 const RESEND_COOLDOWN_SEC = 45;
@@ -17,8 +27,6 @@ const RESEND_COOLDOWN_SEC = 45;
 type ProfileContentProps = {
   profile: UserProfile;
   onChange: (patch: Partial<UserProfile>) => void;
-  activeSection: ProfileSection;
-  onSectionChange: (id: ProfileSection) => void;
   onboarding?: boolean;
   onSubmit?: () => Promise<{ error?: string }>;
   onLoginByEmail?: (email: string) => Promise<{ error?: string }>;
@@ -26,6 +34,8 @@ type ProfileContentProps = {
   onSaveChanges?: () => Promise<{ error?: string }>;
   /** Saved email from last successful save; used to detect email changes. */
   savedEmail?: string | null;
+  /** Sign-out / delete controls, rendered below the profile form. */
+  accountSection?: ReactNode;
 };
 
 type PendingVerification = {
@@ -40,29 +50,29 @@ function RequiredFieldLabel({
   htmlFor,
   className = "mb-1.5",
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   htmlFor?: string;
   className?: string;
 }) {
   const content = (
     <>
       {children}
-      <span className="ml-0.5 text-red-500" aria-hidden="true">
+      <span className="ml-0.5 text-red-600" aria-hidden="true">
         *
       </span>
     </>
   );
-  const labelClass = `block text-sm font-semibold text-gray-700 ${className}`;
+  const requiredLabelClass = `block text-sm font-medium text-ink ${className}`;
 
   if (htmlFor) {
     return (
-      <label htmlFor={htmlFor} className={labelClass}>
+      <label htmlFor={htmlFor} className={requiredLabelClass}>
         {content}
       </label>
     );
   }
 
-  return <span className={labelClass}>{content}</span>;
+  return <span className={requiredLabelClass}>{content}</span>;
 }
 
 function GradeChip({
@@ -80,12 +90,12 @@ function GradeChip({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className="cursor-pointer rounded-full border-2 px-3 py-1 text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2"
-      style={{
-        backgroundColor: active ? bg : "transparent",
-        color: active ? fg : "#6b7280",
-        borderColor: bg,
-      }}
+      className={`${chipClass} min-w-11 justify-center ${
+        active
+          ? "font-semibold"
+          : "border-line bg-white font-medium text-ink-secondary hover:bg-main-100 hover:text-ink"
+      }`}
+      style={active ? { backgroundColor: bg, color: fg, borderColor: fg } : undefined}
     >
       {grade}
     </button>
@@ -102,15 +112,15 @@ function PrerequisiteRow({
   onToggle: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-main-300 bg-white px-4 py-3 shadow-sm">
-      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+    <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-line bg-white px-4 py-2.5 transition-colors hover:border-main-500">
+      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
         <input
           type="checkbox"
           checked={checked}
           onChange={(e) => onToggle(e.target.checked)}
-          className="h-4 w-4 shrink-0 accent-[#4169e1]"
+          className="h-4 w-4 shrink-0 accent-primary"
         />
-        <span className="text-sm font-medium text-gray-800">{title}</span>
+        <span className="text-sm font-medium text-ink">{title}</span>
       </label>
     </div>
   );
@@ -119,14 +129,13 @@ function PrerequisiteRow({
 function ProfileContent({
   profile,
   onChange,
-  activeSection,
-  onSectionChange,
   onboarding = false,
   onSubmit,
   onLoginByEmail,
   hasUnsavedChanges = false,
   onSaveChanges,
   savedEmail = null,
+  accountSection = null,
 }: ProfileContentProps) {
   const { schools, loading: schoolsLoading, error: schoolsError } = useSchools();
   const { grades: schoolGrades, loading: gradesLoading } = useSchoolGrades(
@@ -258,7 +267,6 @@ function ProfileContent({
       onChange({ grade: null });
     }
   }, [gradesLoading, profile.grade, schoolGrades, onChange]);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -315,39 +323,6 @@ function ProfileContent({
     if (hasUnsavedChanges) setJustSaved(false);
   }, [hasUnsavedChanges]);
 
-  const activeRef = useRef(activeSection);
-  activeRef.current = activeSection;
-
-  useEffect(() => {
-    const root = scrollRef.current;
-    if (!root) return;
-
-    const visible = new Map<string, number>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const id = entry.target.getAttribute("data-section");
-          if (!id) continue;
-          if (entry.isIntersecting) {
-            visible.set(id, entry.boundingClientRect.top);
-          } else {
-            visible.delete(id);
-          }
-        }
-        if (visible.size === 0) return;
-        const topmost = [...visible.entries()].sort((a, b) => a[1] - b[1])[0][0];
-        if (topmost !== activeRef.current) {
-          onSectionChange(topmost as ProfileSection);
-        }
-      },
-      { root, rootMargin: "0px 0px -70% 0px", threshold: 0 },
-    );
-
-    const sections = root.querySelectorAll("[data-section]");
-    sections.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [onSectionChange]);
-
   const setCourseCompleted = (title: string, completed: boolean) => {
     onChange({
       completedCourses: {
@@ -357,26 +332,23 @@ function ProfileContent({
     });
   };
 
-  const inputClass =
-    "h-11 w-full rounded-xl border border-main-400 bg-white px-4 text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500";
-
   if (pendingVerification) {
     return (
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pt-6 pb-10">
-        <div className="mx-auto flex max-w-2xl flex-col gap-6">
-          <h2 className="text-2xl font-bold text-gray-800">Verify Email</h2>
-          <p className="text-sm text-gray-600">
-            We sent a 6-digit code to{" "}
-            <span className="font-semibold text-gray-800">
-              {pendingVerification.email}
-            </span>
-            . Enter it below to continue.
-          </p>
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto flex max-w-[672px] flex-col gap-6 px-4 pt-8 pb-12 sm:px-6">
           <div>
-            <label
-              htmlFor="email-otp"
-              className="mb-1.5 block text-sm font-semibold text-gray-700"
-            >
+            <h1 className={pageTitleClass}>Verify Email</h1>
+            <p className="mt-2 text-base text-ink-secondary">
+              We sent a 6-digit code to{" "}
+              <span className="font-semibold text-ink">
+                {pendingVerification.email}
+              </span>
+              . Enter it below to continue.
+            </p>
+          </div>
+          <div className={`${cardClass} flex flex-col gap-5 p-6`}>
+          <div>
+            <label htmlFor="email-otp" className={labelClass}>
               Verification code
             </label>
             <input
@@ -402,11 +374,7 @@ function ProfileContent({
               type="button"
               onClick={() => void handleVerifyEmail()}
               disabled={otpCode.length !== 6 || verifyingCode}
-              className={`h-11 w-full rounded-xl text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
-                otpCode.length === 6 && !verifyingCode
-                  ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
-                  : "cursor-not-allowed bg-gray-300"
-              }`}
+              className={`${prominentButtonClass} w-full`}
             >
               {verifyingCode ? "Verifying..." : "Verify Email"}
             </button>
@@ -414,11 +382,7 @@ function ProfileContent({
               type="button"
               onClick={() => void handleResendCode()}
               disabled={sendingCode || resendCooldown > 0}
-              className={`h-11 w-full rounded-xl text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
-                !sendingCode && resendCooldown === 0
-                  ? "cursor-pointer border border-main-400 bg-white text-gray-700 hover:bg-main-100"
-                  : "cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400"
-              }`}
+              className={`${secondaryProminentButtonClass} w-full`}
             >
               {sendingCode
                 ? "Sending..."
@@ -434,7 +398,7 @@ function ProfileContent({
                 setSubmitting(false);
                 setSaving(false);
               }}
-              className="h-11 w-full cursor-pointer rounded-xl text-base font-semibold text-gray-500 transition-colors hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
+              className="inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-full text-base font-medium text-ink-secondary transition-colors duration-150 hover:bg-main-100 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-main-600 focus-visible:ring-offset-2"
             >
               Cancel
             </button>
@@ -442,25 +406,27 @@ function ProfileContent({
               <p className="text-sm font-medium text-red-600">{verifyError}</p>
             )}
           </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pt-6 pb-10">
-      <div className="mx-auto flex max-w-2xl flex-col gap-12">
-        <section
-          id="section-profile"
-          data-section="profile"
-          className="scroll-mt-4"
-        >
-          <h2 className="mb-6 text-2xl font-bold text-gray-800">Profile</h2>
+    <div className="flex-1 overflow-y-auto">
+      <div className="mx-auto flex max-w-[672px] flex-col gap-6 px-4 pt-8 pb-12 sm:px-6">
+        <section aria-labelledby="profile-heading">
+          <div className="mb-6">
+            <h1 id="profile-heading" className={pageTitleClass}>
+              Profile
+            </h1>
+            <p className="mt-2 text-base text-ink-secondary">Your account details</p>
+          </div>
 
-          <div className="flex flex-col gap-5">
+          <div className={`${cardClass} flex flex-col gap-5 p-6`}>
             {onboarding && (
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-sm font-medium text-gray-500">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-5">
+                <span className="text-sm font-medium text-ink-secondary">
                   {mode === "create"
                     ? "You are currently creating an account"
                     : "You are currently signing into your account"}
@@ -473,7 +439,7 @@ function ProfileContent({
                     setLoginEmail("");
                     clearVerification();
                   }}
-                  className="h-11 shrink-0 cursor-pointer rounded-xl bg-[#4169e1] px-5 text-base font-semibold text-white shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-[#3557c7] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
+                  className={secondaryButtonClass}
                 >
                   {mode === "create" ? "Already Have An Account?" : "Create An Account"}
                 </button>
@@ -483,10 +449,7 @@ function ProfileContent({
             {onboarding && mode === "login" ? (
               <div className="flex flex-col gap-4">
                 <div>
-                  <label
-                    htmlFor="login-email"
-                    className="mb-1.5 block text-sm font-semibold text-gray-700"
-                  >
+                  <label htmlFor="login-email" className={labelClass}>
                     Email
                   </label>
                   <input
@@ -507,11 +470,7 @@ function ProfileContent({
                     type="button"
                     onClick={() => void handleLoginByEmailSubmit()}
                     disabled={!loginEmail.trim() || loggingIn || sendingCode}
-                    className={`h-11 w-full rounded-xl text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
-                      loginEmail.trim() && !loggingIn && !sendingCode
-                        ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
-                        : "cursor-not-allowed bg-gray-300"
-                    }`}
+                    className={`${prominentButtonClass} w-full`}
                   >
                     {loggingIn || sendingCode ? "Sending code..." : "Log In"}
                   </button>
@@ -532,7 +491,7 @@ function ProfileContent({
                     onSelect={handleSelectSchool}
                   />
                   {!schoolSelected && (
-                    <p className="mt-1.5 text-xs font-medium text-gray-400">
+                    <p className="mt-1.5 text-xs font-medium text-ink-muted">
                       Select a school first to fill in the rest of your profile.
                     </p>
                   )}
@@ -575,12 +534,12 @@ function ProfileContent({
                   <div>
                     <RequiredFieldLabel className="mb-2">Grade</RequiredFieldLabel>
                     {gradesLoading ? (
-                      <div className="flex items-center gap-2 py-1 text-sm text-gray-400">
-                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-main-300 border-t-main-600" />
+                      <div className="flex items-center gap-2 py-1 text-sm text-ink-muted">
+                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-main-300 border-t-primary" />
                         Loading grades...
                       </div>
                     ) : schoolGrades.length === 0 ? (
-                      <p className="text-sm text-gray-400">
+                      <p className="text-sm text-ink-muted">
                         This school has no grades configured yet.
                       </p>
                     ) : (
@@ -598,19 +557,19 @@ function ProfileContent({
                   </div>
 
                   <div>
-                    <span className="mb-3 block text-sm font-semibold text-gray-700">
+                    <span className="mb-2 block text-sm font-medium text-ink">
                       Courses Taken{" "}
-                      <span className="font-normal text-gray-500">
+                      <span className="font-normal text-ink-secondary">
                         (not required)
                       </span>
                     </span>
                     {prereqLoading ? (
-                      <div className="flex items-center gap-2 py-3 text-sm text-gray-400">
-                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-main-300 border-t-main-600" />
+                      <div className="flex items-center gap-2 py-3 text-sm text-ink-muted">
+                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-main-300 border-t-primary" />
                         Loading courses...
                       </div>
                     ) : courseTitles.length === 0 ? (
-                      <p className="py-3 text-sm text-gray-400">
+                      <p className="py-3 text-sm text-ink-muted">
                         No prerequisite or corequisite courses for this school.
                       </p>
                     ) : (
@@ -634,11 +593,7 @@ function ProfileContent({
                       type="button"
                       onClick={() => void handleSubmit()}
                       disabled={!canSubmit || submitting || sendingCode}
-                      className={`h-11 w-full rounded-xl text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
-                        canSubmit && !submitting && !sendingCode
-                          ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
-                          : "cursor-not-allowed bg-gray-300"
-                      }`}
+                      className={`${prominentButtonClass} w-full`}
                     >
                       {submitting || sendingCode
                         ? "Sending code..."
@@ -657,27 +612,23 @@ function ProfileContent({
         </section>
 
         {!onboarding && onSaveChanges && (hasUnsavedChanges || justSaved) && (
-          <div className="sticky bottom-0 -mx-6 border-t border-main-300 bg-detail-400/95 px-6 py-4 backdrop-blur">
+          <div className="sticky bottom-0 -mx-4 border-t border-line bg-detail-400/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => void handleSave()}
                   disabled={!hasUnsavedChanges || saving || sendingCode}
-                  className={`h-11 rounded-xl px-6 text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
-                    hasUnsavedChanges && !saving && !sendingCode
-                      ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
-                      : "cursor-not-allowed bg-gray-300"
-                  }`}
+                  className={primaryButtonClass}
                 >
                   {saving || sendingCode ? "Saving..." : "Save Changes"}
                 </button>
                 {hasUnsavedChanges ? (
-                  <span className="text-sm font-medium text-gray-500">
+                  <span className="text-sm font-medium text-ink-secondary">
                     You have unsaved changes.
                   </span>
                 ) : justSaved ? (
-                  <span className="text-sm font-medium text-green-600">
+                  <span className="text-sm font-medium text-green-700">
                     Changes saved.
                   </span>
                 ) : null}
@@ -688,6 +639,8 @@ function ProfileContent({
             </div>
           </div>
         )}
+
+        {accountSection}
       </div>
     </div>
   );

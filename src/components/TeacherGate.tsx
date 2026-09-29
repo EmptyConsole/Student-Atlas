@@ -10,11 +10,13 @@ import {
 import SchoolPicker from "./SchoolPicker";
 import SchoolFormModal, { type TermDraft } from "./teacher/SchoolFormModal";
 import {
+  cardClass,
   inputClass,
   labelClass,
-  primaryButtonClass,
-  secondaryButtonClass,
-} from "./teacher/formStyles";
+  pageTitleClass,
+  prominentButtonClass,
+  secondaryProminentButtonClass,
+} from "./controlStyles";
 
 type TeacherGateProps = {
   onUnlock: (school: UnlockedSession) => void;
@@ -63,27 +65,27 @@ function TeacherGate({ onUnlock }: TeacherGateProps) {
   };
 
   return (
-    <div className="flex flex-1 items-start justify-center overflow-y-auto bg-detail-400 px-4 py-12">
+    <div className="flex flex-1 items-start justify-center overflow-y-auto bg-detail-400 px-4 py-16">
       <div className="w-full max-w-md">
-        <div className="mb-6 flex flex-col items-center text-center">
-          <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-main-200 text-[#4169e1]">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-main-200 text-primary">
             <Lock className="h-6 w-6" />
           </span>
-          <h1 className="text-2xl font-bold text-gray-800">Teacher access</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className={pageTitleClass}>Teacher access</h1>
+          <p className="mt-2 text-base text-ink-secondary">
             Choose your school and enter its password to manage its catalog.
           </p>
         </div>
 
         {created ? (
-          <div className="flex flex-col gap-4 rounded-2xl border border-main-300 bg-white p-6 shadow-sm">
-            <div className="rounded-lg bg-green-50 px-4 py-2 text-sm font-medium text-green-800">
+          <div className={`${cardClass} flex flex-col gap-4 p-6`}>
+            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
               {created.name} was created.
             </div>
             <button
               type="button"
               onClick={() => onUnlock(created)}
-              className={`${primaryButtonClass} flex w-full items-center justify-center gap-2`}
+              className={`${prominentButtonClass} w-full`}
             >
               Go to {created.name} to edit
               <ArrowRight className="h-4 w-4" />
@@ -91,13 +93,13 @@ function TeacherGate({ onUnlock }: TeacherGateProps) {
             <button
               type="button"
               onClick={() => setCreated(null)}
-              className={secondaryButtonClass}
+              className={`${secondaryProminentButtonClass} w-full`}
             >
               Back
             </button>
           </div>
         ) : (
-          <div className="flex flex-col gap-5 rounded-2xl border border-main-300 bg-white p-6 shadow-sm">
+          <div className={`${cardClass} flex flex-col gap-5 p-6`}>
             <div>
               <span className={labelClass}>School</span>
               <SchoolPicker
@@ -130,7 +132,7 @@ function TeacherGate({ onUnlock }: TeacherGateProps) {
                   if (e.key === "Enter") void handleUnlock();
                 }}
                 placeholder="School password"
-                className={`${inputClass} disabled:cursor-not-allowed disabled:bg-gray-100`}
+                className={inputClass}
               />
             </div>
 
@@ -138,7 +140,7 @@ function TeacherGate({ onUnlock }: TeacherGateProps) {
               type="button"
               onClick={handleUnlock}
               disabled={!selectedSchool || verifying}
-              className={`${primaryButtonClass} w-full`}
+              className={`${prominentButtonClass} w-full`}
             >
               {verifying ? "Checking…" : "Unlock"}
             </button>
@@ -148,15 +150,15 @@ function TeacherGate({ onUnlock }: TeacherGateProps) {
             )}
 
             <div className="flex items-center gap-3">
-              <span className="h-px flex-1 bg-main-200" />
-              <span className="text-xs font-medium text-gray-400">or</span>
-              <span className="h-px flex-1 bg-main-200" />
+              <span className="h-px flex-1 bg-line" />
+              <span className="text-xs font-medium text-ink-muted">or</span>
+              <span className="h-px flex-1 bg-line" />
             </div>
 
             <button
               type="button"
               onClick={() => setAddingSchool(true)}
-              className={secondaryButtonClass}
+              className={`${secondaryProminentButtonClass} w-full`}
             >
               Add a new school
             </button>

@@ -10,6 +10,7 @@ import {
   type Term,
 } from "../data/courses";
 import { deriveAlignedRows, type RankingModel } from "../utils/courseRanking";
+import { iconButtonClass, iconButtonCompactClass } from "./controlStyles";
 import { RANKING_ROW_SHELL } from "./RankedCourseRow";
 import YearLongConnector from "./YearLongConnector";
 import CourseRequirements from "./CourseRequirements";
@@ -60,7 +61,7 @@ function CourseDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-12"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/40 px-4 py-12"
       onClick={onClose}
       role="presentation"
     >
@@ -70,20 +71,21 @@ function CourseDetailModal({
         initial={{ opacity: 0, scale: 0.96, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 420, damping: 32 }}
-        className="relative w-full max-w-lg overflow-hidden rounded-2xl border shadow-2xl"
-        style={{ backgroundColor: subject.tint, borderColor: subject.color }}
+        className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-overlay"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-5 pb-3">
+        <span
+          className="pointer-events-none absolute inset-x-0 top-0 h-1"
+          style={{ backgroundColor: subject.accent }}
+          aria-hidden="true"
+        />
+        <div className="px-6 pt-6 pb-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <h2
-                className="text-xl font-bold leading-tight"
-                style={{ color: subject.accent }}
-              >
+              <h2 className="text-xl leading-7 font-semibold text-ink">
                 {course.title}
               </h2>
-              <p className="mt-1 text-sm leading-snug text-gray-600">
+              <p className="mt-1 text-sm leading-snug text-ink-secondary">
                 {course.shortDescription}
               </p>
             </div>
@@ -91,7 +93,7 @@ function CourseDetailModal({
               type="button"
               aria-label="Close"
               onClick={onClose}
-              className="mt-0.5 shrink-0 cursor-pointer rounded-full p-1 text-gray-400 transition-colors hover:bg-black/10 hover:text-gray-700"
+              className={`${iconButtonClass} -mt-1 -mr-2`}
             >
               <X className="h-5 w-5" />
             </button>
@@ -100,13 +102,13 @@ function CourseDetailModal({
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             <span
               className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
-              style={{ backgroundColor: subject.color, color: subject.accent }}
+              style={{ backgroundColor: subject.tint, color: subject.accent }}
             >
               {formatGrades(course.grades)}
             </span>
             <TermBadges offerings={[course.termOptions]} termById={termById} />
             {linked && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-main-100 px-2.5 py-0.5 text-xs font-semibold text-[#2c4a8a]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-main-100 px-2.5 py-0.5 text-xs font-semibold text-primary">
                 <Link2 className="h-3 w-3" />
                 Linked
               </span>
@@ -114,57 +116,38 @@ function CourseDetailModal({
           </div>
         </div>
 
-        <div
-          className="border-t px-5 py-4"
-          style={{
-            borderColor: subject.color,
-            backgroundColor: "rgba(255,255,255,0.55)",
-          }}
-        >
-          <p className="text-sm leading-relaxed text-gray-700">
+        <div className="border-t border-line px-6 py-5">
+          <p className="text-sm leading-relaxed text-ink">
             {course.longDescription}
           </p>
 
-          <CourseRequirements
-            course={course}
-            accent={subject.accent}
-            className="mt-4"
-          />
+          <CourseRequirements course={course} className="mt-4" />
 
-          <div className="mt-1.5 space-y-1.5 text-sm text-gray-700">
+          <div className="mt-1.5 space-y-1.5 text-sm text-ink-secondary">
             {hasAssignedTeacher(course.teacher) && (
               <p>
-                <span className="font-semibold" style={{ color: subject.accent }}>
-                  Teacher:{" "}
-                </span>
+                <span className="font-semibold text-ink">Teacher: </span>
                 {course.teacher}
               </p>
             )}
             {hasKnownMaxStudentCount(course.maxStudentCount) && (
               <p>
-                <span className="font-semibold" style={{ color: subject.accent }}>
-                  Max students:{" "}
-                </span>
+                <span className="font-semibold text-ink">Max students: </span>
                 {course.maxStudentCount}
               </p>
             )}
             <p>
-              <span className="font-semibold" style={{ color: subject.accent }}>
-                Retakeable:{" "}
-              </span>
+              <span className="font-semibold text-ink">Retakeable: </span>
               {course.retakeable ? "True" : "False"}
             </p>
           </div>
 
           {note && (
-            <div className="mt-4">
-              <p
-                className="text-xs font-semibold uppercase tracking-wide"
-                style={{ color: subject.accent }}
-              >
+            <div className="mt-4 rounded-xl bg-surface-muted px-4 py-3">
+              <p className="text-xs font-semibold tracking-wide text-ink-secondary uppercase">
                 Your note
               </p>
-              <p className="mt-1 text-sm leading-relaxed text-gray-700 italic">
+              <p className="mt-1 text-sm leading-relaxed text-ink italic">
                 {note}
               </p>
             </div>
@@ -200,11 +183,11 @@ function AlternatesDividerSpan({ span }: { span: string }) {
         className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center gap-2"
         style={{ width: span }}
       >
-        <div className="h-px flex-1 bg-main-400" />
-        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+        <div className="h-px flex-1 bg-line" />
+        <span className="shrink-0 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
           Alternates (not submitted)
         </span>
-        <div className="h-px flex-1 bg-main-400" />
+        <div className="h-px flex-1 bg-line" />
       </div>
     </div>
   );
@@ -274,22 +257,25 @@ function RankedItem({
             if (!isDraggingRef.current) onCardClick();
           }
         }}
-        className={`${RANKING_ROW_SHELL} w-full cursor-pointer touch-none select-none text-left active:cursor-grabbing ${
+        className={`${RANKING_ROW_SHELL} relative w-full cursor-pointer touch-none overflow-hidden text-left select-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-600 active:cursor-grabbing ${
           isTopPick
-            ? "border-2 shadow-md"
-            : "border border-dashed border-main-400 opacity-70 shadow-none"
+            ? "border-line bg-white hover:border-main-500"
+            : "border-dashed border-line bg-transparent opacity-70"
         }`}
-        style={{
-          backgroundColor: isTopPick ? subject.tint : "transparent",
-          borderColor: isTopPick ? subject.color : undefined,
-        }}
         data-ranking-column={columnKey}
       >
+        {isTopPick && (
+          <span
+            className="pointer-events-none absolute inset-y-0 left-0 w-1"
+            style={{ backgroundColor: subject.accent }}
+            aria-hidden="true"
+          />
+        )}
         <span
           className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-            isTopPick ? "text-white" : "text-gray-400"
+            isTopPick ? "text-white" : "bg-surface-muted text-ink-muted"
           }`}
-          style={{ backgroundColor: isTopPick ? subject.accent : "#e5e7eb" }}
+          style={isTopPick ? { backgroundColor: subject.accent } : undefined}
         >
           {isTopPick ? rank : "—"}
         </span>
@@ -302,28 +288,27 @@ function RankedItem({
               e.stopPropagation();
               onUnbookmark();
             }}
-            className="flex shrink-0 cursor-pointer rounded-full p-1 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
+            className={iconButtonCompactClass}
             style={{ color: subject.accent }}
           >
             <Bookmark className="h-4 w-4" fill={subject.accent} />
           </button>
         ) : (
-          <span className="h-6 w-6 shrink-0" aria-hidden="true" />
+          <span className="h-8 w-8 shrink-0" aria-hidden="true" />
         )}
 
         <div className="min-w-0 flex-1">
           <p
-            className={`truncate text-sm font-semibold leading-tight ${
-              isTopPick ? "" : "text-gray-500"
+            className={`truncate text-sm leading-tight font-semibold ${
+              isTopPick ? "text-ink" : "text-ink-secondary"
             }`}
-            style={isTopPick ? { color: subject.accent } : undefined}
           >
             {course.title}
           </p>
           {linked && (
             <span className="mt-0.5 inline-flex items-center gap-1">
               <Link2
-                className="h-3 w-3 shrink-0 text-[#2c4a8a]"
+                className="h-3 w-3 shrink-0 text-primary"
                 aria-hidden="true"
               />
               <TermBadges
@@ -335,7 +320,7 @@ function RankedItem({
         </div>
 
         <GripVertical
-          className="h-4 w-4 shrink-0 cursor-grab text-gray-400"
+          className="h-4 w-4 shrink-0 cursor-grab text-ink-muted"
           aria-hidden="true"
         />
       </div>
@@ -479,7 +464,7 @@ function RankingAlignedGrid({
 
   if (terms.length === 0) {
     return (
-      <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-main-300 bg-white px-4 py-8 text-center text-sm text-gray-500">
+      <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-line bg-white px-4 py-8 text-center text-sm text-ink-secondary">
         This school hasn't set up any terms yet, so there's nothing to rank.
       </div>
     );
@@ -488,7 +473,7 @@ function RankingAlignedGrid({
   const totalCount = termIds.reduce((sum, termId) => sum + countFor(termId), 0);
   if (totalCount === 0) {
     return (
-      <div className="flex min-h-[28rem] items-center justify-center rounded-2xl border border-dashed border-main-300 bg-white px-4 py-8 text-center text-sm text-gray-500">
+      <div className="flex min-h-[28rem] items-center justify-center rounded-2xl border border-dashed border-line bg-white px-4 py-8 text-center text-sm text-ink-secondary">
         Bookmark courses on the Courses page to rank them here.
       </div>
     );
@@ -496,19 +481,19 @@ function RankingAlignedGrid({
 
   return (
     <>
-      <div className="relative rounded-2xl border border-main-300 bg-white p-4 shadow-sm">
+      <div className="relative rounded-2xl border border-line bg-white p-5">
         <div className="mb-4 grid gap-6" style={gridStyle}>
           {terms.map((term) => (
             <div key={term.id} className="flex flex-col gap-1">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-xl font-bold text-gray-800">{term.name}</h2>
-                <span className="rounded-full bg-main-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                <h2 className="text-xl leading-7 font-semibold text-ink">{term.name}</h2>
+                <span className="rounded-full bg-main-100 px-3 py-1 text-xs font-medium text-ink-secondary">
                   {countFor(term.id)} bookmarked
                 </span>
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-ink-secondary">
                 Top{" "}
-                <strong className="font-semibold text-[#4169e1]">
+                <strong className="font-semibold text-primary">
                   {requiredRankings}
                 </strong>{" "}
                 ranked courses are submitted
@@ -544,7 +529,7 @@ function RankingAlignedGrid({
           </div>
         </div>
 
-        <p className="mt-3 text-center text-xs text-gray-400">
+        <p className="mt-4 text-center text-xs text-ink-muted">
           Click any card to see its full details · Drag to reorder
         </p>
       </div>

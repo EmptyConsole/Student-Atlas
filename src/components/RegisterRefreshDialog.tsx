@@ -1,5 +1,11 @@
 import { useEffect } from "react";
 import { motion } from "motion/react";
+import {
+  dialogBackdropClass,
+  dialogPanelClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from "./controlStyles";
 
 type RegisterRefreshDialogProps = {
   open: boolean;
@@ -31,7 +37,7 @@ function RegisterRefreshDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      className={dialogBackdropClass}
       onClick={onKeepMine}
       role="presentation"
     >
@@ -42,16 +48,16 @@ function RegisterRefreshDialog({
         initial={{ opacity: 0, scale: 0.95, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 400, damping: 30 }}
-        className="w-full max-w-md rounded-2xl border border-main-300 bg-white p-6 shadow-xl"
+        className={dialogPanelClass}
         onClick={(e) => e.stopPropagation()}
       >
         <h2
           id="register-refresh-title"
-          className="text-xl font-bold text-gray-800"
+          className="text-xl leading-7 font-semibold text-ink"
         >
           Rankings changed elsewhere
         </h2>
-        <p className="mt-3 text-sm leading-relaxed text-gray-600">
+        <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
           Your rankings were updated in another tab or on another device. Load
           the new rankings, or keep the ones on this screen?
         </p>
@@ -60,14 +66,14 @@ function RegisterRefreshDialog({
           <button
             type="button"
             onClick={onKeepMine}
-            className="cursor-pointer rounded-lg border border-main-400 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition-all duration-150 hover:scale-105 hover:bg-main-100 active:scale-95"
+            className={secondaryButtonClass}
           >
             Keep these
           </button>
           <button
             type="button"
             onClick={onLoadNew}
-            className="cursor-pointer rounded-lg border-0 bg-[#4169e1] px-4 py-2 text-sm font-semibold text-white transition-all duration-150 hover:scale-105 hover:bg-[#3557c7] active:scale-95"
+            className={primaryButtonClass}
           >
             Load new rankings
           </button>

@@ -22,9 +22,9 @@ function CourseEditorHelp({ onClose }: CourseEditorHelpProps) {
           </button>
         }
       >
-        <div className="flex flex-col gap-4 text-sm leading-relaxed text-gray-600">
+        <div className="flex flex-col gap-4 text-sm leading-relaxed text-ink-secondary">
           <section>
-            <h3 className="mb-1 font-semibold text-gray-800">
+            <h3 className="mb-1 font-semibold text-ink">
               Title and department
             </h3>
             <p>
@@ -34,7 +34,7 @@ function CourseEditorHelp({ onClose }: CourseEditorHelpProps) {
           </section>
 
           <section>
-            <h3 className="mb-1 font-semibold text-gray-800">Descriptions</h3>
+            <h3 className="mb-1 font-semibold text-ink">Descriptions</h3>
             <p>
               The short description appears on the course card. The long
               description shows when a student expands the card.
@@ -42,16 +42,16 @@ function CourseEditorHelp({ onClose }: CourseEditorHelpProps) {
           </section>
 
           <section>
-            <h3 className="mb-1 font-semibold text-gray-800">Grades</h3>
+            <h3 className="mb-1 font-semibold text-ink">Grades</h3>
             <p>Select every grade level that may take this course.</p>
           </section>
 
           <section>
-            <h3 className="mb-1 font-semibold text-gray-800">Terms offered</h3>
+            <h3 className="mb-1 font-semibold text-ink">Terms offered</h3>
             <p>
               Pick every term this course spans (for example, two terms for a
               year-long course). Use{" "}
-              <span className="font-semibold text-gray-700">
+              <span className="font-semibold text-ink">
                 Add another offering
               </span>{" "}
               only when students should rank separate term combinations on their
@@ -60,7 +60,7 @@ function CourseEditorHelp({ onClose }: CourseEditorHelpProps) {
           </section>
 
           <section>
-            <h3 className="mb-1 font-semibold text-gray-800">Class times</h3>
+            <h3 className="mb-1 font-semibold text-ink">Class times</h3>
             <p>
               Day is a rotation-day number (1, 2, …). Start and end times are
               shown in AM/PM.
@@ -68,7 +68,7 @@ function CourseEditorHelp({ onClose }: CourseEditorHelpProps) {
           </section>
 
           <section>
-            <h3 className="mb-1 font-semibold text-gray-800">
+            <h3 className="mb-1 font-semibold text-ink">
               Prerequisites and corequisites
             </h3>
             <p>
@@ -79,7 +79,7 @@ function CourseEditorHelp({ onClose }: CourseEditorHelpProps) {
           </section>
 
           <section>
-            <h3 className="mb-1 font-semibold text-gray-800">
+            <h3 className="mb-1 font-semibold text-ink">
               Teacher, max students, repeatable
             </h3>
             <p>
@@ -90,7 +90,7 @@ function CourseEditorHelp({ onClose }: CourseEditorHelpProps) {
           </section>
 
           <section>
-            <h3 className="mb-1 font-semibold text-gray-800">Drafts</h3>
+            <h3 className="mb-1 font-semibold text-ink">Drafts</h3>
             <p>
               Your edits are saved as a draft on this device. If you leave or
               reload, they come back when you reopen the same course.

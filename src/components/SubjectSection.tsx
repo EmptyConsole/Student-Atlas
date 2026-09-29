@@ -15,6 +15,7 @@ import {
 } from "../utils/courseGrouping";
 import CourseCard, { type BookmarkControl } from "./CourseCard";
 import { LAYOUT_SWITCH_TRANSITION } from "./CatalogLayoutToggle";
+import { iconButtonCompactClass } from "./controlStyles";
 
 type SubjectSectionProps = {
   subject: Subject;
@@ -122,14 +123,9 @@ function SubjectSection({
     <section
       id={`subject-${subject.name}`}
       data-subject={subject.name}
-      className="scroll-mt-4"
+      className="scroll-mt-6"
     >
-      <div className="mb-3 flex items-start gap-3">
-        <span
-          className="mt-1 h-6 w-2 shrink-0 rounded-full"
-          style={{ backgroundColor: subject.color }}
-          aria-hidden="true"
-        />
+      <div className="mb-4 flex items-start gap-2">
         <button
           type="button"
           aria-expanded={!collapsed}
@@ -139,29 +135,35 @@ function SubjectSection({
               : `Collapse ${subject.name} courses`
           }
           onClick={() => setCollapsed((c) => !c)}
-          className="cursor-pointer rounded-full p-1.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
-          style={{ color: subject.accent, outlineColor: subject.accent }}
+          className={`${iconButtonCompactClass} -ml-1 text-ink-secondary`}
         >
           <ChevronDown
             className="h-5 w-5 shrink-0 transition-transform duration-200"
             style={{ transform: collapsed ? "rotate(180deg)" : "rotate(0deg)" }}
           />
         </button>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <div className="flex items-center gap-3">
-            <h2
-              className="text-2xl font-bold"
-              style={{ color: subject.accent }}
-            >
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1">
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: subject.accent }}
+              aria-hidden="true"
+            />
+            <h2 className="text-xl leading-7 font-semibold text-ink">
               {subject.name}
             </h2>
-            <span className="text-sm font-medium text-gray-400">
+            <span className="text-sm text-ink-muted">
               {passCount} of {items.length}
             </span>
           </div>
+          {subject.description && (
+            <p className="text-sm leading-snug text-ink-secondary">
+              {subject.description}
+            </p>
+          )}
           {!collapsed && subject.graduationRequirement && (
-            <p className="text-sm leading-snug text-gray-600">
-              <span className="font-bold">Graduation Requirement: </span>
+            <p className="text-sm leading-snug text-ink-secondary">
+              <span className="font-semibold text-ink">Graduation Requirement: </span>
               {subject.graduationRequirement}
             </p>
           )}

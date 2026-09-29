@@ -11,10 +11,16 @@ import {
   type Course,
   type Term,
 } from "../data/courses";
+import { iconButtonCompactClass } from "./controlStyles";
 import CourseRequirements from "./CourseRequirements";
 import TermBadges from "./TermBadges";
 
 const DETAIL_TRANSITION = { type: "spring" as const, stiffness: 350, damping: 32 };
+
+const NEUTRAL_BADGE = {
+  bg: "var(--color-surface-muted)",
+  fg: "var(--color-ink-secondary)",
+};
 
 /** One selectable offering in a grouped course's bookmark popup. */
 export type BookmarkOffering = {
@@ -80,13 +86,15 @@ function MetaBadge({
 
 function GroupBookmarkButton({
   offerings,
-  accent,
+  subject,
   termById,
+  compact,
   onToggle,
 }: {
   offerings: BookmarkOffering[];
-  accent: string;
+  subject: Subject;
   termById: Map<string, Term>;
+  compact: boolean;
   onToggle: (courseId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -152,12 +160,12 @@ function GroupBookmarkButton({
           e.stopPropagation();
           setOpen((o) => !o);
         }}
-        className="cursor-pointer rounded-full p-1.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
-        style={{ color: accent }}
+        className={iconButtonCompactClass}
+        style={{ color: subject.accent }}
       >
         <Bookmark
-          className="h-5 w-5"
-          fill={fillState === "none" ? "none" : accent}
+          className={compact ? "h-4 w-4" : "h-5 w-5"}
+          fill={fillState === "none" ? "none" : subject.accent}
           style={{ opacity: fillState === "partial" ? 0.5 : 1 }}
         />
       </button>
@@ -169,9 +177,8 @@ function GroupBookmarkButton({
             ref={menuRef}
             role="menu"
             onClick={(e) => e.stopPropagation()}
-            className="fixed z-50 flex flex-col gap-1 rounded-xl border bg-white p-1.5 shadow-lg"
+            className="fixed z-50 flex flex-col gap-1 rounded-xl border border-line bg-white p-1.5 shadow-overlay"
             style={{
-              borderColor: accent,
               top: coords.top,
               right: coords.right,
               transform: "translateY(calc(-100% - 0.5rem))",
@@ -187,11 +194,17 @@ function GroupBookmarkButton({
                   e.stopPropagation();
                   onToggle(offering.courseId);
                 }}
-                className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-left transition-colors hover:opacity-90"
+                className="flex h-10 cursor-pointer items-center gap-2 rounded-lg px-3 text-left transition-colors hover:bg-main-100"
                 style={{
-                  backgroundColor: offering.bookmarked ? accent : "transparent",
+                  backgroundColor: offering.bookmarked ? subject.tint : undefined,
                 }}
               >
+                <Bookmark
+                  className="h-4 w-4 shrink-0"
+                  style={{ color: subject.accent }}
+                  fill={offering.bookmarked ? subject.accent : "none"}
+                  aria-hidden="true"
+                />
                 <TermBadges
                   offerings={[offering.termOptions]}
                   termById={termById}
@@ -221,20 +234,24 @@ function CourseCard({
   const hasNote = note.trim().length > 0;
   const prereqLabel = formatRequirementOptions(course.prereqOptions);
   const coreqLabel = formatRequirementOptions(course.coreqOptions);
+  const gradeBadge = { bg: subject.tint, fg: subject.accent };
 
   return (
     <motion.div
       id={`course-${course.id}`}
       {...(compact ? {} : { layout: "position" as const })}
       transition={DETAIL_TRANSITION}
-      className={`scroll-mt-4 overflow-hidden rounded-2xl border shadow-sm transition-opacity duration-300${
-        compact ? " self-start w-full" : ""
-      } ${dimmed ? "opacity-45" : "opacity-100"}`}
-      style={{
-        backgroundColor: subject.tint,
-        borderColor: subject.color,
-      }}
+      className={`relative scroll-mt-6 overflow-hidden rounded-2xl border bg-white transition-[opacity,border-color,box-shadow] duration-300${
+        compact ? " w-full self-start" : ""
+      } ${dimmed ? "opacity-45" : "opacity-100"} ${
+        expanded ? "border-main-500 shadow-raised" : "border-line hover:border-main-500"
+      }`}
     >
+      <span
+        className="pointer-events-none absolute inset-y-0 left-0 w-1"
+        style={{ backgroundColor: subject.accent }}
+        aria-hidden="true"
+      />
       <div
         role="button"
         tabIndex={0}
@@ -247,10 +264,9 @@ function CourseCard({
             onToggleExpand();
           }
         }}
-        className={`cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
-          compact ? "p-3" : "p-4"
+        className={`cursor-pointer rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-main-600 ${
+          compact ? "py-3 pr-3 pl-4" : "py-4 pr-4 pl-5"
         }`}
-        style={{ outlineColor: subject.accent }}
       >
         <div
           className={
@@ -259,24 +275,18 @@ function CourseCard({
               : "flex items-center justify-between gap-3"
           }
         >
-          <div className="flex min-w-0 flex-1 items-start gap-1.5">
+          <div className="flex min-w-0 flex-1 items-start gap-2">
             <ChevronDown
-              className={`shrink-0 transition-transform duration-300 ease-out ${
-                compact ? "mt-0.5 h-4 w-4" : "h-5 w-5"
+              className={`shrink-0 text-ink-muted transition-transform duration-300 ease-out ${
+                compact ? "mt-0.5 h-4 w-4" : "mt-1 h-5 w-5"
               }`}
-              style={{
-                color: subject.accent,
-                transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
-              }}
+              style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
             />
             <h3
               title={course.title}
-              className={`min-w-0 flex-1 truncate font-bold ${
-                compact
-                  ? "text-base leading-snug"
-                  : "text-xl leading-tight"
+              className={`min-w-0 flex-1 truncate font-semibold text-ink ${
+                compact ? "text-base leading-snug" : "text-xl leading-7"
               }`}
-              style={{ color: subject.accent }}
             >
               {course.title}
             </h3>
@@ -287,22 +297,22 @@ function CourseCard({
               <div className="hidden flex-wrap items-center justify-end gap-1.5 sm:flex">
                 <MetaBadge
                   label={formatGrades(course.grades)}
-                  bg={subject.color}
-                  fg={subject.accent}
+                  bg={gradeBadge.bg}
+                  fg={gradeBadge.fg}
                 />
                 {prereqLabel && (
                   <MetaBadge
                     label={`Prereq: ${prereqLabel}`}
-                    bg="#ffffff"
-                    fg={subject.accent}
+                    bg={NEUTRAL_BADGE.bg}
+                    fg={NEUTRAL_BADGE.fg}
                     capped
                   />
                 )}
                 {coreqLabel && (
                   <MetaBadge
                     label={`Coreq: ${coreqLabel}`}
-                    bg="#ffffff"
-                    fg={subject.accent}
+                    bg={NEUTRAL_BADGE.bg}
+                    fg={NEUTRAL_BADGE.fg}
                     capped
                   />
                 )}
@@ -321,9 +331,7 @@ function CourseCard({
                   e.stopPropagation();
                   bookmark.onToggle();
                 }}
-                className={`cursor-pointer rounded-full transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 ${
-                  compact ? "p-1" : "p-1.5"
-                }`}
+                className={iconButtonCompactClass}
                 style={{ color: subject.accent }}
               >
                 <Bookmark
@@ -334,8 +342,9 @@ function CourseCard({
             ) : (
               <GroupBookmarkButton
                 offerings={bookmark.offerings}
-                accent={subject.accent}
+                subject={subject}
                 termById={termById}
+                compact={compact}
                 onToggle={bookmark.onToggle}
               />
             )}
@@ -345,10 +354,10 @@ function CourseCard({
         <motion.p
           layout={false}
           transition={DETAIL_TRANSITION}
-          className={`text-gray-600 ${
+          className={`text-ink-secondary ${
             compact
-              ? "mt-1.5 line-clamp-1 pl-5 text-xs leading-snug"
-              : `mt-1 pl-7 text-sm leading-snug${expanded ? "" : " line-clamp-2"}`
+              ? "mt-1.5 line-clamp-1 pl-6 text-xs leading-snug"
+              : `mt-1 pl-7 text-sm leading-relaxed${expanded ? "" : " line-clamp-2"}`
           }`}
         >
           {course.shortDescription}
@@ -362,8 +371,8 @@ function CourseCard({
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={DETAIL_TRANSITION}
-              className={`overflow-hidden text-sm leading-snug text-gray-700 italic ${
-                compact ? "mt-1 line-clamp-1 pl-5" : "mt-1.5 pl-7"
+              className={`overflow-hidden text-sm leading-snug text-ink italic ${
+                compact ? "mt-1 line-clamp-1 pl-6" : "mt-1.5 pl-7"
               }`}
             >
               <span className="font-semibold not-italic" style={{ color: subject.accent }}>
@@ -377,29 +386,29 @@ function CourseCard({
         <div
           className={
             compact
-              ? "mt-2 flex flex-wrap items-center gap-1 pl-5"
-              : "mt-1.5 flex flex-wrap items-center gap-1.5 pl-7 sm:hidden"
+              ? "mt-2 flex flex-wrap items-center gap-1 pl-6"
+              : "mt-2 flex flex-wrap items-center gap-1.5 pl-7 sm:hidden"
           }
         >
           <MetaBadge
             label={formatGrades(course.grades)}
-            bg={subject.color}
-            fg={subject.accent}
+            bg={gradeBadge.bg}
+            fg={gradeBadge.fg}
           />
           <TermBadges offerings={offerings} termById={termById} />
           {compact && prereqLabel && (
             <MetaBadge
               label={`Prereq: ${prereqLabel}`}
-              bg="#ffffff"
-              fg={subject.accent}
+              bg={NEUTRAL_BADGE.bg}
+              fg={NEUTRAL_BADGE.fg}
               capped
             />
           )}
           {compact && coreqLabel && (
             <MetaBadge
               label={`Coreq: ${coreqLabel}`}
-              bg="#ffffff"
-              fg={subject.accent}
+              bg={NEUTRAL_BADGE.bg}
+              fg={NEUTRAL_BADGE.fg}
               capped
             />
           )}
@@ -416,46 +425,30 @@ function CourseCard({
               className="overflow-hidden"
             >
               <div
-                className={`border-t ${
-                  compact ? "mt-2 pt-2 pl-5 text-xs" : "mt-3 pt-3 pl-7 text-sm"
+                className={`border-t border-line ${
+                  compact ? "mt-3 pt-3 pl-6 text-xs" : "mt-4 pt-4 pl-7 text-sm"
                 }`}
-                style={{ borderColor: subject.color }}
               >
-                <p className="leading-relaxed text-gray-700">
-                  {course.longDescription}
-                </p>
+                <p className="leading-relaxed text-ink">{course.longDescription}</p>
 
-                <CourseRequirements
-                  course={course}
-                  accent={subject.accent}
-                  className={compact ? "mt-2" : "mt-3"}
-                />
+                <CourseRequirements course={course} className={compact ? "mt-2" : "mt-3"} />
 
                 {hasAssignedTeacher(course.teacher) && (
-                  <p className={`text-gray-700 ${compact ? "mt-1.5 text-xs" : "mt-1 text-sm"}`}>
-                    <span
-                      className="font-semibold"
-                      style={{ color: subject.accent }}
-                    >
-                      Teacher:{" "}
-                    </span>
+                  <p className={`text-ink-secondary ${compact ? "mt-1.5 text-xs" : "mt-1 text-sm"}`}>
+                    <span className="font-semibold text-ink">Teacher: </span>
                     {course.teacher}
                   </p>
                 )}
 
                 {hasKnownMaxStudentCount(course.maxStudentCount) && (
-                  <p className={`text-gray-700 ${compact ? "mt-1 text-xs" : "mt-1 text-sm"}`}>
-                    <span className="font-semibold" style={{ color: subject.accent }}>
-                      Max students:{" "}
-                    </span>
+                  <p className={`text-ink-secondary ${compact ? "mt-1 text-xs" : "mt-1 text-sm"}`}>
+                    <span className="font-semibold text-ink">Max students: </span>
                     {course.maxStudentCount}
                   </p>
                 )}
 
-                <p className={`text-gray-700 ${compact ? "mt-1 text-xs" : "mt-1 text-sm"}`}>
-                  <span className="font-semibold" style={{ color: subject.accent }}>
-                    Retakeable:{" "}
-                  </span>
+                <p className={`text-ink-secondary ${compact ? "mt-1 text-xs" : "mt-1 text-sm"}`}>
+                  <span className="font-semibold text-ink">Retakeable: </span>
                   {course.retakeable ? "True" : "False"}
                 </p>
 
@@ -466,8 +459,7 @@ function CourseCard({
                 >
                   <label
                     htmlFor={`note-${course.id}`}
-                    className="text-sm font-semibold"
-                    style={{ color: subject.accent }}
+                    className="text-sm font-medium text-ink"
                   >
                     Your note
                   </label>
@@ -477,11 +469,7 @@ function CourseCard({
                     onChange={(e) => onNoteChange(e.target.value)}
                     placeholder="Add a personal note about this course..."
                     rows={3}
-                    className="mt-1.5 w-full resize-y rounded-lg border bg-white/70 px-3 py-2 text-sm leading-relaxed text-gray-700 placeholder:text-gray-400 focus:outline-none focus-visible:ring-2"
-                    style={{
-                      borderColor: subject.color,
-                      outlineColor: subject.accent,
-                    }}
+                    className="mt-1.5 w-full resize-y rounded-xl border border-line bg-white px-3 py-2 text-sm leading-relaxed text-ink placeholder:text-ink-muted transition-colors focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-main-300"
                   />
                 </div>
               </div>
