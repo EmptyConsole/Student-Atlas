@@ -40,7 +40,7 @@ function AddMenu({ onSelect }: AddMenuProps) {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-[#4169e1] px-4 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-[#3557c7] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
+        className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 ease-out hover:bg-primary-pressed focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
       >
         <Plus className="h-4 w-4" />
         Add
@@ -53,7 +53,7 @@ function AddMenu({ onSelect }: AddMenuProps) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-40 mt-2 w-44 overflow-hidden rounded-xl border border-main-300 bg-white py-1 shadow-lg"
+          className="absolute right-0 z-40 mt-2 w-44 overflow-hidden rounded-2xl border border-main-300 bg-white py-1 shadow-overlay"
         >
           {OPTIONS.map(({ id, label, icon: Icon }) => (
             <button
@@ -64,9 +64,9 @@ function AddMenu({ onSelect }: AddMenuProps) {
                 setOpen(false);
                 onSelect(id);
               }}
-              className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2.5 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-main-100"
+              className="flex h-10 w-full cursor-pointer items-center gap-2 px-4 text-left text-sm font-medium leading-5 text-ink-secondary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
             >
-              <Icon className="h-4 w-4 text-[#4169e1]" />
+              <Icon className="h-4 w-4 text-primary" />
               {label}
             </button>
           ))}

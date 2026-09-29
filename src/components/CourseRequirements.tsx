@@ -19,7 +19,7 @@ function RequirementBlock({
 
   return (
     <div>
-      <p className="text-sm text-gray-700">
+      <p className="text-sm text-ink-secondary">
         <span className="font-semibold" style={{ color: accent }}>
           {label}:{" "}
         </span>

@@ -21,9 +21,9 @@ function DepartmentEditorHelp({ onClose }: DepartmentEditorHelpProps) {
           </button>
         }
       >
-        <div className="flex flex-col gap-4 text-sm leading-relaxed text-gray-600">
+        <div className="flex flex-col gap-4 text-sm leading-relaxed text-ink-secondary">
           <section>
-            <h3 className="mb-1 font-semibold text-gray-800">Name</h3>
+            <h3 className="mb-1 font-semibold text-ink">Name</h3>
             <p>
               Required. This is the department heading students see in the
               catalog and sidebar (for example, Computer Science).
@@ -31,7 +31,7 @@ function DepartmentEditorHelp({ onClose }: DepartmentEditorHelpProps) {
           </section>
 
           <section>
-            <h3 className="mb-1 font-semibold text-gray-800">Subtitle</h3>
+            <h3 className="mb-1 font-semibold text-ink">Subtitle</h3>
             <p>
               Optional short tagline shown under the department name in the
               sidebar.
@@ -39,7 +39,7 @@ function DepartmentEditorHelp({ onClose }: DepartmentEditorHelpProps) {
           </section>
 
           <section>
-            <h3 className="mb-1 font-semibold text-gray-800">
+            <h3 className="mb-1 font-semibold text-ink">
               Graduation requirement
             </h3>
             <p>
@@ -49,7 +49,7 @@ function DepartmentEditorHelp({ onClose }: DepartmentEditorHelpProps) {
           </section>
 
           <section>
-            <h3 className="mb-1 font-semibold text-gray-800">Courses</h3>
+            <h3 className="mb-1 font-semibold text-ink">Courses</h3>
             <p>
               Every course belongs to one department. Add the department first,
               then add courses under it. Deleting a department also deletes its

@@ -5,7 +5,7 @@ type AtlasWordmarkProps = {
 function AtlasWordmark({ className = "" }: AtlasWordmarkProps) {
   return (
     <span
-      className={`font-[Plus_Jakarta_Sans] text-5xl leading-none font-semibold text-[#4169e1] ${className}`}
+      className={`font-[Plus_Jakarta_Sans] text-5xl leading-none font-semibold text-primary ${className}`}
     >
       Atlas
     </span>

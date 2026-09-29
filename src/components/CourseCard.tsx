@@ -68,8 +68,8 @@ function MetaBadge({
       title={capped ? label : undefined}
       className={
         capped
-          ? "inline-block max-w-[28rem] overflow-hidden rounded-full px-2.5 py-0.5 text-xs font-semibold"
-          : "rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap"
+          ? "inline-block max-w-[28rem] overflow-hidden rounded-full px-2 py-1 text-xs font-semibold"
+          : "rounded-full px-2 py-1 text-xs font-semibold whitespace-nowrap"
       }
       style={{ backgroundColor: bg, color: fg }}
     >
@@ -152,7 +152,7 @@ function GroupBookmarkButton({
           e.stopPropagation();
           setOpen((o) => !o);
         }}
-        className="cursor-pointer rounded-full p-1.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
+        className="cursor-pointer rounded-full p-2 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
         style={{ color: accent }}
       >
         <Bookmark
@@ -169,7 +169,7 @@ function GroupBookmarkButton({
             ref={menuRef}
             role="menu"
             onClick={(e) => e.stopPropagation()}
-            className="fixed z-50 flex flex-col gap-1 rounded-xl border bg-white p-1.5 shadow-lg"
+            className="fixed z-50 flex flex-col gap-1 rounded-2xl border border-main-300 bg-white p-2 shadow-overlay"
             style={{
               borderColor: accent,
               top: coords.top,
@@ -187,7 +187,7 @@ function GroupBookmarkButton({
                   e.stopPropagation();
                   onToggle(offering.courseId);
                 }}
-                className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-left transition-colors hover:opacity-90"
+                className="flex h-10 cursor-pointer items-center gap-2 rounded-lg px-3 text-left text-base font-medium leading-6 transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                 style={{
                   backgroundColor: offering.bookmarked ? accent : "transparent",
                 }}
@@ -247,7 +247,7 @@ function CourseCard({
             onToggleExpand();
           }
         }}
-        className={`cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+        className={`cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
           compact ? "p-3" : "p-4"
         }`}
         style={{ outlineColor: subject.accent }}
@@ -259,7 +259,7 @@ function CourseCard({
               : "flex items-center justify-between gap-3"
           }
         >
-          <div className="flex min-w-0 flex-1 items-start gap-1.5">
+          <div className="flex min-w-0 flex-1 items-start gap-2">
             <ChevronDown
               className={`shrink-0 transition-transform duration-300 ease-out ${
                 compact ? "mt-0.5 h-4 w-4" : "h-5 w-5"
@@ -271,10 +271,10 @@ function CourseCard({
             />
             <h3
               title={course.title}
-              className={`min-w-0 flex-1 truncate font-bold ${
+              className={`min-w-0 flex-1 truncate font-medium ${
                 compact
-                  ? "text-base leading-snug"
-                  : "text-xl leading-tight"
+                  ? "text-base leading-6"
+                  : "text-xl leading-7"
               }`}
               style={{ color: subject.accent }}
             >
@@ -284,7 +284,7 @@ function CourseCard({
 
           <div className="flex shrink-0 items-center gap-1">
             {!compact && (
-              <div className="hidden flex-wrap items-center justify-end gap-1.5 sm:flex">
+              <div className="hidden flex-wrap items-center justify-end gap-2 sm:flex">
                 <MetaBadge
                   label={formatGrades(course.grades)}
                   bg={subject.color}
@@ -321,8 +321,8 @@ function CourseCard({
                   e.stopPropagation();
                   bookmark.onToggle();
                 }}
-                className={`cursor-pointer rounded-full transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 ${
-                  compact ? "p-1" : "p-1.5"
+                className={`cursor-pointer rounded-full transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
+                  compact ? "p-1" : "p-2"
                 }`}
                 style={{ color: subject.accent }}
               >
@@ -345,7 +345,7 @@ function CourseCard({
         <motion.p
           layout={false}
           transition={DETAIL_TRANSITION}
-          className={`text-gray-600 ${
+          className={`text-ink-secondary ${
             compact
               ? "mt-1.5 line-clamp-1 pl-5 text-xs leading-snug"
               : `mt-1 pl-7 text-sm leading-snug${expanded ? "" : " line-clamp-2"}`
@@ -362,7 +362,7 @@ function CourseCard({
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={DETAIL_TRANSITION}
-              className={`overflow-hidden text-sm leading-snug text-gray-700 italic ${
+              className={`overflow-hidden text-sm leading-snug text-ink-secondary italic ${
                 compact ? "mt-1 line-clamp-1 pl-5" : "mt-1.5 pl-7"
               }`}
             >
@@ -378,7 +378,7 @@ function CourseCard({
           className={
             compact
               ? "mt-2 flex flex-wrap items-center gap-1 pl-5"
-              : "mt-1.5 flex flex-wrap items-center gap-1.5 pl-7 sm:hidden"
+              : "mt-1.5 flex flex-wrap items-center gap-2 pl-7 sm:hidden"
           }
         >
           <MetaBadge
@@ -421,7 +421,7 @@ function CourseCard({
                 }`}
                 style={{ borderColor: subject.color }}
               >
-                <p className="leading-relaxed text-gray-700">
+                <p className="leading-relaxed text-ink-secondary">
                   {course.longDescription}
                 </p>
 
@@ -432,7 +432,7 @@ function CourseCard({
                 />
 
                 {hasAssignedTeacher(course.teacher) && (
-                  <p className={`text-gray-700 ${compact ? "mt-1.5 text-xs" : "mt-1 text-sm"}`}>
+                  <p className={`text-ink-secondary ${compact ? "mt-1.5 text-xs" : "mt-1 text-sm"}`}>
                     <span
                       className="font-semibold"
                       style={{ color: subject.accent }}
@@ -444,7 +444,7 @@ function CourseCard({
                 )}
 
                 {hasKnownMaxStudentCount(course.maxStudentCount) && (
-                  <p className={`text-gray-700 ${compact ? "mt-1 text-xs" : "mt-1 text-sm"}`}>
+                  <p className={`text-ink-secondary ${compact ? "mt-1 text-xs" : "mt-1 text-sm"}`}>
                     <span className="font-semibold" style={{ color: subject.accent }}>
                       Max students:{" "}
                     </span>
@@ -452,7 +452,7 @@ function CourseCard({
                   </p>
                 )}
 
-                <p className={`text-gray-700 ${compact ? "mt-1 text-xs" : "mt-1 text-sm"}`}>
+                <p className={`text-ink-secondary ${compact ? "mt-1 text-xs" : "mt-1 text-sm"}`}>
                   <span className="font-semibold" style={{ color: subject.accent }}>
                     Retakeable:{" "}
                   </span>
@@ -466,7 +466,7 @@ function CourseCard({
                 >
                   <label
                     htmlFor={`note-${course.id}`}
-                    className="text-sm font-semibold"
+                    className="text-sm font-medium leading-5"
                     style={{ color: subject.accent }}
                   >
                     Your note
@@ -477,7 +477,7 @@ function CourseCard({
                     onChange={(e) => onNoteChange(e.target.value)}
                     placeholder="Add a personal note about this course..."
                     rows={3}
-                    className="mt-1.5 w-full resize-y rounded-lg border bg-white/70 px-3 py-2 text-sm leading-relaxed text-gray-700 placeholder:text-gray-400 focus:outline-none focus-visible:ring-2"
+                    className="mt-2 w-full resize-y rounded-xl border bg-white p-4 text-base leading-6 text-ink-secondary placeholder:text-ink-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                     style={{
                       borderColor: subject.color,
                       outlineColor: subject.accent,

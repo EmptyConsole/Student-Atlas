@@ -13,23 +13,35 @@ Internal notes for developers and AI. Not part of the user-facing app.
 
 | Token    | Hex       |
 | -------- | --------- |
-| main-100 | `#edf2fb` |
-| main-200 | `#e2eafc` |
-| main-300 | `#d7e3fc` |
-| main-400 | `#ccdbfd` |
-| main-500 | `#c1d3fe` |
-| main-600 | `#b6ccfe` |
-| main-700 | `#abc4ff` |
+| main-100 | `#eff3fd` |
+| main-200 | `#e1e9fc` |
+| main-300 | `#cedbf8` |
+| main-400 | `#bdcdf2` |
+| main-500 | `#a9bdea` |
+| main-600 | `#97ade0` |
+| main-700 | `#859dd6` |
 
 ### Other / Sub Detail (warm neutrals and creams)
 
 | Token      | Hex       |
 | ---------- | --------- |
-| detail-100 | `#fffff0` |
-| detail-200 | `#fffdd0` |
-| detail-300 | `#f3e5ab` |
-| detail-400 | `#faf9f6` |
-| detail-500 | `#f5f5dc` |
+| detail-100 | `#fbf8ef` |
+| detail-200 | `#f4efd4` |
+| detail-300 | `#e6d4a4` |
+| detail-400 | `#f7f4ec` |
+| detail-500 | `#ebe4cc` |
+
+### Action and ink
+
+| Token            | Hex       | Use                                |
+| ---------------- | --------- | ---------------------------------- |
+| primary          | `#2b56da` | Filled actions and selected labels |
+| primary-pressed  | `#294aae` | Pressed and hover fill             |
+| ink              | `#1c212e` | Titles                             |
+| ink-secondary    | `#585f6f` | Body copy                          |
+| ink-muted        | `#676f7e` | Hints                              |
+| line             | `#c8d1e4` | Neutral outline borders            |
+| surface-muted    | `#f4f6f8` | Neutral chip ground                |
 
 ## Typography
 

@@ -76,7 +76,7 @@ function DepartmentFormModal({
             aria-label="Department editor help"
             disabled={saving}
             onClick={() => setHelpOpen(true)}
-            className="cursor-pointer rounded-full p-1 text-gray-400 transition-colors hover:bg-black/10 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="cursor-pointer rounded-full p-1 text-ink-muted transition-colors hover:bg-black/10 hover:text-ink-secondary disabled:cursor-not-allowed disabled:opacity-50"
           >
             <HelpCircle className="h-5 w-5" />
           </button>

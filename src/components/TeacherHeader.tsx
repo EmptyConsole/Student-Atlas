@@ -20,7 +20,7 @@ function TeacherHeader({ onSwitchSchool }: TeacherHeaderProps) {
         <button
           type="button"
           onClick={onSwitchSchool}
-          className="ml-auto flex h-10 cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-gray-600 transition-colors hover:bg-main-100 hover:text-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500"
+          className="ml-auto inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg px-3 text-base font-medium leading-6 text-ink-secondary transition-colors duration-150 ease-out hover:bg-main-100 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
         >
           <LogOut className="h-4 w-4" />
           Switch school

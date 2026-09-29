@@ -415,21 +415,21 @@ function RegisterPage({
   };
 
   const inputClass =
-    "w-full resize-y rounded-xl border border-main-400 bg-white px-4 py-3 text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500";
+    "w-full resize-y rounded-xl border border-main-300 bg-white p-4 text-base leading-6 text-ink-secondary placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary";
 
   return (
     <main className="flex-1 overflow-y-auto bg-detail-400">
       <div className="mx-auto max-w-6xl px-6 py-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">
+          <h1 className="text-[32px] leading-10 font-bold text-ink">
             Register for Electives
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-ink-muted">
             Rank your course preferences for the upcoming year.
           </p>
         </div>
 
-        <div className="mb-6 rounded-xl border border-main-300 bg-main-100 px-4 py-3 text-sm leading-relaxed text-gray-700">
+        <div className="mb-6 rounded-xl border border-main-300 bg-main-100 px-4 py-3 text-sm leading-relaxed text-ink-secondary">
           <p>
             Only your <strong>bookmarked courses</strong> appear here. Drag to
             rank — your <strong>top {requiredRankings}</strong> in each term
@@ -448,7 +448,7 @@ function RegisterPage({
               <button
                 type="button"
                 onClick={onNavigateToProfile}
-                className="shrink-0 cursor-pointer rounded-lg border border-amber-400 bg-white px-4 py-1.5 text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-100"
+                className="inline-flex h-10 shrink-0 cursor-pointer items-center rounded-[20px] border border-amber-400 bg-white px-6 text-sm font-medium leading-5 text-amber-900 transition-colors duration-150 ease-out hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-amber-400"
               >
                 Go to Profile
               </button>
@@ -482,7 +482,7 @@ function RegisterPage({
         <section className="mt-8">
           <label
             htmlFor="appeals-notes"
-            className="mb-2 block text-sm font-semibold text-gray-700"
+            className="mb-2 block text-sm font-medium leading-5 text-ink-secondary"
           >
             Any appeals/notes you want the teachers to read
           </label>
@@ -499,7 +499,7 @@ function RegisterPage({
 
         <div className="mt-8 flex flex-col items-start gap-3">
           {!valid && (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-ink-muted">
               Bookmark at least {requiredRankings} courses eligible for each
               term to submit. Currently:{" "}
               {terms.map((t) => `${t.name} ${counts[t.id] ?? 0}`).join(", ")}.
@@ -521,7 +521,7 @@ function RegisterPage({
             onClick={() => {
               if (profileComplete) setConfirmOpen(true);
             }}
-            className="cursor-pointer rounded-xl border-0 bg-[#4169e1] px-6 py-3 text-base font-semibold text-white transition-all duration-150 hover:scale-105 hover:bg-[#3557c7] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
+            className="inline-flex h-12 cursor-pointer items-center justify-center rounded-full border-0 bg-primary px-6 text-base font-medium leading-6 text-white transition-colors duration-150 ease-out hover:bg-primary-pressed focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? "Submitting…" : "Submit rankings"}
           </button>

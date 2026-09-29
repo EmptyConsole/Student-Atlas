@@ -70,7 +70,7 @@ function CourseDetailModal({
         initial={{ opacity: 0, scale: 0.96, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 420, damping: 32 }}
-        className="relative w-full max-w-lg overflow-hidden rounded-2xl border shadow-2xl"
+        className="relative w-full max-w-lg overflow-hidden rounded-2xl border shadow-overlay"
         style={{ backgroundColor: subject.tint, borderColor: subject.color }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -78,12 +78,12 @@ function CourseDetailModal({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <h2
-                className="text-xl font-bold leading-tight"
+                className="text-xl font-medium leading-7"
                 style={{ color: subject.accent }}
               >
                 {course.title}
               </h2>
-              <p className="mt-1 text-sm leading-snug text-gray-600">
+              <p className="mt-1 text-sm leading-snug text-ink-secondary">
                 {course.shortDescription}
               </p>
             </div>
@@ -91,22 +91,22 @@ function CourseDetailModal({
               type="button"
               aria-label="Close"
               onClick={onClose}
-              className="mt-0.5 shrink-0 cursor-pointer rounded-full p-1 text-gray-400 transition-colors hover:bg-black/10 hover:text-gray-700"
+              className="mt-0.5 shrink-0 cursor-pointer rounded-full p-1 text-ink-muted transition-colors hover:bg-black/10 hover:text-ink-secondary"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <span
-              className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+              className="rounded-full px-2 py-1 text-xs font-semibold"
               style={{ backgroundColor: subject.color, color: subject.accent }}
             >
               {formatGrades(course.grades)}
             </span>
             <TermBadges offerings={[course.termOptions]} termById={termById} />
             {linked && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-main-100 px-2.5 py-0.5 text-xs font-semibold text-[#2c4a8a]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-main-100 px-2 py-1 text-xs font-semibold text-primary">
                 <Link2 className="h-3 w-3" />
                 Linked
               </span>
@@ -121,7 +121,7 @@ function CourseDetailModal({
             backgroundColor: "rgba(255,255,255,0.55)",
           }}
         >
-          <p className="text-sm leading-relaxed text-gray-700">
+          <p className="text-sm leading-relaxed text-ink-secondary">
             {course.longDescription}
           </p>
 
@@ -131,7 +131,7 @@ function CourseDetailModal({
             className="mt-4"
           />
 
-          <div className="mt-1.5 space-y-1.5 text-sm text-gray-700">
+          <div className="mt-1.5 space-y-1.5 text-sm text-ink-secondary">
             {hasAssignedTeacher(course.teacher) && (
               <p>
                 <span className="font-semibold" style={{ color: subject.accent }}>
@@ -164,7 +164,7 @@ function CourseDetailModal({
               >
                 Your note
               </p>
-              <p className="mt-1 text-sm leading-relaxed text-gray-700 italic">
+              <p className="mt-1 text-sm leading-relaxed text-ink-secondary italic">
                 {note}
               </p>
             </div>
@@ -201,7 +201,7 @@ function AlternatesDividerSpan({ span }: { span: string }) {
         style={{ width: span }}
       >
         <div className="h-px flex-1 bg-main-400" />
-        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
           Alternates (not submitted)
         </span>
         <div className="h-px flex-1 bg-main-400" />
@@ -277,7 +277,7 @@ function RankedItem({
         className={`${RANKING_ROW_SHELL} w-full cursor-pointer touch-none select-none text-left active:cursor-grabbing ${
           isTopPick
             ? "border-2 shadow-md"
-            : "border border-dashed border-main-400 opacity-70 shadow-none"
+            : "border border-dashed border-main-300 opacity-70 shadow-none"
         }`}
         style={{
           backgroundColor: isTopPick ? subject.tint : "transparent",
@@ -287,7 +287,7 @@ function RankedItem({
       >
         <span
           className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-            isTopPick ? "text-white" : "text-gray-400"
+            isTopPick ? "text-white" : "text-ink-muted"
           }`}
           style={{ backgroundColor: isTopPick ? subject.accent : "#e5e7eb" }}
         >
@@ -302,7 +302,7 @@ function RankedItem({
               e.stopPropagation();
               onUnbookmark();
             }}
-            className="flex shrink-0 cursor-pointer rounded-full p-1 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
+            className="flex shrink-0 cursor-pointer rounded-full p-1 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
             style={{ color: subject.accent }}
           >
             <Bookmark className="h-4 w-4" fill={subject.accent} />
@@ -314,7 +314,7 @@ function RankedItem({
         <div className="min-w-0 flex-1">
           <p
             className={`truncate text-sm font-semibold leading-tight ${
-              isTopPick ? "" : "text-gray-500"
+              isTopPick ? "" : "text-ink-muted"
             }`}
             style={isTopPick ? { color: subject.accent } : undefined}
           >
@@ -323,7 +323,7 @@ function RankedItem({
           {linked && (
             <span className="mt-0.5 inline-flex items-center gap-1">
               <Link2
-                className="h-3 w-3 shrink-0 text-[#2c4a8a]"
+                className="h-3 w-3 shrink-0 text-primary"
                 aria-hidden="true"
               />
               <TermBadges
@@ -335,7 +335,7 @@ function RankedItem({
         </div>
 
         <GripVertical
-          className="h-4 w-4 shrink-0 cursor-grab text-gray-400"
+          className="h-4 w-4 shrink-0 cursor-grab text-ink-muted"
           aria-hidden="true"
         />
       </div>
@@ -479,7 +479,7 @@ function RankingAlignedGrid({
 
   if (terms.length === 0) {
     return (
-      <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-main-300 bg-white px-4 py-8 text-center text-sm text-gray-500">
+      <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-main-300 bg-white px-4 py-8 text-center text-sm text-ink-muted">
         This school hasn't set up any terms yet, so there's nothing to rank.
       </div>
     );
@@ -488,7 +488,7 @@ function RankingAlignedGrid({
   const totalCount = termIds.reduce((sum, termId) => sum + countFor(termId), 0);
   if (totalCount === 0) {
     return (
-      <div className="flex min-h-[28rem] items-center justify-center rounded-2xl border border-dashed border-main-300 bg-white px-4 py-8 text-center text-sm text-gray-500">
+      <div className="flex min-h-[28rem] items-center justify-center rounded-2xl border border-dashed border-main-300 bg-white px-4 py-8 text-center text-sm text-ink-muted">
         Bookmark courses on the Courses page to rank them here.
       </div>
     );
@@ -501,14 +501,14 @@ function RankingAlignedGrid({
           {terms.map((term) => (
             <div key={term.id} className="flex flex-col gap-1">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-xl font-bold text-gray-800">{term.name}</h2>
-                <span className="rounded-full bg-main-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                <h2 className="text-xl font-medium leading-7 text-ink">{term.name}</h2>
+                <span className="rounded-full bg-main-100 px-3 py-1 text-xs font-semibold text-ink-secondary">
                   {countFor(term.id)} bookmarked
                 </span>
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-ink-muted">
                 Top{" "}
-                <strong className="font-semibold text-[#4169e1]">
+                <strong className="font-semibold text-primary">
                   {requiredRankings}
                 </strong>{" "}
                 ranked courses are submitted
@@ -544,7 +544,7 @@ function RankingAlignedGrid({
           </div>
         </div>
 
-        <p className="mt-3 text-center text-xs text-gray-400">
+        <p className="mt-3 text-center text-xs text-ink-muted">
           Click any card to see its full details · Drag to reorder
         </p>
       </div>

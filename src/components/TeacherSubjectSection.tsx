@@ -73,7 +73,7 @@ function TeacherSubjectSection({
           aria-expanded={!collapsed}
           aria-label={collapsed ? `Expand ${subject.name}` : `Collapse ${subject.name}`}
           onClick={() => setCollapsed((c) => !c)}
-          className="cursor-pointer rounded-full p-1.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
+          className="cursor-pointer rounded-full p-2 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
           style={{ color: subject.accent, outlineColor: subject.accent }}
         >
           <ChevronDown
@@ -81,12 +81,12 @@ function TeacherSubjectSection({
             style={{ transform: collapsed ? "rotate(180deg)" : "rotate(0deg)" }}
           />
         </button>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold" style={{ color: subject.accent }}>
+            <h2 className="text-[28px] leading-9 font-semibold" style={{ color: subject.accent }}>
               {subject.name}
             </h2>
-            <span className="text-sm font-medium text-gray-400">
+            <span className="text-sm font-medium text-ink-muted">
               {items.length} {items.length === 1 ? "course" : "courses"}
             </span>
             {editable && (
@@ -95,7 +95,7 @@ function TeacherSubjectSection({
                   type="button"
                   aria-label={`Edit ${subject.name} department`}
                   onClick={onEditDepartment}
-                  className="cursor-pointer rounded-full p-1.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
+                  className="cursor-pointer rounded-full p-2 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                   style={{ color: subject.accent }}
                 >
                   <Pencil className="h-4 w-4" />
@@ -104,7 +104,7 @@ function TeacherSubjectSection({
                   type="button"
                   aria-label={`Delete ${subject.name} department`}
                   onClick={onDeleteDepartment}
-                  className="cursor-pointer rounded-full p-1.5 text-red-500 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
+                  className="cursor-pointer rounded-full p-2 text-red-500 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -112,7 +112,7 @@ function TeacherSubjectSection({
             )}
           </div>
           {!collapsed && subject.graduationRequirement && (
-            <p className="text-sm leading-snug text-gray-600">
+            <p className="text-sm leading-snug text-ink-secondary">
               <span className="font-bold">Graduation Requirement: </span>
               {subject.graduationRequirement}
             </p>
@@ -142,7 +142,7 @@ function TeacherSubjectSection({
                 }
               >
                 {items.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-main-300 px-4 py-6 text-center text-sm text-gray-400">
+                  <p className="rounded-xl border border-dashed border-main-300 px-4 py-6 text-center text-sm text-ink-muted">
                     No courses in this department yet.
                   </p>
                 ) : compact ? (

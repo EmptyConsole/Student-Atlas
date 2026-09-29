@@ -39,7 +39,7 @@ function RequirementsSection({ subjects }: RequirementsSectionProps) {
             toggleCollapsed();
           }
         }}
-        className="flex cursor-pointer items-start gap-3 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500"
+        className="flex cursor-pointer items-start gap-3 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
       >
         <ChevronDown
           className="mt-0.5 h-5 w-5 shrink-0 transition-transform duration-200"
@@ -47,10 +47,10 @@ function RequirementsSection({ subjects }: RequirementsSectionProps) {
         />
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <GraduationCap
-            className="h-6 w-6 shrink-0 text-gray-700"
+            className="h-6 w-6 shrink-0 text-ink-secondary"
             aria-hidden="true"
           />
-          <h2 id="requirements-heading" className="text-xl font-bold text-gray-800">
+          <h2 id="requirements-heading" className="text-xl font-medium leading-7 text-ink">
             Requirements
           </h2>
         </div>
@@ -67,7 +67,7 @@ function RequirementsSection({ subjects }: RequirementsSectionProps) {
             className="overflow-hidden"
           >
             {subjectsWithRequirements.length === 0 ? (
-              <p className="mt-3 pl-11 text-sm text-gray-400">
+              <p className="mt-3 pl-11 text-sm text-ink-muted">
                 No graduation requirements listed.
               </p>
             ) : (
@@ -93,7 +93,7 @@ function RequirementsSection({ subjects }: RequirementsSectionProps) {
                         >
                           {subject.name}
                         </p>
-                        <p className="mt-0.5 text-sm leading-snug text-gray-600">
+                        <p className="mt-0.5 text-sm leading-snug text-ink-secondary">
                           {subject.graduationRequirement}
                         </p>
                       </div>

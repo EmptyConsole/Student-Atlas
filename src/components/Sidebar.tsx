@@ -59,13 +59,13 @@ function BookmarkRow({
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="flex w-full items-start gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-white/60"
+      className="flex w-full items-start gap-2 rounded-md px-2 py-1 transition-colors hover:bg-white/60"
     >
       <button
         type="button"
         onClick={entry.onRemove}
         aria-label={`Remove ${entry.title} bookmark`}
-        className="mt-0.5 shrink-0 cursor-pointer rounded p-0.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
+        className="mt-1 shrink-0 cursor-pointer rounded p-1 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
         style={{ color: accent }}
       >
         <Bookmark className="h-3.5 w-3.5" fill={accent} />
@@ -73,7 +73,7 @@ function BookmarkRow({
       <button
         type="button"
         onClick={onSelect}
-        className="min-w-0 flex-1 cursor-pointer text-left focus:outline-none focus-visible:ring-2"
+        className="min-w-0 flex-1 cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
         style={{ color: accent }}
       >
         <MarqueeText
@@ -182,7 +182,7 @@ function Sidebar({
   return (
     <ResizableAside storageKey="student-atlas-sidebar-width">
       <nav aria-label="Course subjects" className="flex-1 overflow-y-auto py-3">
-        <ul className="flex flex-col gap-1.5">
+        <ul className="flex flex-col gap-2">
           <li
             ref={activeSubject === REQUIREMENTS_KEY ? activeItemRef : null}
             className="flex flex-col items-end"
@@ -235,7 +235,7 @@ function Sidebar({
                               stiffness: 400,
                               damping: 34,
                             }}
-                            className="flex items-center gap-1.5"
+                            className="flex items-center gap-2"
                           >
                             <BookmarkRow
                               entry={entry}

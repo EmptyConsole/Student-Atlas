@@ -38,7 +38,7 @@ type PendingVerification = {
 function RequiredFieldLabel({
   children,
   htmlFor,
-  className = "mb-1.5",
+  className = "mb-2",
 }: {
   children: React.ReactNode;
   htmlFor?: string;
@@ -52,7 +52,7 @@ function RequiredFieldLabel({
       </span>
     </>
   );
-  const labelClass = `block text-sm font-semibold text-gray-700 ${className}`;
+  const labelClass = `block text-sm font-medium leading-5 text-ink-secondary ${className}`;
 
   if (htmlFor) {
     return (
@@ -80,10 +80,10 @@ function GradeChip({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className="cursor-pointer rounded-full border-2 px-3 py-1 text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2"
+      className="inline-flex h-9 cursor-pointer items-center rounded-full border-2 px-3 text-sm font-medium leading-5 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
       style={{
         backgroundColor: active ? bg : "transparent",
-        color: active ? fg : "#6b7280",
+        color: active ? fg : "#676f7e",
         borderColor: bg,
       }}
     >
@@ -108,9 +108,9 @@ function PrerequisiteRow({
           type="checkbox"
           checked={checked}
           onChange={(e) => onToggle(e.target.checked)}
-          className="h-4 w-4 shrink-0 accent-[#4169e1]"
+          className="h-4 w-4 shrink-0 accent-primary"
         />
-        <span className="text-sm font-medium text-gray-800">{title}</span>
+        <span className="text-sm font-medium text-ink">{title}</span>
       </label>
     </div>
   );
@@ -358,16 +358,16 @@ function ProfileContent({
   };
 
   const inputClass =
-    "h-11 w-full rounded-xl border border-main-400 bg-white px-4 text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500";
+    "h-[46px] w-full rounded-xl border border-main-300 bg-white py-2 pr-2 pl-3 text-base leading-6 text-ink-secondary placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary";
 
   if (pendingVerification) {
     return (
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pt-6 pb-10">
         <div className="mx-auto flex max-w-2xl flex-col gap-6">
-          <h2 className="text-2xl font-bold text-gray-800">Verify Email</h2>
-          <p className="text-sm text-gray-600">
+          <h2 className="text-[28px] leading-9 font-semibold text-ink">Verify Email</h2>
+          <p className="text-sm text-ink-secondary">
             We sent a 6-digit code to{" "}
-            <span className="font-semibold text-gray-800">
+            <span className="font-semibold text-ink">
               {pendingVerification.email}
             </span>
             . Enter it below to continue.
@@ -375,7 +375,7 @@ function ProfileContent({
           <div>
             <label
               htmlFor="email-otp"
-              className="mb-1.5 block text-sm font-semibold text-gray-700"
+              className="mb-2 block text-sm font-medium leading-5 text-ink-secondary"
             >
               Verification code
             </label>
@@ -402,10 +402,10 @@ function ProfileContent({
               type="button"
               onClick={() => void handleVerifyEmail()}
               disabled={otpCode.length !== 6 || verifyingCode}
-              className={`h-11 w-full rounded-xl text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
+              className={`inline-flex h-10 w-full items-center justify-center rounded-full text-sm font-medium leading-5 text-white transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
                 otpCode.length === 6 && !verifyingCode
-                  ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
-                  : "cursor-not-allowed bg-gray-300"
+                  ? "cursor-pointer bg-primary hover:bg-primary-pressed"
+                  : "cursor-not-allowed bg-primary opacity-60"
               }`}
             >
               {verifyingCode ? "Verifying..." : "Verify Email"}
@@ -414,10 +414,10 @@ function ProfileContent({
               type="button"
               onClick={() => void handleResendCode()}
               disabled={sendingCode || resendCooldown > 0}
-              className={`h-11 w-full rounded-xl text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
+              className={`inline-flex h-10 w-full items-center justify-center rounded-[20px] text-base font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
                 !sendingCode && resendCooldown === 0
-                  ? "cursor-pointer border border-main-400 bg-white text-gray-700 hover:bg-main-100"
-                  : "cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400"
+                  ? "cursor-pointer border border-main-300 bg-white text-primary hover:bg-main-100"
+                  : "cursor-not-allowed border border-line bg-surface-muted text-ink-muted"
               }`}
             >
               {sendingCode
@@ -434,7 +434,7 @@ function ProfileContent({
                 setSubmitting(false);
                 setSaving(false);
               }}
-              className="h-11 w-full cursor-pointer rounded-xl text-base font-semibold text-gray-500 transition-colors hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
+              className="inline-flex h-10 w-full cursor-pointer items-center justify-center rounded-lg px-3 text-base font-medium leading-6 text-ink-muted transition-colors duration-150 ease-out hover:text-ink-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
             >
               Cancel
             </button>
@@ -455,12 +455,12 @@ function ProfileContent({
           data-section="profile"
           className="scroll-mt-4"
         >
-          <h2 className="mb-6 text-2xl font-bold text-gray-800">Profile</h2>
+          <h2 className="mb-6 text-[28px] leading-9 font-semibold text-ink">Profile</h2>
 
           <div className="flex flex-col gap-5">
             {onboarding && (
               <div className="flex items-center justify-between gap-4">
-                <span className="text-sm font-medium text-gray-500">
+                <span className="text-sm font-medium text-ink-muted">
                   {mode === "create"
                     ? "You are currently creating an account"
                     : "You are currently signing into your account"}
@@ -473,7 +473,7 @@ function ProfileContent({
                     setLoginEmail("");
                     clearVerification();
                   }}
-                  className="h-11 shrink-0 cursor-pointer rounded-xl bg-[#4169e1] px-5 text-base font-semibold text-white shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-[#3557c7] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
+                  className="inline-flex h-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 ease-out hover:bg-primary-pressed focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                 >
                   {mode === "create" ? "Already Have An Account?" : "Create An Account"}
                 </button>
@@ -485,7 +485,7 @@ function ProfileContent({
                 <div>
                   <label
                     htmlFor="login-email"
-                    className="mb-1.5 block text-sm font-semibold text-gray-700"
+                    className="mb-2 block text-sm font-medium leading-5 text-ink-secondary"
                   >
                     Email
                   </label>
@@ -507,10 +507,10 @@ function ProfileContent({
                     type="button"
                     onClick={() => void handleLoginByEmailSubmit()}
                     disabled={!loginEmail.trim() || loggingIn || sendingCode}
-                    className={`h-11 w-full rounded-xl text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
+                    className={`inline-flex h-10 w-full items-center justify-center rounded-full text-sm font-medium leading-5 text-white transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
                       loginEmail.trim() && !loggingIn && !sendingCode
-                        ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
-                        : "cursor-not-allowed bg-gray-300"
+                        ? "cursor-pointer bg-primary hover:bg-primary-pressed"
+                        : "cursor-not-allowed bg-primary opacity-60"
                     }`}
                   >
                     {loggingIn || sendingCode ? "Sending code..." : "Log In"}
@@ -532,7 +532,7 @@ function ProfileContent({
                     onSelect={handleSelectSchool}
                   />
                   {!schoolSelected && (
-                    <p className="mt-1.5 text-xs font-medium text-gray-400">
+                    <p className="mt-1.5 text-xs font-medium text-ink-muted">
                       Select a school first to fill in the rest of your profile.
                     </p>
                   )}
@@ -575,12 +575,12 @@ function ProfileContent({
                   <div>
                     <RequiredFieldLabel className="mb-2">Grade</RequiredFieldLabel>
                     {gradesLoading ? (
-                      <div className="flex items-center gap-2 py-1 text-sm text-gray-400">
+                      <div className="flex items-center gap-2 py-1 text-sm text-ink-muted">
                         <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-main-300 border-t-main-600" />
                         Loading grades...
                       </div>
                     ) : schoolGrades.length === 0 ? (
-                      <p className="text-sm text-gray-400">
+                      <p className="text-sm text-ink-muted">
                         This school has no grades configured yet.
                       </p>
                     ) : (
@@ -598,19 +598,19 @@ function ProfileContent({
                   </div>
 
                   <div>
-                    <span className="mb-3 block text-sm font-semibold text-gray-700">
+                    <span className="mb-2 block text-sm font-medium leading-5 text-ink-secondary">
                       Courses Taken{" "}
-                      <span className="font-normal text-gray-500">
+                      <span className="font-normal text-ink-muted">
                         (not required)
                       </span>
                     </span>
                     {prereqLoading ? (
-                      <div className="flex items-center gap-2 py-3 text-sm text-gray-400">
+                      <div className="flex items-center gap-2 py-3 text-sm text-ink-muted">
                         <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-main-300 border-t-main-600" />
                         Loading courses...
                       </div>
                     ) : courseTitles.length === 0 ? (
-                      <p className="py-3 text-sm text-gray-400">
+                      <p className="py-3 text-sm text-ink-muted">
                         No prerequisite or corequisite courses for this school.
                       </p>
                     ) : (
@@ -634,10 +634,10 @@ function ProfileContent({
                       type="button"
                       onClick={() => void handleSubmit()}
                       disabled={!canSubmit || submitting || sendingCode}
-                      className={`h-11 w-full rounded-xl text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
+                      className={`inline-flex h-10 w-full items-center justify-center rounded-full text-sm font-medium leading-5 text-white transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
                         canSubmit && !submitting && !sendingCode
-                          ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
-                          : "cursor-not-allowed bg-gray-300"
+                          ? "cursor-pointer bg-primary hover:bg-primary-pressed"
+                          : "cursor-not-allowed bg-primary opacity-60"
                       }`}
                     >
                       {submitting || sendingCode
@@ -664,16 +664,16 @@ function ProfileContent({
                   type="button"
                   onClick={() => void handleSave()}
                   disabled={!hasUnsavedChanges || saving || sendingCode}
-                  className={`h-11 rounded-xl px-6 text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700 ${
+                  className={`inline-flex h-12 items-center justify-center rounded-full px-6 text-base font-medium leading-6 text-white transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
                     hasUnsavedChanges && !saving && !sendingCode
-                      ? "cursor-pointer bg-[#4169e1] hover:bg-[#3557c7]"
-                      : "cursor-not-allowed bg-gray-300"
+                      ? "cursor-pointer bg-primary hover:bg-primary-pressed"
+                      : "cursor-not-allowed bg-primary opacity-60"
                   }`}
                 >
                   {saving || sendingCode ? "Saving..." : "Save Changes"}
                 </button>
                 {hasUnsavedChanges ? (
-                  <span className="text-sm font-medium text-gray-500">
+                  <span className="text-sm font-medium text-ink-muted">
                     You have unsaved changes.
                   </span>
                 ) : justSaved ? (

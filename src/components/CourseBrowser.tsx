@@ -152,15 +152,15 @@ function CourseBrowser({
 
   return (
     <main className="flex flex-1 flex-col overflow-hidden bg-detail-400">
-      <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-dashed border-main-400 bg-detail-400/95 px-6 pt-6 pb-4 backdrop-blur">
+      <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-dashed border-main-300 bg-detail-400/95 px-6 pt-6 pb-4 backdrop-blur">
         <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3.5 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-ink-muted" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search courses by title or description..."
-            className="h-12 w-full rounded-xl border border-main-400 bg-white pr-4 pl-11 text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500"
+            className="h-11 w-full rounded-lg border border-main-300 bg-white pr-4 pl-10 text-base leading-6 text-ink-secondary shadow-raised placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
           />
         </div>
         <CatalogLayoutToggle compact={compact} onToggle={toggleBrowserLayout} />
@@ -176,7 +176,7 @@ function CourseBrowser({
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="text-center">
-              <p className="text-gray-500 mb-2">Loading courses...</p>
+              <p className="text-ink-muted mb-2">Loading courses...</p>
               <div className="inline-block h-8 w-8 border-4 border-main-300 border-t-main-600 rounded-full animate-spin" />
             </div>
           </div>
@@ -186,7 +186,7 @@ function CourseBrowser({
               <p className="text-red-500 font-semibold mb-2">
                 Error loading courses
               </p>
-              <p className="text-gray-500 text-sm">{error}</p>
+              <p className="text-ink-muted text-sm">{error}</p>
             </div>
           </div>
         ) : (
@@ -221,7 +221,7 @@ function CourseBrowser({
                 ))}
 
                 {!hasResults && (
-                  <p className="py-16 text-center text-gray-400">
+                  <p className="py-16 text-center text-ink-muted">
                     No courses match "{search}".
                   </p>
                 )}

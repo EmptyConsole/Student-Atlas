@@ -24,25 +24,25 @@ function TermBadges({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 ${
+      className={`inline-flex items-center gap-2 ${
         wrap ? "flex-wrap" : "flex-nowrap"
       } ${className ?? ""}`}
     >
       {valid.map((offering, index) => (
-        <span key={index} className="inline-flex items-center gap-1.5">
+        <span key={index} className="inline-flex items-center gap-2">
           {index > 0 && (
-            <span className="text-xs font-semibold text-gray-400">/</span>
+            <span className="text-xs font-semibold text-ink-muted">/</span>
           )}
           {offering.map((termId, termIndex) => {
             const term = termById.get(termId);
             const { bg, fg } = termColor(term?.position ?? 0);
             return (
-              <span key={termId} className="inline-flex items-center gap-1.5">
+              <span key={termId} className="inline-flex items-center gap-2">
                 {termIndex > 0 && (
-                  <span className="text-xs font-semibold text-gray-400">+</span>
+                  <span className="text-xs font-semibold text-ink-muted">+</span>
                 )}
                 <span
-                  className="rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap"
+                  className="rounded-full px-2 py-1 text-xs font-semibold whitespace-nowrap"
                   style={{ backgroundColor: bg, color: fg }}
                 >
                   {term?.name ?? "Unknown term"}

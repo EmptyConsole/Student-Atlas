@@ -51,11 +51,11 @@ function ModalShell({
         initial={{ opacity: 0, scale: 0.96, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 420, damping: 32 }}
-        className={`relative w-full ${maxWidthClass} rounded-2xl border border-main-300 bg-white shadow-2xl`}
+        className={`relative w-full ${maxWidthClass} rounded-2xl border border-main-300 bg-white shadow-overlay`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-4 border-b border-main-200 px-6 py-4">
-          <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+          <h2 className="text-xl font-medium leading-7 text-ink">{title}</h2>
           <div className="flex shrink-0 items-center gap-1">
             {headerAction}
             <button
@@ -63,7 +63,7 @@ function ModalShell({
               aria-label="Close"
               disabled={busy}
               onClick={onClose}
-              className="cursor-pointer rounded-full p-1 text-gray-400 transition-colors hover:bg-black/10 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="cursor-pointer rounded-full p-1 text-ink-muted transition-colors hover:bg-black/10 hover:text-ink-secondary disabled:cursor-not-allowed disabled:opacity-50"
             >
               <X className="h-5 w-5" />
             </button>

@@ -597,7 +597,7 @@ function CourseFormModal({
             aria-label="Course editor help"
             disabled={saving}
             onClick={() => setHelpOpen(true)}
-            className="cursor-pointer rounded-full p-1 text-gray-400 transition-colors hover:bg-black/10 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="cursor-pointer rounded-full p-1 text-ink-muted transition-colors hover:bg-black/10 hover:text-ink-secondary disabled:cursor-not-allowed disabled:opacity-50"
           >
             <HelpCircle className="h-5 w-5" />
           </button>
@@ -629,12 +629,12 @@ function CourseFormModal({
       >
         <div className="flex flex-col gap-5">
           {showRestoreBanner && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-main-300 bg-main-100 px-4 py-3 text-sm text-gray-700">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-main-300 bg-main-100 px-4 py-3 text-sm text-ink-secondary">
               <span>Restored your unsaved changes.</span>
               <button
                 type="button"
                 onClick={discardRestoredDraft}
-                className="cursor-pointer rounded-lg border border-main-400 bg-white px-3 py-1 text-xs font-semibold text-gray-700 transition-colors hover:bg-main-100"
+                className="inline-flex h-10 cursor-pointer items-center rounded-[20px] border border-main-300 bg-white px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
               >
                 Discard
               </button>
@@ -756,10 +756,10 @@ function CourseFormModal({
                     type="button"
                     aria-pressed={active}
                     onClick={() => toggleGrade(grade)}
-                    className="cursor-pointer rounded-full border-2 px-3 py-1 text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2"
+                    className="inline-flex h-9 cursor-pointer items-center rounded-full border-2 px-3 text-sm font-medium leading-5 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                     style={{
                       backgroundColor: active ? bg : "transparent",
-                      color: active ? fg : "#6b7280",
+                      color: active ? fg : "#676f7e",
                       borderColor: bg,
                     }}
                   >
@@ -780,7 +780,7 @@ function CourseFormModal({
               </div>
             ) : (
               <>
-                <p className="mb-2 text-xs text-gray-400">
+                <p className="mb-2 text-xs text-ink-muted">
                   Pick every term this course spans (e.g. two terms for a
                   year-long course). Use "Add another offering" only when
                   students should rank separate term combinations
@@ -802,10 +802,10 @@ function CourseFormModal({
                               type="button"
                               aria-pressed={active}
                               onClick={() => toggleTerm(index, term.id)}
-                              className="cursor-pointer rounded-full border-2 px-3 py-1 text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2"
+                              className="inline-flex h-9 cursor-pointer items-center rounded-full border-2 px-3 text-sm font-medium leading-5 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                               style={{
                                 backgroundColor: active ? bg : "transparent",
-                                color: active ? fg : "#6b7280",
+                                color: active ? fg : "#676f7e",
                                 borderColor: bg,
                               }}
                             >
@@ -819,7 +819,7 @@ function CourseFormModal({
                           type="button"
                           aria-label="Remove this offering"
                           onClick={() => removeOffering(index)}
-                          className="ml-auto shrink-0 cursor-pointer rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-50"
+                          className="ml-auto shrink-0 cursor-pointer rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50"
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -830,7 +830,7 @@ function CourseFormModal({
                 <button
                   type="button"
                   onClick={addOffering}
-                  className="mt-2 flex cursor-pointer items-center gap-1.5 rounded-lg border border-main-400 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-main-100"
+                  className="mt-2 inline-flex h-10 cursor-pointer items-center gap-2 rounded-[20px] border border-main-300 bg-white px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                 >
                   <Plus className="h-4 w-4" />
                   Add another offering
@@ -841,7 +841,7 @@ function CourseFormModal({
 
           <div>
             <span className={labelClass}>Class times</span>
-            <p className="mb-2 text-xs text-gray-400">
+            <p className="mb-2 text-xs text-ink-muted">
               Day is a rotation-day number (1, 2, …). Times are shown in AM/PM
               and stored as minutes from midnight.
             </p>
@@ -852,7 +852,7 @@ function CourseFormModal({
                     key={time.key}
                     className="flex flex-wrap items-center gap-2 rounded-xl border border-main-300 bg-white p-3"
                   >
-                    <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                    <label className="flex items-center gap-2 text-xs font-medium text-ink-secondary">
                       Day
                       <input
                         type="number"
@@ -874,7 +874,7 @@ function CourseFormModal({
                       className={`${inputClass} w-auto`}
                       aria-label="Start time"
                     />
-                    <span className="text-sm text-gray-500">to</span>
+                    <span className="text-sm text-ink-muted">to</span>
                     <input
                       type="time"
                       value={time.end}
@@ -888,7 +888,7 @@ function CourseFormModal({
                       type="button"
                       aria-label="Remove this class time"
                       onClick={() => removeTime(time.key)}
-                      className="ml-auto cursor-pointer rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-50"
+                      className="ml-auto cursor-pointer rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -899,7 +899,7 @@ function CourseFormModal({
             <button
               type="button"
               onClick={addTime}
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-main-400 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-main-100"
+              className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-[20px] border border-main-300 bg-white px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
             >
               <Plus className="h-4 w-4" />
               Add time
@@ -911,7 +911,7 @@ function CourseFormModal({
             value={prereq}
             onChange={setPrereq}
             courses={builderCourses}
-            accent="#4169e1"
+            accent="#2b56da"
           />
 
           <RequirementBuilder
@@ -919,12 +919,12 @@ function CourseFormModal({
             value={coreq}
             onChange={setCoreq}
             courses={builderCourses}
-            accent="#4169e1"
+            accent="#2b56da"
           />
 
           <div>
             <label htmlFor="course-teacher" className={labelClass}>
-              Teacher <span className="font-normal text-gray-500">(optional)</span>
+              Teacher <span className="font-normal text-ink-muted">(optional)</span>
             </label>
             <input
               id="course-teacher"
@@ -939,7 +939,7 @@ function CourseFormModal({
           <div>
             <label htmlFor="course-max-students" className={labelClass}>
               Max number of students{" "}
-              <span className="font-normal text-gray-500">(optional)</span>
+              <span className="font-normal text-ink-muted">(optional)</span>
             </label>
             <input
               id="course-max-students"
@@ -957,9 +957,9 @@ function CourseFormModal({
               type="checkbox"
               checked={retakeable}
               onChange={(e) => setRetakeable(e.target.checked)}
-              className="h-4 w-4 shrink-0 accent-[#4169e1]"
+              className="h-4 w-4 shrink-0 accent-primary"
             />
-            <span className="text-sm font-medium text-gray-800">
+            <span className="text-sm font-medium text-ink">
               Repeatable (students may take this more than once)
             </span>
           </label>

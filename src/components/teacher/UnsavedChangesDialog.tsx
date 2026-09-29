@@ -22,7 +22,7 @@ function UnsavedChangesDialog({
       <ModalShell
         title="Unsaved changes"
         onClose={onStay}
-        maxWidthClass="max-w-sm"
+        maxWidthClass="max-w-[480px]"
         footer={
           <>
             <button
@@ -42,7 +42,7 @@ function UnsavedChangesDialog({
           </>
         }
       >
-        <p className="text-sm leading-relaxed text-gray-600">{message}</p>
+        <p className="text-sm leading-relaxed text-ink-secondary">{message}</p>
       </ModalShell>
     </div>
   );

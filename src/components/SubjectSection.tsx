@@ -139,7 +139,7 @@ function SubjectSection({
               : `Collapse ${subject.name} courses`
           }
           onClick={() => setCollapsed((c) => !c)}
-          className="cursor-pointer rounded-full p-1.5 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2"
+          className="cursor-pointer rounded-full p-2 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
           style={{ color: subject.accent, outlineColor: subject.accent }}
         >
           <ChevronDown
@@ -147,20 +147,20 @@ function SubjectSection({
             style={{ transform: collapsed ? "rotate(180deg)" : "rotate(0deg)" }}
           />
         </button>
-        <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-3">
             <h2
-              className="text-2xl font-bold"
+              className="text-[28px] leading-9 font-semibold"
               style={{ color: subject.accent }}
             >
               {subject.name}
             </h2>
-            <span className="text-sm font-medium text-gray-400">
+            <span className="text-sm font-medium text-ink-muted">
               {passCount} of {items.length}
             </span>
           </div>
           {!collapsed && subject.graduationRequirement && (
-            <p className="text-sm leading-snug text-gray-600">
+            <p className="text-sm leading-snug text-ink-secondary">
               <span className="font-bold">Graduation Requirement: </span>
               {subject.graduationRequirement}
             </p>

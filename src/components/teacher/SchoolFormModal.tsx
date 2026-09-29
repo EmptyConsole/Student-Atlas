@@ -61,10 +61,10 @@ function newDraftKey(): string {
 const GRADE_ROW_GRID = "grid grid-cols-4 items-center gap-x-4 gap-y-3";
 
 const gradeStepperInputClass =
-  "h-7 min-w-0 flex-1 rounded-md border border-main-400 bg-white px-0.5 text-center text-sm text-gray-700 shadow-sm focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
+  "h-7 min-w-0 flex-1 rounded-md border border-main-300 bg-white px-1 text-center text-sm text-ink-secondary focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
 
 const gradeStepperButtonClass =
-  "shrink-0 cursor-pointer rounded p-0.5 text-gray-400 transition-colors hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-30";
+  "shrink-0 cursor-pointer rounded p-1 text-ink-muted transition-colors duration-150 ease-out hover:text-ink-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-30";
 
 function GradeStepper({
   label,
@@ -88,7 +88,7 @@ function GradeStepper({
 
   return (
     <div className="flex w-full min-w-0 items-center gap-2 px-1">
-      <div className="flex shrink-0 flex-col items-center gap-1.5">
+      <div className="flex shrink-0 flex-col items-center gap-2">
         <button
           type="button"
           aria-label={`Increase ${label}`}
@@ -336,7 +336,7 @@ function SchoolFormModal({
             aria-label="School editor help"
             disabled={saving}
             onClick={() => setHelpOpen(true)}
-            className="cursor-pointer rounded-full p-1 text-gray-400 transition-colors hover:bg-black/10 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="cursor-pointer rounded-full p-1 text-ink-muted transition-colors hover:bg-black/10 hover:text-ink-secondary disabled:cursor-not-allowed disabled:opacity-50"
           >
             <HelpCircle className="h-5 w-5" />
           </button>
@@ -436,7 +436,7 @@ function SchoolFormModal({
             }
             className={inputClass}
           />
-          <p className="mt-1.5 text-xs text-gray-400">
+          <p className="mt-1.5 text-xs text-ink-muted">
             {mode === "add"
               ? "Teachers must enter this to edit the school. Keep it away from students."
               : "The current password is stored hashed and cannot be shown. Type a new one only if you want to change it."}
@@ -445,14 +445,14 @@ function SchoolFormModal({
 
         <div>
           <span className={labelClass}>Courses by grade</span>
-          <p className="mb-2 text-xs text-gray-400">
+          <p className="mb-2 text-xs text-ink-muted">
             Per grade: how many courses a student must rank per term, and how
             many electives the sort assigns them per term. Grades left off this
             list fall back to the lowest grade listed.
           </p>
           <div className="flex flex-col gap-3">
             <div
-              className={`${GRADE_ROW_GRID} text-center text-xs font-semibold leading-tight text-gray-500`}
+              className={`${GRADE_ROW_GRID} text-center text-xs font-semibold leading-tight text-ink-muted`}
             >
               <span className="min-w-0">Grade</span>
               <span className="min-w-0">Rankings</span>
@@ -498,7 +498,7 @@ function SchoolFormModal({
                       aria-label="Delete grade"
                       title="Delete grade"
                       onClick={() => removeGrade(row.key)}
-                      className="cursor-pointer rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-50"
+                      className="cursor-pointer rounded-lg p-2 text-red-500 transition-colors duration-150 ease-out hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -515,7 +515,7 @@ function SchoolFormModal({
           <button
             type="button"
             onClick={addGrade}
-            className="mt-2 flex cursor-pointer items-center gap-1.5 rounded-lg border border-main-400 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-main-100"
+            className="mt-2 inline-flex h-10 cursor-pointer items-center gap-2 rounded-[20px] border border-main-300 bg-white px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
           >
             <Plus className="h-4 w-4" />
             Add grade
@@ -524,7 +524,7 @@ function SchoolFormModal({
 
         <div>
           <span className={labelClass}>Terms</span>
-          <p className="mb-2 text-xs text-gray-400">
+          <p className="mb-2 text-xs text-ink-muted">
             Terms are the columns students rank courses in (e.g. Fall, Spring,
             Quarter 1). At least one term is required.
           </p>
@@ -539,7 +539,7 @@ function SchoolFormModal({
                       aria-label="Move term up"
                       disabled={index === 0}
                       onClick={() => moveTerm(index, -1)}
-                      className="cursor-pointer rounded p-0.5 text-gray-400 transition-colors hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-30"
+                      className="cursor-pointer rounded p-1 text-ink-muted transition-colors duration-150 ease-out hover:text-ink-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-30"
                     >
                       <ArrowUp className="h-3.5 w-3.5" />
                     </button>
@@ -548,7 +548,7 @@ function SchoolFormModal({
                       aria-label="Move term down"
                       disabled={index === terms.length - 1}
                       onClick={() => moveTerm(index, 1)}
-                      className="cursor-pointer rounded p-0.5 text-gray-400 transition-colors hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-30"
+                      className="cursor-pointer rounded p-1 text-ink-muted transition-colors duration-150 ease-out hover:text-ink-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-30"
                     >
                       <ArrowDown className="h-3.5 w-3.5" />
                     </button>
@@ -581,7 +581,7 @@ function SchoolFormModal({
           <button
             type="button"
             onClick={addTerm}
-            className="mt-2 flex cursor-pointer items-center gap-1.5 rounded-lg border border-main-400 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-main-100"
+            className="mt-2 inline-flex h-10 cursor-pointer items-center gap-2 rounded-[20px] border border-main-300 bg-white px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
           >
             <Plus className="h-4 w-4" />
             Add term

@@ -42,11 +42,11 @@ function TeacherSidebar({
         className="flex flex-1 flex-col overflow-y-auto py-3"
       >
         {subjects.length === 0 ? (
-          <p className="px-4 py-3 text-sm text-gray-400">
+          <p className="px-4 py-3 text-sm text-ink-muted">
             No departments yet.
           </p>
         ) : (
-          <ul className="flex flex-col gap-1.5">
+          <ul className="flex flex-col gap-2">
             {subjects.map((subject) => {
               const isActive = activeSubject === subject.name;
               return (

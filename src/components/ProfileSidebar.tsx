@@ -11,9 +11,9 @@ const PROFILE_NAV: {
   { id: "profile", label: "Profile", description: "Your account details" },
 ];
 
-const BLUE_TINT = "#edf2fb";
-const BLUE_COLOR = "#c1d3fe";
-const BLUE_ACCENT = "#4169e1";
+const BLUE_TINT = "#eff3fd";
+const BLUE_COLOR = "#a9bdea";
+const BLUE_ACCENT = "#2b56da";
 
 type ProfileSidebarProps = {
   activeSection: ProfileSection;
@@ -55,7 +55,7 @@ function ProfileSidebar({
         aria-label="Profile sections"
         className="flex flex-1 flex-col overflow-y-auto py-3"
       >
-        <ul className="flex flex-col gap-1.5">
+        <ul className="flex flex-col gap-2">
           {PROFILE_NAV.map((item) => {
             const isActive = activeSection === item.id;
             return (
@@ -82,7 +82,7 @@ function ProfileSidebar({
           <div className="mt-auto px-4 pt-4 pb-3 flex flex-col gap-1">
             {onDeleteAccount && (
               confirmDelete ? (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 flex flex-col gap-2">
+                <div className="flex flex-col gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-3">
                   <p className="text-xs font-semibold text-red-700">
                     This will permanently delete your account and all data.
                   </p>
@@ -104,7 +104,7 @@ function ProfileSidebar({
                         }
                         setConfirmDelete(false);
                       }}
-                      className="flex-1 cursor-pointer rounded-md bg-red-600 px-2 py-1 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                      className="flex-1 cursor-pointer rounded-md bg-red-600 px-2 py-1 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500"
                     >
                       {deleting ? "Deleting…" : "Yes, delete"}
                     </button>
@@ -115,7 +115,7 @@ function ProfileSidebar({
                         setConfirmDelete(false);
                         setDeleteError(null);
                       }}
-                      className="flex-1 cursor-pointer rounded-md bg-white px-2 py-1 text-xs font-semibold text-gray-600 border border-gray-200 transition-colors hover:bg-gray-50 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
+                      className="inline-flex h-10 flex-1 cursor-pointer items-center justify-center rounded-[20px] border border-main-300 bg-white px-3 text-sm font-medium leading-5 text-primary transition-colors duration-150 ease-out hover:bg-main-100 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                     >
                       Cancel
                     </button>
@@ -125,7 +125,7 @@ function ProfileSidebar({
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(true)}
-                  className="w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                  className="inline-flex h-10 w-full cursor-pointer items-center rounded-lg px-3 text-left text-base font-medium leading-6 text-red-500 transition-colors duration-150 ease-out hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400"
                 >
                   Delete Account
                 </button>
@@ -134,7 +134,7 @@ function ProfileSidebar({
             <button
               type="button"
               onClick={onSignOut}
-              className="w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-semibold text-gray-600 transition-colors hover:bg-main-200 hover:text-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
+              className="inline-flex h-10 w-full cursor-pointer items-center rounded-lg px-3 text-left text-base font-medium leading-6 text-ink-secondary transition-colors duration-150 ease-out hover:bg-main-200 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
             >
               Sign Out
             </button>

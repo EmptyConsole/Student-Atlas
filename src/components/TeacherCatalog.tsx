@@ -431,7 +431,7 @@ function TeacherCatalog({
     if (!deleteState) return null;
 
     const cannotBeUndone = (
-      <strong className="mt-1.5 block text-gray-700">This cannot be undone.</strong>
+      <strong className="mt-1.5 block text-ink-secondary">This cannot be undone.</strong>
     );
 
     if (deleteState.kind === "course") {
@@ -537,13 +537,13 @@ function TeacherCatalog({
       />
 
       <main className="flex flex-1 flex-col overflow-hidden bg-detail-400">
-        <div className="sticky top-0 z-20 flex flex-col gap-3 border-b border-dashed border-main-400 bg-detail-400/95 px-6 pt-6 pb-4 backdrop-blur">
+        <div className="sticky top-0 z-20 flex flex-col gap-3 border-b border-dashed border-main-300 bg-detail-400/95 px-6 pt-6 pb-4 backdrop-blur">
           <div className="flex min-w-0 items-center gap-3">
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-2xl font-bold text-gray-800">
+              <h1 className="truncate text-[28px] leading-9 font-semibold text-ink">
                 {school.name}
               </h1>
-              <p className="truncate text-sm text-gray-500">Teacher editing</p>
+              <p className="truncate text-sm text-ink-muted">Teacher editing</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <CatalogLayoutToggle
@@ -558,7 +558,7 @@ function TeacherCatalog({
               <button
                 type="button"
                 onClick={handleEditSchool}
-                className="flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-main-400 bg-white px-4 text-sm font-semibold text-gray-700 shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-main-100 active:scale-95"
+                className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-[20px] border border-main-300 bg-white px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
               >
                 <Pencil className="h-4 w-4" />
                 Edit school
@@ -569,7 +569,7 @@ function TeacherCatalog({
                   setDeleteError(null);
                   setDeleteState({ kind: "school" });
                 }}
-                className="flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-600 shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-red-50 active:scale-95"
+                className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-[20px] border border-red-200 bg-white px-6 text-base font-medium leading-6 text-red-600 transition-colors duration-150 ease-out hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400"
               >
                 <Trash2 className="h-4 w-4" />
                 Delete school
@@ -578,13 +578,13 @@ function TeacherCatalog({
           </div>
 
           <div className="relative">
-            <Search className="pointer-events-none absolute top-1/2 left-3.5 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <Search className="pointer-events-none absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-ink-muted" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search courses by title or description..."
-              className="h-12 w-full rounded-xl border border-main-400 bg-white pr-4 pl-11 text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-main-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-500"
+              className="h-11 w-full rounded-lg border border-main-300 bg-white pr-4 pl-10 text-base leading-6 text-ink-secondary shadow-raised placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
             />
           </div>
         </div>
@@ -608,9 +608,9 @@ function TeacherCatalog({
             </div>
           ) : subjects.length === 0 && courses.length === 0 ? (
             <div className="mx-auto max-w-md py-16 text-center">
-              <p className="text-gray-500">
+              <p className="text-ink-muted">
                 This school has no departments yet. Use{" "}
-                <span className="font-semibold text-gray-700">Add</span> to
+                <span className="font-semibold text-ink-secondary">Add</span> to
                 create your first department, then add courses.
               </p>
             </div>
@@ -687,7 +687,7 @@ function TeacherCatalog({
       {createdSchool && (
         <ModalShell
           title="School created"
-          maxWidthClass="max-w-md"
+          maxWidthClass="max-w-[480px]"
           onClose={() => setCreatedSchool(null)}
           footer={
             <>
@@ -712,7 +712,7 @@ function TeacherCatalog({
             </>
           }
         >
-          <p className="text-sm leading-relaxed text-gray-600">
+          <p className="text-sm leading-relaxed text-ink-secondary">
             {createdSchool.name} was created. Switch to it now to add
             departments and courses?
           </p>

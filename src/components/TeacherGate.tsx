@@ -66,11 +66,11 @@ function TeacherGate({ onUnlock }: TeacherGateProps) {
     <div className="flex flex-1 items-start justify-center overflow-y-auto bg-detail-400 px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-6 flex flex-col items-center text-center">
-          <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-main-200 text-[#4169e1]">
+          <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-main-200 text-primary">
             <Lock className="h-6 w-6" />
           </span>
-          <h1 className="text-2xl font-bold text-gray-800">Teacher access</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-[28px] leading-9 font-semibold text-ink">Teacher access</h1>
+          <p className="mt-1 text-sm text-ink-muted">
             Choose your school and enter its password to manage its catalog.
           </p>
         </div>
@@ -130,7 +130,7 @@ function TeacherGate({ onUnlock }: TeacherGateProps) {
                   if (e.key === "Enter") void handleUnlock();
                 }}
                 placeholder="School password"
-                className={`${inputClass} disabled:cursor-not-allowed disabled:bg-gray-100`}
+                className={`${inputClass} disabled:cursor-not-allowed disabled:bg-surface-muted`}
               />
             </div>
 
@@ -149,7 +149,7 @@ function TeacherGate({ onUnlock }: TeacherGateProps) {
 
             <div className="flex items-center gap-3">
               <span className="h-px flex-1 bg-main-200" />
-              <span className="text-xs font-medium text-gray-400">or</span>
+              <span className="text-xs font-medium text-ink-muted">or</span>
               <span className="h-px flex-1 bg-main-200" />
             </div>
 

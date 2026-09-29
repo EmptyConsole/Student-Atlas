@@ -43,12 +43,12 @@ function Chip({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`cursor-pointer rounded-full px-3 py-1 text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 ${
+      className={`inline-flex h-9 cursor-pointer items-center rounded-full px-3 text-sm font-medium leading-5 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
         showBoldOutline ? "border-4" : "border-2"
       }`}
       style={{
         backgroundColor: active ? bg : "transparent",
-        color: active ? fg : "#6b7280",
+        color: active ? fg : "#676f7e",
         borderColor: showBoldOutline ? fg : bg,
       }}
     >
@@ -106,26 +106,26 @@ function FilterPanel({ filters, onChange, terms, grades }: FilterPanelProps) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex h-12 cursor-pointer items-center gap-2 rounded-xl border border-main-400 bg-white px-4 font-medium text-gray-700 shadow-sm transition-transform duration-150 hover:scale-[1.02] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-main-700"
+        className="flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-main-300 bg-white px-4 text-base font-medium leading-6 text-ink-secondary shadow-raised transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
       >
         <SlidersHorizontal className="h-5 w-5" />
         <span>Filter</span>
         {activeCount > 0 && (
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-main-600 px-1.5 text-xs font-bold text-[#2c4a8a]">
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-main-600 px-2 text-xs font-medium text-primary">
             {activeCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 z-30 mt-2 w-72 rounded-2xl border border-main-300 bg-white p-4 shadow-lg">
+        <div className="absolute right-0 z-30 mt-2 w-72 rounded-2xl border border-main-300 bg-white p-4 shadow-overlay">
           <div className="mb-3 flex items-center justify-between">
-            <h4 className="text-sm font-bold text-gray-700">Grade</h4>
+            <h4 className="text-sm font-medium leading-5 text-ink-secondary">Grade</h4>
             {activeCount > 0 && (
               <button
                 type="button"
                 onClick={clearAll}
-                className="flex cursor-pointer items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700"
+                className="flex cursor-pointer items-center gap-1 text-xs font-medium text-ink-muted hover:text-ink-secondary"
               >
                 <X className="h-3.5 w-3.5" /> Clear
               </button>
@@ -150,7 +150,7 @@ function FilterPanel({ filters, onChange, terms, grades }: FilterPanelProps) {
 
           {terms.length > 0 && (
             <>
-              <h4 className="mt-4 mb-3 text-sm font-bold text-gray-700">Term</h4>
+              <h4 className="mt-4 mb-3 text-sm font-medium leading-5 text-ink-secondary">Term</h4>
               <div className="flex flex-wrap gap-2">
                 {terms.map((term) => {
                   const { bg, fg } = termColor(term.position);
@@ -169,7 +169,7 @@ function FilterPanel({ filters, onChange, terms, grades }: FilterPanelProps) {
             </>
           )}
 
-          <h4 className="mt-4 mb-3 text-sm font-bold text-gray-700">
+          <h4 className="mt-4 mb-3 text-sm font-medium leading-5 text-ink-secondary">
             Prerequisites
           </h4>
           <div className="flex flex-wrap gap-2">

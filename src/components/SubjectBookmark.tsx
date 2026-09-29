@@ -29,13 +29,13 @@ function SubjectBookmark({
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className={`group relative ml-auto block cursor-pointer border-0 bg-transparent p-0 text-left transition-[width] duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+      className={`group relative ml-auto block cursor-pointer border-0 bg-transparent p-0 text-left transition-[width] duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
         isActive ? "z-10 w-[98%]" : "w-[80%]"
       }`}
       style={{ outlineColor: accent }}
     >
       <span
-        className="bookmark-tab relative z-[1] flex h-20 w-full flex-col justify-center gap-0.5 pr-3 pl-[calc(40px+0.85rem)] shadow-sm transition-colors duration-150"
+        className="bookmark-tab relative z-[1] flex h-20 w-full flex-col justify-center gap-1 pr-3 pl-[calc(40px+0.85rem)] shadow-sm transition-colors duration-150"
         style={{
           backgroundColor: showColor ? color : tint,
           color: accent,

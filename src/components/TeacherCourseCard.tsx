@@ -45,8 +45,8 @@ function MetaBadge({
       title={capped ? label : undefined}
       className={
         capped
-          ? "inline-block max-w-[28rem] overflow-hidden rounded-full px-2.5 py-0.5 text-xs font-semibold"
-          : "rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap"
+          ? "inline-block max-w-[28rem] overflow-hidden rounded-full px-2 py-1 text-xs font-semibold"
+          : "rounded-full px-2 py-1 text-xs font-semibold whitespace-nowrap"
       }
       style={{ backgroundColor: bg, color: fg }}
     >
@@ -91,7 +91,7 @@ function TeacherCourseCard({
             onToggleExpand();
           }
         }}
-        className={`cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+        className={`cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
           compact ? "p-3" : "p-4"
         }`}
         style={{ outlineColor: subject.accent }}
@@ -103,7 +103,7 @@ function TeacherCourseCard({
               : "flex items-center justify-between gap-3"
           }
         >
-          <div className="flex min-w-0 flex-1 items-start gap-1.5">
+          <div className="flex min-w-0 flex-1 items-start gap-2">
             <ChevronDown
               className={`shrink-0 transition-transform duration-300 ease-out ${
                 compact ? "mt-0.5 h-4 w-4" : "h-5 w-5"
@@ -115,10 +115,10 @@ function TeacherCourseCard({
             />
             <h3
               title={course.title}
-              className={`min-w-0 flex-1 truncate font-bold ${
+              className={`min-w-0 flex-1 truncate font-medium ${
                 compact
-                  ? "text-base leading-snug"
-                  : "text-xl leading-tight"
+                  ? "text-base leading-6"
+                  : "text-xl leading-7"
               }`}
               style={{ color: subject.accent }}
             >
@@ -128,7 +128,7 @@ function TeacherCourseCard({
 
           <div className="flex shrink-0 items-center gap-1">
             {!compact && (
-              <div className="hidden flex-wrap items-center justify-end gap-1.5 sm:flex">
+              <div className="hidden flex-wrap items-center justify-end gap-2 sm:flex">
                 <MetaBadge
                   label={formatGrades(course.grades)}
                   bg={subject.color}
@@ -161,8 +161,8 @@ function TeacherCourseCard({
                 e.stopPropagation();
                 onEdit();
               }}
-              className={`cursor-pointer rounded-full transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 ${
-                compact ? "p-1" : "p-1.5"
+              className={`cursor-pointer rounded-full transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
+                compact ? "p-1" : "p-2"
               }`}
               style={{ color: subject.accent }}
             >
@@ -175,8 +175,8 @@ function TeacherCourseCard({
                 e.stopPropagation();
                 onDelete();
               }}
-              className={`cursor-pointer rounded-full text-red-500 transition-transform duration-150 hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 ${
-                compact ? "p-1" : "p-1.5"
+              className={`cursor-pointer rounded-full text-red-500 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400 ${
+                compact ? "p-1" : "p-2"
               }`}
             >
               <Trash2 className={compact ? "h-3.5 w-3.5" : "h-4.5 w-4.5"} />
@@ -187,7 +187,7 @@ function TeacherCourseCard({
         <motion.p
           layout={false}
           transition={DETAIL_TRANSITION}
-          className={`text-gray-600 ${
+          className={`text-ink-secondary ${
             compact
               ? "mt-1.5 line-clamp-1 pl-5 text-xs leading-snug"
               : `mt-1 pl-7 text-sm leading-snug${expanded ? "" : " line-clamp-2"}`
@@ -200,7 +200,7 @@ function TeacherCourseCard({
           className={
             compact
               ? "mt-2 flex flex-wrap items-center gap-1 pl-5"
-              : "mt-1.5 flex flex-wrap items-center gap-1.5 pl-7 sm:hidden"
+              : "mt-1.5 flex flex-wrap items-center gap-2 pl-7 sm:hidden"
           }
         >
           <MetaBadge
@@ -243,7 +243,7 @@ function TeacherCourseCard({
                 }`}
                 style={{ borderColor: subject.color }}
               >
-                <p className="leading-relaxed text-gray-700">
+                <p className="leading-relaxed text-ink-secondary">
                   {course.longDescription}
                 </p>
 
@@ -254,7 +254,7 @@ function TeacherCourseCard({
                 />
 
                 {hasAssignedTeacher(course.teacher) && (
-                  <p className={`text-gray-700 ${compact ? "mt-1.5" : "mt-1"}`}>
+                  <p className={`text-ink-secondary ${compact ? "mt-1.5" : "mt-1"}`}>
                     <span className="font-semibold" style={{ color: subject.accent }}>
                       Teacher:{" "}
                     </span>
@@ -263,7 +263,7 @@ function TeacherCourseCard({
                 )}
 
                 {hasKnownMaxStudentCount(course.maxStudentCount) && (
-                  <p className={`text-gray-700 ${compact ? "mt-1" : "mt-1"}`}>
+                  <p className={`text-ink-secondary ${compact ? "mt-1" : "mt-1"}`}>
                     <span className="font-semibold" style={{ color: subject.accent }}>
                       Max students:{" "}
                     </span>
@@ -271,7 +271,7 @@ function TeacherCourseCard({
                   </p>
                 )}
 
-                <p className={`text-gray-700 ${compact ? "mt-1" : "mt-1"}`}>
+                <p className={`text-ink-secondary ${compact ? "mt-1" : "mt-1"}`}>
                   <span className="font-semibold" style={{ color: subject.accent }}>
                     Repeatable:{" "}
                   </span>

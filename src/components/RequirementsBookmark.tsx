@@ -19,7 +19,7 @@ function RequirementsBookmark({
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className={`group relative mx-auto block w-[92%] cursor-pointer border-0 bg-transparent p-0 text-left transition-[width] duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-main-600 ${
+      className={`group relative mx-auto block w-[92%] cursor-pointer border-0 bg-transparent p-0 text-left transition-[width] duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary focus-visible:ring-main-600 ${
         isActive ? "z-10 w-[98%]" : ""
       }`}
     >
@@ -31,7 +31,7 @@ function RequirementsBookmark({
         }}
       >
         <GraduationCap className="h-5 w-5 shrink-0" aria-hidden="true" />
-        <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="flex min-w-0 flex-col gap-1">
           <span className="text-base font-bold leading-tight">Requirements</span>
           <span className="text-xs font-medium leading-snug opacity-70">
             Graduation overview
