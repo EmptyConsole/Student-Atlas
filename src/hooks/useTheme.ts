@@ -46,6 +46,11 @@ media.addEventListener("change", () => {
   if (snapshot.mode === "default") publish("default");
 });
 
+/** Paints the page with `mode` for this visit only — does not remember it. */
+export function previewScreenMode(mode: ScreenMode) {
+  publish(mode);
+}
+
 /** Applies a mode to the page and remembers it for the next first paint. */
 export function applyScreenMode(mode: ScreenMode) {
   try {

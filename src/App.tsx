@@ -11,7 +11,7 @@ import { useRefreshOnVisible } from "./hooks/useRefreshOnVisible";
 import { useSchoolGrades } from "./hooks/useSchoolGrades";
 import { useSubjects } from "./hooks/useSubjects";
 import { useTerms } from "./hooks/useTerms";
-import { applyScreenMode, readScreenMode } from "./hooks/useTheme";
+import { applyScreenMode, previewScreenMode, readScreenMode } from "./hooks/useTheme";
 import {
   submitProfile,
   loginByEmail,
@@ -337,6 +337,20 @@ function App() {
     return {};
   };
 
+  const handleProfileChange = (patch: Partial<UserProfile>) => {
+    updateProfile(patch);
+    if (patch.screenMode) previewScreenMode(patch.screenMode);
+  };
+
+  // Unsaved screen-mode picks are a live preview. Leaving Profile without
+  // saving puts the last saved mode back on the page and in the form.
+  const revertUnsavedScreenMode = () => {
+    const saved = savedProfile?.screenMode;
+    if (!saved || profile.screenMode === saved) return;
+    updateProfile({ screenMode: saved });
+    previewScreenMode(saved);
+  };
+
   const toggleBookmark = (id: string) => {
     setBookmarks((prev) => {
       const next = new Set(prev);
@@ -351,6 +365,9 @@ function App() {
       setPendingNav(view);
       return;
     }
+    if (activeView === "profile" && view !== "profile") {
+      revertUnsavedScreenMode();
+    }
     setActiveView(view);
   };
 
@@ -360,7 +377,7 @@ function App() {
         <Header activeView="profile" onNavigate={setActiveView} locked />
         <ProfilePage
           profile={profile}
-          onChange={updateProfile}
+          onChange={handleProfileChange}
           onSignOut={signOut}
           onboarding
           onSubmit={handleSubmitProfile}
@@ -404,7 +421,7 @@ function App() {
       {activeView === "profile" && (
         <ProfilePage
           profile={profile}
-          onChange={updateProfile}
+          onChange={handleProfileChange}
           onSignOut={handleSignOut}
           onDeleteAccount={handleDeleteAccount}
           hasUnsavedChanges={hasUnsavedChanges}

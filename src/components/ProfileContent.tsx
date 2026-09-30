@@ -653,8 +653,10 @@ function ProfileContent({
                     ))}
                   </div>
                   <p className="mt-1.5 text-xs font-medium text-ink-muted">
-                    Default follows your device's light or dark setting. Applies
-                    {onboarding ? " once your account is created." : " once you save."}
+                    Default follows your device's light or dark setting.
+                    {onboarding
+                      ? " Saved when you create your account."
+                      : " Reverts if you leave without saving."}
                   </p>
                 </div>
 
