@@ -211,6 +211,7 @@ function App() {
     } else if (result.studentId) {
       // New user — just record the ID (courses were synced inside submitProfile)
       setStudentId(result.studentId);
+      applyScreenMode(profile.screenMode);
       setSavedProfile(snapshotProfile(profile));
     }
 

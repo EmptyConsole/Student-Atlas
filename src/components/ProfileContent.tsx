@@ -635,10 +635,40 @@ function ProfileContent({
                       </div>
                     )}
                   </div>
+                </div>
 
+                <div>
+                  <span className="mb-2 block text-sm font-medium leading-5 text-ink-secondary">
+                    Screen Mode
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {SCREEN_MODE_OPTIONS.map(({ id, label, Icon }) => (
+                      <ScreenModeChip
+                        key={id}
+                        label={label}
+                        Icon={Icon}
+                        active={profile.screenMode === id}
+                        onClick={() => onChange({ screenMode: id })}
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-xs font-medium text-ink-muted">
+                    Default follows your device's light or dark setting. Applies
+                    {onboarding ? " once your account is created." : " once you save."}
+                  </p>
+                </div>
+
+                <div
+                  aria-hidden={!schoolSelected}
+                  className={
+                    schoolSelected
+                      ? undefined
+                      : "pointer-events-none opacity-50 select-none"
+                  }
+                >
                   <div>
                     <span className="mb-2 block text-sm font-medium leading-5 text-ink-secondary">
-                      Courses Taken{" "}
+                      Courses Taken{" "
                       <span className="font-normal text-ink-muted">
                         (not required)
                       </span>
@@ -666,29 +696,6 @@ function ProfileContent({
                     )}
                   </div>
                 </div>
-
-                {!onboarding && (
-                  <div>
-                    <span className="mb-2 block text-sm font-medium leading-5 text-ink-secondary">
-                      Screen Mode
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      {SCREEN_MODE_OPTIONS.map(({ id, label, Icon }) => (
-                        <ScreenModeChip
-                          key={id}
-                          label={label}
-                          Icon={Icon}
-                          active={profile.screenMode === id}
-                          onClick={() => onChange({ screenMode: id })}
-                        />
-                      ))}
-                    </div>
-                    <p className="mt-1.5 text-xs font-medium text-ink-muted">
-                      Default follows your device's light or dark setting. Applies
-                      once you save.
-                    </p>
-                  </div>
-                )}
 
                 {onboarding && (
                   <div className="flex flex-col gap-2">
