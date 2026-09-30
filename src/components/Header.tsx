@@ -1,7 +1,6 @@
 import { CircleUserRound } from "lucide-react";
 import type { AppView } from "../types/app";
 import AtlasWordmark from "./AtlasWordmark";
-import ThemeToggle from "./ThemeToggle";
 
 type HeaderProps = {
   activeView: AppView;
@@ -50,8 +49,6 @@ function Header({ activeView, onNavigate, locked = false }: HeaderProps) {
         >
           Register for Electives
         </button>
-
-        <ThemeToggle />
 
         <button
           type="button"

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { CourseCompletion } from "../data/courses";
 import { clearStudentSession } from "../lib/students";
+import { readScreenMode, type ScreenMode } from "./useTheme";
 
 export type { CourseCompletion };
 
@@ -9,6 +10,7 @@ export type UserProfile = {
   name: string;
   email: string;
   grade: number | null;
+  screenMode: ScreenMode;
   completedCourses: Record<string, CourseCompletion | null>;
   courseNotes: Record<string, string>;
 };
@@ -22,6 +24,7 @@ export const DEFAULT_PROFILE: UserProfile = {
   name: "",
   email: "",
   grade: null,
+  screenMode: "default",
   completedCourses: {},
   courseNotes: {},
 };
@@ -35,21 +38,24 @@ export function isProfileComplete(profile: UserProfile): boolean {
   );
 }
 
+// The screen mode always comes from the theme the page is actually painted
+// with, so the field can never disagree with what the student is looking at.
 function loadProfile(): UserProfile {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_PROFILE };
+    if (!raw) return { ...DEFAULT_PROFILE, screenMode: readScreenMode() };
     const parsed = JSON.parse(raw) as Partial<UserProfile>;
     return {
       schoolId: parsed.schoolId ?? null,
       name: parsed.name ?? "",
       email: parsed.email ?? "",
       grade: parsed.grade ?? null,
+      screenMode: readScreenMode(),
       completedCourses: parsed.completedCourses ?? {},
       courseNotes: parsed.courseNotes ?? {},
     };
   } catch {
-    return { ...DEFAULT_PROFILE };
+    return { ...DEFAULT_PROFILE, screenMode: readScreenMode() };
   }
 }
 
@@ -110,7 +116,8 @@ export function useProfile() {
     localStorage.removeItem(ONBOARDED_KEY);
     localStorage.removeItem(STUDENT_ID_KEY);
     clearStudentSession();
-    setProfile({ ...DEFAULT_PROFILE });
+    // Signing out clears the account, not the look of the app.
+    setProfile({ ...DEFAULT_PROFILE, screenMode: readScreenMode() });
     setOnboarded(false);
     setStudentIdState(null);
   }, []);

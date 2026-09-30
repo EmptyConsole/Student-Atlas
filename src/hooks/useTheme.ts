@@ -1,53 +1,75 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 export type Theme = "light" | "dark";
+/** "default" follows the device's `prefers-color-scheme`. */
+export type ScreenMode = Theme | "default";
 
 /** Also read by the inline script in `index.html` so the first paint is themed. */
 const STORAGE_KEY = "student-atlas-theme";
 
-function readStoredTheme(): Theme | null {
+function isScreenMode(value: unknown): value is ScreenMode {
+  return value === "light" || value === "dark" || value === "default";
+}
+
+/** The mode currently applied to the page, which may differ from an unsaved
+ * profile edit. */
+export function readScreenMode(): ScreenMode {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored === "dark" || stored === "light" ? stored : null;
+    return isScreenMode(stored) ? stored : "default";
   } catch {
-    return null;
+    return "default";
   }
 }
 
-function applyTheme(theme: Theme) {
-  document.documentElement.classList.toggle("dark", theme === "dark");
+const media = window.matchMedia("(prefers-color-scheme: dark)");
+
+function resolve(mode: ScreenMode): Theme {
+  if (mode !== "default") return mode;
+  return media.matches ? "dark" : "light";
 }
 
-/**
- * Light/dark theme as a `dark` class on `<html>`. Follows the device setting
- * until the user picks a theme with the toggle, then remembers that choice.
- */
-export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(() =>
-    document.documentElement.classList.contains("dark") ? "dark" : "light",
-  );
+const listeners = new Set<() => void>();
 
-  useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = (e: MediaQueryListEvent) => {
-      if (readStoredTheme()) return;
-      const next: Theme = e.matches ? "dark" : "light";
-      applyTheme(next);
-      setTheme(next);
-    };
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
-  }, []);
+let snapshot = (() => {
+  const mode = readScreenMode();
+  return { mode, theme: resolve(mode) };
+})();
+
+function publish(mode: ScreenMode) {
+  snapshot = { mode, theme: resolve(mode) };
+  document.documentElement.classList.toggle("dark", snapshot.theme === "dark");
+  for (const listener of listeners) listener();
+}
+
+media.addEventListener("change", () => {
+  if (snapshot.mode === "default") publish("default");
+});
+
+/** Applies a mode to the page and remembers it for the next first paint. */
+export function applyScreenMode(mode: ScreenMode) {
+  try {
+    localStorage.setItem(STORAGE_KEY, mode);
+  } catch {
+    // Storage unavailable (e.g. private mode) — the choice lasts this visit.
+  }
+  publish(mode);
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/** The theme the page is painted with. Toggling picks an explicit light or
+ * dark mode, leaving "default" behind. */
+export function useTheme() {
+  const { theme } = useSyncExternalStore(subscribe, () => snapshot);
 
   const toggleTheme = useCallback(() => {
-    const next: Theme = theme === "dark" ? "light" : "dark";
-    applyTheme(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // Storage unavailable (e.g. private mode) — the choice lasts this visit.
-    }
-    setTheme(next);
+    applyScreenMode(theme === "dark" ? "light" : "dark");
   }, [theme]);
 
   return { theme, toggleTheme };

@@ -13,9 +13,9 @@
     <title>student-atlas</title>
     <script>
       try {
-        var storedTheme = localStorage.getItem("student-atlas-theme");
+        var storedMode = localStorage.getItem("student-atlas-theme");
         var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        if (storedTheme ? storedTheme === "dark" : prefersDark) {
+        if (storedMode === "dark" || (storedMode !== "light" && prefersDark)) {
           document.documentElement.classList.add("dark");
         }
       } catch (e) {}
