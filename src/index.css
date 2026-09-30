@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-main-100: #eff3fd;
   --color-main-200: #e1e9fc;
@@ -22,13 +24,224 @@
   --color-ink-muted: #676f7e;
   --color-line: #c8d1e4;
   --color-surface-muted: #f4f6f8;
+  --color-surface: #ffffff;
 
   --shadow-raised: 0 1px 1px rgba(0, 0, 0, 0.2), 0 1px 3px 1px rgba(0, 0, 0, 0.1);
   --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.16);
 }
 
+/* Department, term, and grade colors. Read from `src/data/subjects.ts` and
+   `src/data/courses.ts` as `var(...)` so they follow the theme. */
+:root {
+  --subject-1-color: #f7c5d9;
+  --subject-1-tint: #fdeef4;
+  --subject-1-accent: #b14e7a;
+  --subject-2-color: #d9c2f0;
+  --subject-2-tint: #f4eefb;
+  --subject-2-accent: #7c52ad;
+  --subject-3-color: #f3c4ec;
+  --subject-3-tint: #fceefa;
+  --subject-3-accent: #a8489c;
+  --subject-4-color: #bcd4f6;
+  --subject-4-tint: #eef4fd;
+  --subject-4-accent: #3d6bb3;
+  --subject-5-color: #bfe6c9;
+  --subject-5-tint: #eef9f1;
+  --subject-5-accent: #3f8b58;
+  --subject-6-color: #f8d7a8;
+  --subject-6-tint: #fdf3e4;
+  --subject-6-accent: #b3792b;
+  --subject-7-color: #f6bdb4;
+  --subject-7-tint: #fceeeb;
+  --subject-7-accent: #b65244;
+  --subject-8-color: #e6cfb0;
+  --subject-8-tint: #f8f1e6;
+  --subject-8-accent: #946a36;
+  --subject-9-color: #b6e6df;
+  --subject-9-tint: #ecf9f7;
+  --subject-9-accent: #358077;
+  --subject-10-color: #c4cdf2;
+  --subject-10-tint: #eef0fc;
+  --subject-10-accent: #4f5bb0;
+  --subject-11-color: #b3e2ee;
+  --subject-11-tint: #ebf8fc;
+  --subject-11-accent: #2f7d92;
+  --subject-12-color: #cfe9aa;
+  --subject-12-tint: #f3f9e8;
+  --subject-12-accent: #5f8a2f;
+  --subject-13-color: #f6e6a8;
+  --subject-13-tint: #fcf8e6;
+  --subject-13-accent: #a8902f;
+
+  --term-1-bg: #fcd9a6;
+  --term-1-fg: #9a5b14;
+  --term-2-bg: #c5ecc0;
+  --term-2-fg: #357a3a;
+  --term-3-bg: #e0cdf2;
+  --term-3-fg: #6b3fa0;
+  --term-4-bg: #bcd6f5;
+  --term-4-fg: #2f5fa3;
+  --term-5-bg: #f7c8d2;
+  --term-5-fg: #a83f57;
+  --term-6-bg: #b6dced;
+  --term-6-fg: #2f6f8f;
+
+  --grade-8-bg: #f7c8d2;
+  --grade-8-fg: #a83f57;
+  --grade-9-bg: #f8ddb0;
+  --grade-9-fg: #9a6a1e;
+  --grade-10-bg: #cfe8b4;
+  --grade-10-fg: #5a7d2e;
+  --grade-11-bg: #b6dced;
+  --grade-11-fg: #2f6f8f;
+  --grade-12-bg: #d0c7ef;
+  --grade-12-fg: #5b4399;
+
+  --chip-yes-bg: #c5ecc0;
+  --chip-yes-fg: #357a3a;
+  --chip-no-bg: #f7c8d2;
+  --chip-no-fg: #a83f57;
+  --chip-neutral-bg: #e5e7eb;
+  --chip-neutral-fg: #374151;
+
+  --requirements-color: #f3e5ab;
+  --requirements-tint: #fffdd0;
+  --requirements-ink: #6b5b2e;
+
+  --profile-tab-accent: var(--color-primary);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --color-main-100: #171d2b;
+  --color-main-200: #1d2538;
+  --color-main-300: #2a3550;
+  --color-main-400: #34415f;
+  --color-main-500: #414f72;
+  --color-main-600: #4f5f87;
+  --color-main-700: #5e6f9a;
+
+  --color-detail-100: #1b1d24;
+  --color-detail-200: #25272e;
+  --color-detail-300: #5c5033;
+  --color-detail-400: #12151c;
+  --color-detail-500: #2b2d33;
+
+  --color-primary: #5b7ff0;
+  --color-primary-pressed: #4a6ddf;
+  --color-ink: #e8ebf2;
+  --color-ink-secondary: #b3bbca;
+  --color-ink-muted: #8b93a5;
+  --color-line: #38425c;
+  --color-surface-muted: #222939;
+  --color-surface: #1c2230;
+
+  --shadow-raised: 0 1px 1px rgba(0, 0, 0, 0.5), 0 1px 3px 1px rgba(0, 0, 0, 0.35);
+  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  /* Status banners and errors keep their light-mode classes (`bg-amber-50`,
+     `text-red-600`, …); these shades are remapped so they read on dark
+     surfaces. */
+  --color-amber-50: #2d2414;
+  --color-amber-100: #3d3018;
+  --color-amber-300: #6b5424;
+  --color-amber-400: #8a6c2c;
+  --color-amber-900: #f5d58a;
+  --color-red-50: #3b1d21;
+  --color-red-200: #6b2f36;
+  --color-red-600: #e5484d;
+  --color-green-50: #16291c;
+  --color-green-800: #a7e3b5;
+
+  --subject-1-color: #5c3346;
+  --subject-1-tint: #2a1d24;
+  --subject-1-accent: #f2a6c7;
+  --subject-2-color: #463763;
+  --subject-2-tint: #231e2d;
+  --subject-2-accent: #c7aef0;
+  --subject-3-color: #5a3055;
+  --subject-3-tint: #291c28;
+  --subject-3-accent: #eca5e1;
+  --subject-4-color: #2f4568;
+  --subject-4-tint: #1b2231;
+  --subject-4-accent: #9fbff2;
+  --subject-5-color: #2f5139;
+  --subject-5-tint: #1a2620;
+  --subject-5-accent: #97d6a9;
+  --subject-6-color: #5e4424;
+  --subject-6-tint: #2a221a;
+  --subject-6-accent: #f2c283;
+  --subject-7-color: #5f322b;
+  --subject-7-tint: #2a1d1b;
+  --subject-7-accent: #f2a598;
+  --subject-8-color: #4f412d;
+  --subject-8-tint: #25211b;
+  --subject-8-accent: #dcbf95;
+  --subject-9-color: #2a5550;
+  --subject-9-tint: #192624;
+  --subject-9-accent: #8fd6cb;
+  --subject-10-color: #363f6b;
+  --subject-10-tint: #1d2030;
+  --subject-10-accent: #adb7f0;
+  --subject-11-color: #294e5a;
+  --subject-11-tint: #19252a;
+  --subject-11-accent: #8fd0e3;
+  --subject-12-color: #3f5227;
+  --subject-12-tint: #20261a;
+  --subject-12-accent: #b9dc8a;
+  --subject-13-color: #544a24;
+  --subject-13-tint: #26241a;
+  --subject-13-accent: #e6d27f;
+
+  --term-1-bg: #4a3417;
+  --term-1-fg: #f7c886;
+  --term-2-bg: #1f3d24;
+  --term-2-fg: #9edc9a;
+  --term-3-bg: #3a2c52;
+  --term-3-fg: #cdb3f0;
+  --term-4-bg: #22375a;
+  --term-4-fg: #a5c6f2;
+  --term-5-bg: #4f2632;
+  --term-5-fg: #f2a7b8;
+  --term-6-bg: #1f3d4c;
+  --term-6-fg: #9ccfe6;
+
+  --grade-8-bg: #4f2632;
+  --grade-8-fg: #f2a7b8;
+  --grade-9-bg: #4a3818;
+  --grade-9-fg: #f2cf8e;
+  --grade-10-bg: #2f4221;
+  --grade-10-fg: #bfe29a;
+  --grade-11-bg: #1f3d4c;
+  --grade-11-fg: #9ccfe6;
+  --grade-12-bg: #342d56;
+  --grade-12-fg: #c3b8f0;
+
+  --chip-yes-bg: #1f3d24;
+  --chip-yes-fg: #9edc9a;
+  --chip-no-bg: #4f2632;
+  --chip-no-fg: #f2a7b8;
+  --chip-neutral-bg: #2a3040;
+  --chip-neutral-fg: #c3c9d5;
+
+  --requirements-color: #4a4226;
+  --requirements-tint: #2a2819;
+  --requirements-ink: #ecd9a0;
+
+  --profile-tab-accent: #a9bff7;
+}
+
+@layer base {
+  /* Focus rings use `ring-offset-2`, whose gap defaults to white. */
+  .dark * {
+    --tw-ring-offset-color: var(--color-detail-400);
+  }
+}
+
 body {
   margin: 0;
+  background-color: var(--color-detail-400);
 }
 
 @keyframes bookmark-marquee {

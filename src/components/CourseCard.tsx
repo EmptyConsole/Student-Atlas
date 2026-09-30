@@ -169,7 +169,7 @@ function GroupBookmarkButton({
             ref={menuRef}
             role="menu"
             onClick={(e) => e.stopPropagation()}
-            className="fixed z-50 flex flex-col gap-1 rounded-2xl border border-main-300 bg-white p-2 shadow-overlay"
+            className="fixed z-50 flex flex-col gap-1 rounded-2xl border border-main-300 bg-surface p-2 shadow-overlay"
             style={{
               borderColor: accent,
               top: coords.top,
@@ -293,7 +293,7 @@ function CourseCard({
                 {prereqLabel && (
                   <MetaBadge
                     label={`Prereq: ${prereqLabel}`}
-                    bg="#ffffff"
+                    bg="var(--color-surface)"
                     fg={subject.accent}
                     capped
                   />
@@ -301,7 +301,7 @@ function CourseCard({
                 {coreqLabel && (
                   <MetaBadge
                     label={`Coreq: ${coreqLabel}`}
-                    bg="#ffffff"
+                    bg="var(--color-surface)"
                     fg={subject.accent}
                     capped
                   />
@@ -390,7 +390,7 @@ function CourseCard({
           {compact && prereqLabel && (
             <MetaBadge
               label={`Prereq: ${prereqLabel}`}
-              bg="#ffffff"
+              bg="var(--color-surface)"
               fg={subject.accent}
               capped
             />
@@ -398,7 +398,7 @@ function CourseCard({
           {compact && coreqLabel && (
             <MetaBadge
               label={`Coreq: ${coreqLabel}`}
-              bg="#ffffff"
+              bg="var(--color-surface)"
               fg={subject.accent}
               capped
             />
@@ -477,7 +477,7 @@ function CourseCard({
                     onChange={(e) => onNoteChange(e.target.value)}
                     placeholder="Add a personal note about this course..."
                     rows={3}
-                    className="mt-2 w-full resize-y rounded-xl border bg-white p-4 text-base leading-6 text-ink-secondary placeholder:text-ink-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+                    className="mt-2 w-full resize-y rounded-xl border bg-surface p-4 text-base leading-6 text-ink-secondary placeholder:text-ink-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                     style={{
                       borderColor: subject.color,
                       outlineColor: subject.accent,

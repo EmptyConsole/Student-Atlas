@@ -74,7 +74,10 @@ function GradeChip({
   active: boolean;
   onClick: () => void;
 }) {
-  const { bg, fg } = GRADE_COLORS[grade] ?? { bg: "#e5e7eb", fg: "#374151" };
+  const { bg, fg } = GRADE_COLORS[grade] ?? {
+    bg: "var(--chip-neutral-bg)",
+    fg: "var(--chip-neutral-fg)",
+  };
   return (
     <button
       type="button"
@@ -83,7 +86,7 @@ function GradeChip({
       className="inline-flex h-9 cursor-pointer items-center rounded-full border-2 px-3 text-sm font-medium leading-5 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
       style={{
         backgroundColor: active ? bg : "transparent",
-        color: active ? fg : "#676f7e",
+        color: active ? fg : "var(--color-ink-muted)",
         borderColor: bg,
       }}
     >
@@ -102,7 +105,7 @@ function PrerequisiteRow({
   onToggle: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-main-300 bg-white px-4 py-3 shadow-sm">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-main-300 bg-surface px-4 py-3 shadow-sm">
       <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
         <input
           type="checkbox"
@@ -358,7 +361,7 @@ function ProfileContent({
   };
 
   const inputClass =
-    "h-[46px] w-full rounded-xl border border-main-300 bg-white py-2 pr-2 pl-3 text-base leading-6 text-ink-secondary placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary";
+    "h-[46px] w-full rounded-xl border border-main-300 bg-surface py-2 pr-2 pl-3 text-base leading-6 text-ink-secondary placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary";
 
   if (pendingVerification) {
     return (
@@ -416,7 +419,7 @@ function ProfileContent({
               disabled={sendingCode || resendCooldown > 0}
               className={`inline-flex h-10 w-full items-center justify-center rounded-[20px] text-base font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
                 !sendingCode && resendCooldown === 0
-                  ? "cursor-pointer border border-main-300 bg-white text-primary hover:bg-main-100"
+                  ? "cursor-pointer border border-main-300 bg-surface text-primary hover:bg-main-100"
                   : "cursor-not-allowed border border-line bg-surface-muted text-ink-muted"
               }`}
             >

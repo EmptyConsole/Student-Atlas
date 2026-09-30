@@ -61,7 +61,7 @@ function newDraftKey(): string {
 const GRADE_ROW_GRID = "grid grid-cols-4 items-center gap-x-4 gap-y-3";
 
 const gradeStepperInputClass =
-  "h-7 min-w-0 flex-1 rounded-md border border-main-300 bg-white px-1 text-center text-sm text-ink-secondary focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
+  "h-7 min-w-0 flex-1 rounded-md border border-main-300 bg-surface px-1 text-center text-sm text-ink-secondary focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
 
 const gradeStepperButtonClass =
   "shrink-0 cursor-pointer rounded p-1 text-ink-muted transition-colors duration-150 ease-out hover:text-ink-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-30";
@@ -515,7 +515,7 @@ function SchoolFormModal({
           <button
             type="button"
             onClick={addGrade}
-            className="mt-2 inline-flex h-10 cursor-pointer items-center gap-2 rounded-[20px] border border-main-300 bg-white px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+            className="mt-2 inline-flex h-10 cursor-pointer items-center gap-2 rounded-[20px] border border-main-300 bg-surface px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
           >
             <Plus className="h-4 w-4" />
             Add grade
@@ -581,7 +581,7 @@ function SchoolFormModal({
           <button
             type="button"
             onClick={addTerm}
-            className="mt-2 inline-flex h-10 cursor-pointer items-center gap-2 rounded-[20px] border border-main-300 bg-white px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+            className="mt-2 inline-flex h-10 cursor-pointer items-center gap-2 rounded-[20px] border border-main-300 bg-surface px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
           >
             <Plus className="h-4 w-4" />
             Add term

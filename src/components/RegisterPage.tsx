@@ -415,7 +415,7 @@ function RegisterPage({
   };
 
   const inputClass =
-    "w-full resize-y rounded-xl border border-main-300 bg-white p-4 text-base leading-6 text-ink-secondary placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary";
+    "w-full resize-y rounded-xl border border-main-300 bg-surface p-4 text-base leading-6 text-ink-secondary placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary";
 
   return (
     <main className="flex-1 overflow-y-auto bg-detail-400">
@@ -448,7 +448,7 @@ function RegisterPage({
               <button
                 type="button"
                 onClick={onNavigateToProfile}
-                className="inline-flex h-10 shrink-0 cursor-pointer items-center rounded-[20px] border border-amber-400 bg-white px-6 text-sm font-medium leading-5 text-amber-900 transition-colors duration-150 ease-out hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-amber-400"
+                className="inline-flex h-10 shrink-0 cursor-pointer items-center rounded-[20px] border border-amber-400 bg-surface px-6 text-sm font-medium leading-5 text-amber-900 transition-colors duration-150 ease-out hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-amber-400"
               >
                 Go to Profile
               </button>
@@ -506,7 +506,7 @@ function RegisterPage({
             </p>
           )}
           {submitError && (
-            <p className="rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-700">
+            <p className="rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-700 dark:text-red-300">
               {submitError}
             </p>
           )}

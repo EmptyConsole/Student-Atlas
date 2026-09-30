@@ -58,7 +58,7 @@ function SchoolPicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-[46px] w-full items-center justify-between gap-2 rounded-xl border border-main-300 bg-white py-2 pr-2 pl-3 text-left text-base leading-6 text-ink-secondary focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+        className="flex h-[46px] w-full items-center justify-between gap-2 rounded-xl border border-main-300 bg-surface py-2 pr-2 pl-3 text-left text-base leading-6 text-ink-secondary focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
       >
         <span
           className={`truncate ${selected ? "text-ink-secondary" : "text-ink-muted"}`}
@@ -74,7 +74,7 @@ function SchoolPicker({
       </button>
 
       {open && (
-        <div className="absolute z-30 mt-2 w-full overflow-hidden rounded-2xl border border-main-300 bg-white shadow-overlay">
+        <div className="absolute z-30 mt-2 w-full overflow-hidden rounded-2xl border border-main-300 bg-surface shadow-overlay">
           <div className="relative border-b border-main-200 p-2">
             <Search className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-ink-muted" />
             <input
@@ -83,7 +83,7 @@ function SchoolPicker({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search schools..."
-              className="h-9 w-full rounded-lg border border-main-300 bg-white pr-3 pl-9 text-sm text-ink-secondary placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+              className="h-9 w-full rounded-lg border border-main-300 bg-surface pr-3 pl-9 text-sm text-ink-secondary placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
             />
           </div>
           <ul role="listbox" className="max-h-60 overflow-y-auto py-1">

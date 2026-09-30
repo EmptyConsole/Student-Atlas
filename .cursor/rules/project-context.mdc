@@ -42,6 +42,9 @@ Internal notes for developers and AI. Not part of the user-facing app.
 | ink-muted        | `#676f7e` | Hints                              |
 | line             | `#c8d1e4` | Neutral outline borders            |
 | surface-muted    | `#f4f6f8` | Neutral chip ground                |
+| surface          | `#ffffff` | Cards, inputs, dialogs (not `bg-white`) |
+
+Dark mode: a `.dark` class on `<html>` (toggle in both headers) redefines these tokens in `src/index.css`. Department, term, and grade colors are CSS variables there too — use tokens or those variables, not raw hex, so both themes work.
 
 ## Typography
 

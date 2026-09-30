@@ -51,7 +51,7 @@ function ModalShell({
         initial={{ opacity: 0, scale: 0.96, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 420, damping: 32 }}
-        className={`relative w-full ${maxWidthClass} rounded-2xl border border-main-300 bg-white shadow-overlay`}
+        className={`relative w-full ${maxWidthClass} rounded-2xl border border-main-300 bg-surface shadow-overlay`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-4 border-b border-main-200 px-6 py-4">

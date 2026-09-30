@@ -11,9 +11,9 @@ const PROFILE_NAV: {
   { id: "profile", label: "Profile", description: "Your account details" },
 ];
 
-const BLUE_TINT = "#eff3fd";
-const BLUE_COLOR = "#a9bdea";
-const BLUE_ACCENT = "#2b56da";
+const BLUE_TINT = "var(--color-main-100)";
+const BLUE_COLOR = "var(--color-main-500)";
+const BLUE_ACCENT = "var(--profile-tab-accent)";
 
 type ProfileSidebarProps = {
   activeSection: ProfileSection;
@@ -83,7 +83,7 @@ function ProfileSidebar({
             {onDeleteAccount && (
               confirmDelete ? (
                 <div className="flex flex-col gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-3">
-                  <p className="text-xs font-semibold text-red-700">
+                  <p className="text-xs font-semibold text-red-700 dark:text-red-300">
                     This will permanently delete your account and all data.
                   </p>
                   {deleteError && (
@@ -115,7 +115,7 @@ function ProfileSidebar({
                         setConfirmDelete(false);
                         setDeleteError(null);
                       }}
-                      className="inline-flex h-10 flex-1 cursor-pointer items-center justify-center rounded-[20px] border border-main-300 bg-white px-3 text-sm font-medium leading-5 text-primary transition-colors duration-150 ease-out hover:bg-main-100 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+                      className="inline-flex h-10 flex-1 cursor-pointer items-center justify-center rounded-[20px] border border-main-300 bg-surface px-3 text-sm font-medium leading-5 text-primary transition-colors duration-150 ease-out hover:bg-main-100 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                     >
                       Cancel
                     </button>
@@ -125,7 +125,7 @@ function ProfileSidebar({
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(true)}
-                  className="inline-flex h-10 w-full cursor-pointer items-center rounded-lg px-3 text-left text-base font-medium leading-6 text-red-500 transition-colors duration-150 ease-out hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400"
+                  className="inline-flex h-10 w-full cursor-pointer items-center rounded-lg px-3 text-left text-base font-medium leading-6 text-red-500 transition-colors duration-150 ease-out hover:bg-red-50 hover:text-red-700 dark:hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400"
                 >
                   Delete Account
                 </button>

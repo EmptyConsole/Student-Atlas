@@ -25,22 +25,15 @@ type Palette = Pick<Subject, "color" | "tint" | "accent">;
  * in the list, and the palette loops back to the start once there are more
  * subjects than entries here — so adding departments in Supabase never runs out
  * of colors.
+ *
+ * Values are CSS variables (light and dark hex live in `src/index.css`), so
+ * they only work where a CSS color is accepted — no hex math on them.
  */
-export const SUBJECT_PALETTE: Palette[] = [
-  { color: "#f7c5d9", tint: "#fdeef4", accent: "#b14e7a" },
-  { color: "#d9c2f0", tint: "#f4eefb", accent: "#7c52ad" },
-  { color: "#f3c4ec", tint: "#fceefa", accent: "#a8489c" },
-  { color: "#bcd4f6", tint: "#eef4fd", accent: "#3d6bb3" },
-  { color: "#bfe6c9", tint: "#eef9f1", accent: "#3f8b58" },
-  { color: "#f8d7a8", tint: "#fdf3e4", accent: "#b3792b" },
-  { color: "#f6bdb4", tint: "#fceeeb", accent: "#b65244" },
-  { color: "#e6cfb0", tint: "#f8f1e6", accent: "#946a36" },
-  { color: "#b6e6df", tint: "#ecf9f7", accent: "#358077" },
-  { color: "#c4cdf2", tint: "#eef0fc", accent: "#4f5bb0" },
-  { color: "#b3e2ee", tint: "#ebf8fc", accent: "#2f7d92" },
-  { color: "#cfe9aa", tint: "#f3f9e8", accent: "#5f8a2f" },
-  { color: "#f6e6a8", tint: "#fcf8e6", accent: "#a8902f" },
-];
+export const SUBJECT_PALETTE: Palette[] = Array.from({ length: 13 }, (_, i) => ({
+  color: `var(--subject-${i + 1}-color)`,
+  tint: `var(--subject-${i + 1}-tint)`,
+  accent: `var(--subject-${i + 1}-accent)`,
+}));
 
 /** A department as returned from Supabase, narrowed to the fields we render. */
 export type DepartmentInput = {

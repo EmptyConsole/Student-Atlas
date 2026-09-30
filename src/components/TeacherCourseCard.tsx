@@ -137,7 +137,7 @@ function TeacherCourseCard({
                 {prereqLabel && (
                   <MetaBadge
                     label={`Prereq: ${prereqLabel}`}
-                    bg="#ffffff"
+                    bg="var(--color-surface)"
                     fg={subject.accent}
                     capped
                   />
@@ -145,7 +145,7 @@ function TeacherCourseCard({
                 {coreqLabel && (
                   <MetaBadge
                     label={`Coreq: ${coreqLabel}`}
-                    bg="#ffffff"
+                    bg="var(--color-surface)"
                     fg={subject.accent}
                     capped
                   />
@@ -212,7 +212,7 @@ function TeacherCourseCard({
           {compact && prereqLabel && (
             <MetaBadge
               label={`Prereq: ${prereqLabel}`}
-              bg="#ffffff"
+              bg="var(--color-surface)"
               fg={subject.accent}
               capped
             />
@@ -220,7 +220,7 @@ function TeacherCourseCard({
           {compact && coreqLabel && (
             <MetaBadge
               label={`Coreq: ${coreqLabel}`}
-              bg="#ffffff"
+              bg="var(--color-surface)"
               fg={subject.accent}
               capped
             />

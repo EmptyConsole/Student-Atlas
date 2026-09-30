@@ -558,7 +558,7 @@ function TeacherCatalog({
               <button
                 type="button"
                 onClick={handleEditSchool}
-                className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-[20px] border border-main-300 bg-white px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+                className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-[20px] border border-main-300 bg-surface px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
               >
                 <Pencil className="h-4 w-4" />
                 Edit school
@@ -569,7 +569,7 @@ function TeacherCatalog({
                   setDeleteError(null);
                   setDeleteState({ kind: "school" });
                 }}
-                className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-[20px] border border-red-200 bg-white px-6 text-base font-medium leading-6 text-red-600 transition-colors duration-150 ease-out hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400"
+                className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-[20px] border border-red-200 bg-surface px-6 text-base font-medium leading-6 text-red-600 transition-colors duration-150 ease-out hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400"
               >
                 <Trash2 className="h-4 w-4" />
                 Delete school
@@ -584,7 +584,7 @@ function TeacherCatalog({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search courses by title or description..."
-              className="h-11 w-full rounded-lg border border-main-300 bg-white pr-4 pl-10 text-base leading-6 text-ink-secondary shadow-raised placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+              className="h-11 w-full rounded-lg border border-main-300 bg-surface pr-4 pl-10 text-base leading-6 text-ink-secondary shadow-raised placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
             />
           </div>
         </div>
@@ -596,7 +596,7 @@ function TeacherCatalog({
               <button
                 type="button"
                 onClick={() => setCatalogNotice(null)}
-                className="shrink-0 cursor-pointer rounded-lg border border-amber-400 bg-white px-3 py-1 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100"
+                className="shrink-0 cursor-pointer rounded-lg border border-amber-400 bg-surface px-3 py-1 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100"
               >
                 Dismiss
               </button>

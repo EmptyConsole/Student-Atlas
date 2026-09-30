@@ -25,7 +25,7 @@ function RequirementsSection({ subjects }: RequirementsSectionProps) {
       id={`subject-${REQUIREMENTS_KEY}`}
       data-subject={REQUIREMENTS_KEY}
       aria-labelledby="requirements-heading"
-      className="scroll-mt-4 rounded-2xl border border-main-300 bg-white p-4 shadow-sm"
+      className="scroll-mt-4 rounded-2xl border border-main-300 bg-surface p-4 shadow-sm"
     >
       <div
         role="button"

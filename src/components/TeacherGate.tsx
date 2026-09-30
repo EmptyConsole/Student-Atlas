@@ -76,7 +76,7 @@ function TeacherGate({ onUnlock }: TeacherGateProps) {
         </div>
 
         {created ? (
-          <div className="flex flex-col gap-4 rounded-2xl border border-main-300 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 rounded-2xl border border-main-300 bg-surface p-6 shadow-sm">
             <div className="rounded-lg bg-green-50 px-4 py-2 text-sm font-medium text-green-800">
               {created.name} was created.
             </div>
@@ -97,7 +97,7 @@ function TeacherGate({ onUnlock }: TeacherGateProps) {
             </button>
           </div>
         ) : (
-          <div className="flex flex-col gap-5 rounded-2xl border border-main-300 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-5 rounded-2xl border border-main-300 bg-surface p-6 shadow-sm">
             <div>
               <span className={labelClass}>School</span>
               <SchoolPicker

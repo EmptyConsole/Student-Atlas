@@ -53,7 +53,7 @@ function AddMenu({ onSelect }: AddMenuProps) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-40 mt-2 w-44 overflow-hidden rounded-2xl border border-main-300 bg-white py-1 shadow-overlay"
+          className="absolute right-0 z-40 mt-2 w-44 overflow-hidden rounded-2xl border border-main-300 bg-surface py-1 shadow-overlay"
         >
           {OPTIONS.map(({ id, label, icon: Icon }) => (
             <button

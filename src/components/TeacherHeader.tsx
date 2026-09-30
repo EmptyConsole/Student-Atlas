@@ -1,5 +1,6 @@
 import { LogOut } from "lucide-react";
 import AtlasWordmark from "./AtlasWordmark";
+import ThemeToggle from "./ThemeToggle";
 
 type TeacherHeaderProps = {
   onSwitchSchool?: () => void;
@@ -16,16 +17,19 @@ function TeacherHeader({ onSwitchSchool }: TeacherHeaderProps) {
         />
         <AtlasWordmark />
       </div>
-      {onSwitchSchool && (
-        <button
-          type="button"
-          onClick={onSwitchSchool}
-          className="ml-auto inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg px-3 text-base font-medium leading-6 text-ink-secondary transition-colors duration-150 ease-out hover:bg-main-100 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
-        >
-          <LogOut className="h-4 w-4" />
-          Switch school
-        </button>
-      )}
+      <div className="ml-auto flex items-center gap-3">
+        <ThemeToggle />
+        {onSwitchSchool && (
+          <button
+            type="button"
+            onClick={onSwitchSchool}
+            className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg px-3 text-base font-medium leading-6 text-ink-secondary transition-colors duration-150 ease-out hover:bg-main-100 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+          >
+            <LogOut className="h-4 w-4" />
+            Switch school
+          </button>
+        )}
+      </div>
     </header>
   );
 }
