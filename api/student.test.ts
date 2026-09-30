@@ -16,6 +16,8 @@ const COURSE = "c0000000-0000-4000-a000-000000000001";
 const ops = vi.hoisted(() => [] as string[]);
 /** Every `.eq(column, value)` filter, as `table.column=value`. */
 const filters = vi.hoisted(() => [] as string[]);
+/** Every `.ilike(column, pattern)` filter, as `table.column~pattern`. */
+const likes = vi.hoisted(() => [] as string[]);
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
@@ -48,7 +50,10 @@ function tableBuilder(table: string) {
       return builder;
     },
     in: () => builder,
-    ilike: () => builder,
+    ilike: (column: string, pattern: unknown) => {
+      likes.push(`${table}.${column}~${String(pattern)}`);
+      return builder;
+    },
     order: () => builder,
     limit: () => builder,
     maybeSingle: () => finish(true),
@@ -103,6 +108,7 @@ const { POST } = await import("./student");
 beforeEach(() => {
   ops.length = 0;
   filters.length = 0;
+  likes.length = 0;
 });
 
 describe("student session", () => {
@@ -241,5 +247,18 @@ describe("createStudent", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { token?: string };
     expect(typeof body.token).toBe("string");
+  });
+
+  it("escapes ILIKE metacharacters when looking the email up", async () => {
+    await post({ ...signup, proof: proof("signup", "a_d%a@example.com") });
+    expect(likes).toContain("students.email~a\\_d\\%a@example.com");
+  });
+
+  it("never runs a wildcard lookup for an email carrying a `*`", async () => {
+    // PostgREST rewrites `*` to `%`, and escaping cannot undo that, so the
+    // lookup has to be skipped rather than widened.
+    const res = await post({ ...signup, proof: proof("signup", "*@example.com") });
+    expect(res.status).toBe(200);
+    expect(likes).toHaveLength(0);
   });
 });

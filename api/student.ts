@@ -159,9 +159,21 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-/** Escapes `%`, `_`, and `\` so an email can be matched exactly with ILIKE. */
+/**
+ * Escapes `%`, `_`, and `\` so an email can be matched exactly with ILIKE.
+ *
+ * `*` is deliberately absent: PostgREST rewrites every `*` in a `like` /
+ * `ilike` value to `%` with a blind character map, so `\*` would arrive as
+ * `\%` and match a literal percent sign instead. It has to be refused rather
+ * than escaped — `hasLikeWildcard` below is that check.
+ */
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+/** True when an address carries a wildcard `escapeLike` cannot neutralize. */
+function hasLikeWildcard(value: string): boolean {
+  return value.includes("*");
 }
 
 function isGrade(value: unknown): value is number {
@@ -271,6 +283,10 @@ async function loadStudentRow(supabase: Supabase, studentId: string): Promise<St
 }
 
 async function findStudentByEmail(supabase: Supabase, email: string): Promise<StudentRow | null> {
+  // Callers reach here with an email from a signed proof, which /api/verify-email-code
+  // already refused a `*` in. Belt and braces: never let one widen the pattern.
+  if (hasLikeWildcard(email)) return null;
+
   const { data, error } = await supabase
     .from("students")
     .select("id, name, email, grade, school_id")
