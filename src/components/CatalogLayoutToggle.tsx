@@ -33,7 +33,7 @@ function CatalogLayoutToggle({
       title={compact ? titleCompact : titleFull}
       className={`flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border shadow-raised transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
         !compact
-          ? "border-main-300 bg-white text-ink-secondary hover:bg-main-100"
+          ? "border-main-300 bg-surface text-ink-secondary hover:bg-main-100"
           : "border-main-500 bg-main-100 text-ink hover:bg-main-200"
       }`}
     >

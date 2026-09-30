@@ -78,15 +78,14 @@ export type Course = {
   orCoreq?: boolean;
 };
 
-/** Palette used to color term badges and term filter chips, cycled by position. */
-const TERM_PALETTE: { bg: string; fg: string }[] = [
-  { bg: "#fcd9a6", fg: "#9a5b14" },
-  { bg: "#c5ecc0", fg: "#357a3a" },
-  { bg: "#e0cdf2", fg: "#6b3fa0" },
-  { bg: "#bcd6f5", fg: "#2f5fa3" },
-  { bg: "#f7c8d2", fg: "#a83f57" },
-  { bg: "#b6dced", fg: "#2f6f8f" },
-];
+/**
+ * Palette used to color term badges and term filter chips, cycled by position.
+ * Values are CSS variables defined in `src/index.css` for light and dark mode.
+ */
+const TERM_PALETTE: { bg: string; fg: string }[] = Array.from({ length: 6 }, (_, i) => ({
+  bg: `var(--term-${i + 1}-bg)`,
+  fg: `var(--term-${i + 1}-fg)`,
+}));
 
 /** Distinct color for a term badge/chip, cycled by the term's position. */
 export function termColor(position: number): { bg: string; fg: string } {
@@ -97,13 +96,9 @@ export function termColor(position: number): { bg: string; fg: string } {
 export const GRADES = [8, 9, 10, 11, 12] as const;
 
 /** Distinct colors used for grade filter chips. */
-export const GRADE_COLORS: Record<number, { bg: string; fg: string }> = {
-  8: { bg: "#f7c8d2", fg: "#a83f57" },
-  9: { bg: "#f8ddb0", fg: "#9a6a1e" },
-  10: { bg: "#cfe8b4", fg: "#5a7d2e" },
-  11: { bg: "#b6dced", fg: "#2f6f8f" },
-  12: { bg: "#d0c7ef", fg: "#5b4399" },
-};
+export const GRADE_COLORS: Record<number, { bg: string; fg: string }> = Object.fromEntries(
+  GRADES.map((grade) => [grade, { bg: `var(--grade-${grade}-bg)`, fg: `var(--grade-${grade}-fg)` }]),
+);
 
 /**
  * Chip colors for a grade level. Falls back to the cycled term palette for

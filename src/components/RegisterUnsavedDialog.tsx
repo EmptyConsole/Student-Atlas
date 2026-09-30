@@ -39,7 +39,7 @@ function RegisterUnsavedDialog({
         initial={{ opacity: 0, scale: 0.95, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 400, damping: 30 }}
-        className="w-full max-w-[480px] rounded-2xl border border-main-300 bg-white p-6 shadow-overlay"
+        className="w-full max-w-[480px] rounded-2xl border border-main-300 bg-surface p-6 shadow-overlay"
         onClick={(e) => e.stopPropagation()}
       >
         <h2
@@ -56,7 +56,7 @@ function RegisterUnsavedDialog({
           <button
             type="button"
             onClick={onStay}
-            className="inline-flex h-10 cursor-pointer items-center justify-center rounded-[20px] border border-main-300 bg-white px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+            className="inline-flex h-10 cursor-pointer items-center justify-center rounded-[20px] border border-main-300 bg-surface px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
           >
             Keep editing
           </button>

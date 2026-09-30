@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
 import { GRADE_COLORS } from "../data/courses";
 import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
+import type { ScreenMode } from "../hooks/useTheme";
 import { useSchoolGrades } from "../hooks/useSchoolGrades";
 import { useSchools } from "../hooks/useSchools";
 import { useSchoolPrereqCourses } from "../hooks/useSchoolPrereqCourses";
@@ -74,7 +76,10 @@ function GradeChip({
   active: boolean;
   onClick: () => void;
 }) {
-  const { bg, fg } = GRADE_COLORS[grade] ?? { bg: "#e5e7eb", fg: "#374151" };
+  const { bg, fg } = GRADE_COLORS[grade] ?? {
+    bg: "var(--chip-neutral-bg)",
+    fg: "var(--chip-neutral-fg)",
+  };
   return (
     <button
       type="button"
@@ -83,11 +88,45 @@ function GradeChip({
       className="inline-flex h-9 cursor-pointer items-center rounded-full border-2 px-3 text-sm font-medium leading-5 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
       style={{
         backgroundColor: active ? bg : "transparent",
-        color: active ? fg : "#676f7e",
+        color: active ? fg : "var(--color-ink-muted)",
         borderColor: bg,
       }}
     >
       {grade}
+    </button>
+  );
+}
+
+const SCREEN_MODE_OPTIONS: { id: ScreenMode; label: string; Icon: LucideIcon }[] = [
+  { id: "light", label: "Light", Icon: Sun },
+  { id: "dark", label: "Dark", Icon: Moon },
+  { id: "default", label: "Default", Icon: Monitor },
+];
+
+function ScreenModeChip({
+  label,
+  Icon,
+  active,
+  onClick,
+}: {
+  label: string;
+  Icon: LucideIcon;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border px-4 text-sm font-medium leading-5 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
+        active
+          ? "border-primary bg-main-200 text-primary"
+          : "border-main-300 bg-surface text-ink-muted hover:bg-main-100"
+      }`}
+    >
+      <Icon className="h-4 w-4" />
+      {label}
     </button>
   );
 }
@@ -102,7 +141,7 @@ function PrerequisiteRow({
   onToggle: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-main-300 bg-white px-4 py-3 shadow-sm">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-main-300 bg-surface px-4 py-3 shadow-sm">
       <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
         <input
           type="checkbox"
@@ -358,7 +397,7 @@ function ProfileContent({
   };
 
   const inputClass =
-    "h-[46px] w-full rounded-xl border border-main-300 bg-white py-2 pr-2 pl-3 text-base leading-6 text-ink-secondary placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary";
+    "h-[46px] w-full rounded-xl border border-main-300 bg-surface py-2 pr-2 pl-3 text-base leading-6 text-ink-secondary placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary";
 
   if (pendingVerification) {
     return (
@@ -416,7 +455,7 @@ function ProfileContent({
               disabled={sendingCode || resendCooldown > 0}
               className={`inline-flex h-10 w-full items-center justify-center rounded-[20px] text-base font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
                 !sendingCode && resendCooldown === 0
-                  ? "cursor-pointer border border-main-300 bg-white text-primary hover:bg-main-100"
+                  ? "cursor-pointer border border-main-300 bg-surface text-primary hover:bg-main-100"
                   : "cursor-not-allowed border border-line bg-surface-muted text-ink-muted"
               }`}
             >
@@ -596,7 +635,39 @@ function ProfileContent({
                       </div>
                     )}
                   </div>
+                </div>
 
+                <div>
+                  <span className="mb-2 block text-sm font-medium leading-5 text-ink-secondary">
+                    Screen Mode
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {SCREEN_MODE_OPTIONS.map(({ id, label, Icon }) => (
+                      <ScreenModeChip
+                        key={id}
+                        label={label}
+                        Icon={Icon}
+                        active={profile.screenMode === id}
+                        onClick={() => onChange({ screenMode: id })}
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-xs font-medium text-ink-muted">
+                    Default follows your device's light or dark setting.
+                    {onboarding
+                      ? " Saved when you create your account."
+                      : " Reverts if you leave without saving."}
+                  </p>
+                </div>
+
+                <div
+                  aria-hidden={!schoolSelected}
+                  className={
+                    schoolSelected
+                      ? undefined
+                      : "pointer-events-none opacity-50 select-none"
+                  }
+                >
                   <div>
                     <span className="mb-2 block text-sm font-medium leading-5 text-ink-secondary">
                       Courses Taken{" "}

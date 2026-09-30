@@ -115,11 +115,8 @@ function CourseDetailModal({
         </div>
 
         <div
-          className="border-t px-5 py-4"
-          style={{
-            borderColor: subject.color,
-            backgroundColor: "rgba(255,255,255,0.55)",
-          }}
+          className="border-t bg-surface/55 px-5 py-4"
+          style={{ borderColor: subject.color }}
         >
           <p className="text-sm leading-relaxed text-ink-secondary">
             {course.longDescription}
@@ -287,9 +284,14 @@ function RankedItem({
       >
         <span
           className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-            isTopPick ? "text-white" : "text-ink-muted"
+            isTopPick ? "" : "text-ink-muted"
           }`}
-          style={{ backgroundColor: isTopPick ? subject.accent : "#e5e7eb" }}
+          style={{
+            backgroundColor: isTopPick
+              ? subject.accent
+              : "var(--chip-neutral-bg)",
+            color: isTopPick ? subject.tint : undefined,
+          }}
         >
           {isTopPick ? rank : "—"}
         </span>
@@ -479,7 +481,7 @@ function RankingAlignedGrid({
 
   if (terms.length === 0) {
     return (
-      <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-main-300 bg-white px-4 py-8 text-center text-sm text-ink-muted">
+      <div className="flex min-h-[12rem] items-center justify-center rounded-2xl border border-dashed border-main-300 bg-surface px-4 py-8 text-center text-sm text-ink-muted">
         This school hasn't set up any terms yet, so there's nothing to rank.
       </div>
     );
@@ -488,7 +490,7 @@ function RankingAlignedGrid({
   const totalCount = termIds.reduce((sum, termId) => sum + countFor(termId), 0);
   if (totalCount === 0) {
     return (
-      <div className="flex min-h-[28rem] items-center justify-center rounded-2xl border border-dashed border-main-300 bg-white px-4 py-8 text-center text-sm text-ink-muted">
+      <div className="flex min-h-[28rem] items-center justify-center rounded-2xl border border-dashed border-main-300 bg-surface px-4 py-8 text-center text-sm text-ink-muted">
         Bookmark courses on the Courses page to rank them here.
       </div>
     );
@@ -496,7 +498,7 @@ function RankingAlignedGrid({
 
   return (
     <>
-      <div className="relative rounded-2xl border border-main-300 bg-white p-4 shadow-sm">
+      <div className="relative rounded-2xl border border-main-300 bg-surface p-4 shadow-sm">
         <div className="mb-4 grid gap-6" style={gridStyle}>
           {terms.map((term) => (
             <div key={term.id} className="flex flex-col gap-1">

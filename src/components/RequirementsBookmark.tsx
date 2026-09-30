@@ -26,8 +26,10 @@ function RequirementsBookmark({
       <span
         className="relative z-[1] flex h-16 w-full items-center gap-3 rounded-xl border border-detail-300 px-4 shadow-sm transition-colors duration-150"
         style={{
-          backgroundColor: showColor ? "#f3e5ab" : "#fffdd0",
-          color: "#6b5b2e",
+          backgroundColor: showColor
+            ? "var(--requirements-color)"
+            : "var(--requirements-tint)",
+          color: "var(--requirements-ink)",
         }}
       >
         <GraduationCap className="h-5 w-5 shrink-0" aria-hidden="true" />

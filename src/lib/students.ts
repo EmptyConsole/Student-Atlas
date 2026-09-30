@@ -1,3 +1,4 @@
+import { readScreenMode, type ScreenMode } from "../hooks/useTheme";
 import type { UserProfile } from "../hooks/useProfile";
 
 // Every student read and write goes through /api/student with the session
@@ -116,7 +117,10 @@ async function callStudentApi(
 
 export type HydratedStudentData = {
   studentId: string;
-  profile: Pick<UserProfile, "schoolId" | "name" | "email" | "grade" | "completedCourses" | "courseNotes">;
+  profile: Pick<
+    UserProfile,
+    "schoolId" | "name" | "email" | "grade" | "screenMode" | "completedCourses" | "courseNotes"
+  >;
   bookmarkIds: Set<string>;
 };
 
@@ -128,7 +132,7 @@ export type SubmitResult = {
 
 type Snapshot = {
   studentId: string;
-  profile: Pick<UserProfile, "schoolId" | "name" | "email" | "grade">;
+  profile: Pick<UserProfile, "schoolId" | "name" | "email" | "grade" | "screenMode">;
   completedCourses: Record<string, "prereq" | "coreq">;
   bookmarkIds: string[];
   courseNotes: Record<string, string>;
@@ -154,6 +158,7 @@ export async function loadStudentData(): Promise<{
   completedCourses: Record<string, "prereq" | "coreq">;
   bookmarkIds: Set<string>;
   courseNotes: Record<string, string>;
+  screenMode: ScreenMode;
 }> {
   const { data } = await callStudentApi({ action: "load" }, "Failed to load your data");
   const snapshot = data as Snapshot | undefined;
@@ -161,6 +166,7 @@ export async function loadStudentData(): Promise<{
     completedCourses: snapshot?.completedCourses ?? {},
     bookmarkIds: new Set(snapshot?.bookmarkIds ?? []),
     courseNotes: snapshot?.courseNotes ?? {},
+    screenMode: snapshot?.profile.screenMode ?? readScreenMode(),
   };
 }
 
@@ -189,6 +195,7 @@ export async function submitProfile(profile: UserProfile): Promise<SubmitResult>
       name,
       grade: profile.grade,
       schoolId: profile.schoolId,
+      screenMode: profile.screenMode,
       completedCourses: profile.completedCourses,
     });
     if (status >= 400 || typeof body.token !== "string") {
@@ -234,7 +241,7 @@ export async function syncStudentBookmarks(bookmarkIds: Set<string>): Promise<{ 
 }
 
 // ---------------------------------------------------------------------------
-// Sync profile fields (name, email, grade) → students row
+// Sync profile fields (name, email, grade, screen mode) → students row
 // ---------------------------------------------------------------------------
 
 /** A changed email is only accepted with the proof from its verification code. */
@@ -243,6 +250,7 @@ export async function syncStudentProfile(
   email: string,
   grade: number | null,
   schoolId: string | null,
+  screenMode: ScreenMode,
 ): Promise<{ error?: string }> {
   const trimmedName = name.trim();
   const trimmedEmail = email.trim();
@@ -255,6 +263,7 @@ export async function syncStudentProfile(
       email: trimmedEmail,
       grade,
       schoolId,
+      screenMode,
       emailProof: takeProof("email_change", trimmedEmail),
     },
     "Failed to save your profile",

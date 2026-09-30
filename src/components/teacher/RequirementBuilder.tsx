@@ -105,7 +105,7 @@ function RequirementBuilder({
                   {group.map((item, itemIndex) => (
                     <span
                       key={itemKey(item, itemIndex)}
-                      className="inline-flex items-center gap-1 rounded-full border bg-white px-2 py-1 text-xs font-semibold"
+                      className="inline-flex items-center gap-1 rounded-full border bg-surface px-2 py-1 text-xs font-semibold"
                       style={{ borderColor: accent, color: accent }}
                     >
                       {item.kind === "course" ? item.title : `"${item.text}"`}
@@ -137,7 +137,7 @@ function RequirementBuilder({
                     addCourse(groupIndex, e.target.value);
                     e.target.value = "";
                   }}
-                  className="h-9 w-full min-w-0 rounded-lg border border-main-300 bg-white px-2 text-sm text-ink-secondary focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+                  className="h-9 w-full min-w-0 rounded-lg border border-main-300 bg-surface px-2 text-sm text-ink-secondary focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                 >
                   <option value="">+ Add course…</option>
                   {courses.map((course) => (
@@ -164,12 +164,12 @@ function RequirementBuilder({
                       }
                     }}
                     placeholder="or free text…"
-                    className="h-9 min-w-0 flex-1 rounded-lg border border-main-300 bg-white px-3 text-sm leading-5 text-ink-secondary placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+                    className="h-9 min-w-0 flex-1 rounded-lg border border-main-300 bg-surface px-3 text-sm leading-5 text-ink-secondary placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                   />
                   <button
                     type="button"
                     onClick={() => addText(groupIndex)}
-                    className="inline-flex h-9 shrink-0 cursor-pointer items-center rounded-lg border border-main-300 bg-white px-3 text-sm font-medium leading-5 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+                    className="inline-flex h-9 shrink-0 cursor-pointer items-center rounded-lg border border-main-300 bg-surface px-3 text-sm font-medium leading-5 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                   >
                     Add
                   </button>

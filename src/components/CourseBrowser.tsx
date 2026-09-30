@@ -160,7 +160,7 @@ function CourseBrowser({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search courses by title or description..."
-            className="h-11 w-full rounded-lg border border-main-300 bg-white pr-4 pl-10 text-base leading-6 text-ink-secondary shadow-raised placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+            className="h-11 w-full rounded-lg border border-main-300 bg-surface pr-4 pl-10 text-base leading-6 text-ink-secondary shadow-raised placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
           />
         </div>
         <CatalogLayoutToggle compact={compact} onToggle={toggleBrowserLayout} />

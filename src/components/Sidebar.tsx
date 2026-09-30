@@ -59,7 +59,7 @@ function BookmarkRow({
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="flex w-full items-start gap-2 rounded-md px-2 py-1 transition-colors hover:bg-white/60"
+      className="flex w-full items-start gap-2 rounded-md px-2 py-1 transition-colors hover:bg-surface/60"
     >
       <button
         type="button"

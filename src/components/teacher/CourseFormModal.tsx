@@ -634,7 +634,7 @@ function CourseFormModal({
               <button
                 type="button"
                 onClick={discardRestoredDraft}
-                className="inline-flex h-10 cursor-pointer items-center rounded-[20px] border border-main-300 bg-white px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+                className="inline-flex h-10 cursor-pointer items-center rounded-[20px] border border-main-300 bg-surface px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
               >
                 Discard
               </button>
@@ -651,7 +651,7 @@ function CourseFormModal({
                 <button
                   type="button"
                   onClick={requestReloadFromServer}
-                  className="shrink-0 cursor-pointer rounded-lg border border-amber-400 bg-white px-3 py-1 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100"
+                  className="shrink-0 cursor-pointer rounded-lg border border-amber-400 bg-surface px-3 py-1 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100"
                 >
                   Load their version
                 </button>
@@ -668,7 +668,7 @@ function CourseFormModal({
                 <button
                   type="button"
                   onClick={requestReloadFromServer}
-                  className="shrink-0 cursor-pointer rounded-lg border border-amber-400 bg-white px-3 py-1 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100"
+                  className="shrink-0 cursor-pointer rounded-lg border border-amber-400 bg-surface px-3 py-1 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100"
                 >
                   Close and refresh
                 </button>
@@ -759,7 +759,7 @@ function CourseFormModal({
                     className="inline-flex h-9 cursor-pointer items-center rounded-full border-2 px-3 text-sm font-medium leading-5 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                     style={{
                       backgroundColor: active ? bg : "transparent",
-                      color: active ? fg : "#676f7e",
+                      color: active ? fg : "var(--color-ink-muted)",
                       borderColor: bg,
                     }}
                   >
@@ -790,7 +790,7 @@ function CourseFormModal({
                   {offerings.map((offering, index) => (
                     <div
                       key={offering.courseId ?? `new-${index}`}
-                      className="flex items-start gap-2 rounded-xl border border-main-300 bg-white p-3"
+                      className="flex items-start gap-2 rounded-xl border border-main-300 bg-surface p-3"
                     >
                       <div className="flex flex-wrap gap-2">
                         {terms.map((term) => {
@@ -805,7 +805,7 @@ function CourseFormModal({
                               className="inline-flex h-9 cursor-pointer items-center rounded-full border-2 px-3 text-sm font-medium leading-5 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                               style={{
                                 backgroundColor: active ? bg : "transparent",
-                                color: active ? fg : "#676f7e",
+                                color: active ? fg : "var(--color-ink-muted)",
                                 borderColor: bg,
                               }}
                             >
@@ -830,7 +830,7 @@ function CourseFormModal({
                 <button
                   type="button"
                   onClick={addOffering}
-                  className="mt-2 inline-flex h-10 cursor-pointer items-center gap-2 rounded-[20px] border border-main-300 bg-white px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+                  className="mt-2 inline-flex h-10 cursor-pointer items-center gap-2 rounded-[20px] border border-main-300 bg-surface px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                 >
                   <Plus className="h-4 w-4" />
                   Add another offering
@@ -850,7 +850,7 @@ function CourseFormModal({
                 {classTimes.map((time) => (
                   <div
                     key={time.key}
-                    className="flex flex-wrap items-center gap-2 rounded-xl border border-main-300 bg-white p-3"
+                    className="flex flex-wrap items-center gap-2 rounded-xl border border-main-300 bg-surface p-3"
                   >
                     <label className="flex items-center gap-2 text-xs font-medium text-ink-secondary">
                       Day
@@ -899,7 +899,7 @@ function CourseFormModal({
             <button
               type="button"
               onClick={addTime}
-              className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-[20px] border border-main-300 bg-white px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+              className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-[20px] border border-main-300 bg-surface px-6 text-base font-medium leading-6 text-primary transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
             >
               <Plus className="h-4 w-4" />
               Add time
@@ -911,7 +911,7 @@ function CourseFormModal({
             value={prereq}
             onChange={setPrereq}
             courses={builderCourses}
-            accent="#2b56da"
+            accent="var(--color-primary)"
           />
 
           <RequirementBuilder
@@ -919,7 +919,7 @@ function CourseFormModal({
             value={coreq}
             onChange={setCoreq}
             courses={builderCourses}
-            accent="#2b56da"
+            accent="var(--color-primary)"
           />
 
           <div>
@@ -952,7 +952,7 @@ function CourseFormModal({
             />
           </div>
 
-          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-main-300 bg-white px-4 py-3 shadow-sm">
+          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-main-300 bg-surface px-4 py-3 shadow-sm">
             <input
               type="checkbox"
               checked={retakeable}

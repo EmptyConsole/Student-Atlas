@@ -48,7 +48,7 @@ function Chip({
       }`}
       style={{
         backgroundColor: active ? bg : "transparent",
-        color: active ? fg : "#676f7e",
+        color: active ? fg : "var(--color-ink-muted)",
         borderColor: showBoldOutline ? fg : bg,
       }}
     >
@@ -57,8 +57,8 @@ function Chip({
   );
 }
 
-const YES_CHIP = { bg: "#c5ecc0", fg: "#357a3a" };
-const NO_CHIP = { bg: "#f7c8d2", fg: "#a83f57" };
+const YES_CHIP = { bg: "var(--chip-yes-bg)", fg: "var(--chip-yes-fg)" };
+const NO_CHIP = { bg: "var(--chip-no-bg)", fg: "var(--chip-no-fg)" };
 
 function FilterPanel({ filters, onChange, terms, grades }: FilterPanelProps) {
   const [open, setOpen] = useState(false);
@@ -106,19 +106,19 @@ function FilterPanel({ filters, onChange, terms, grades }: FilterPanelProps) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-main-300 bg-white px-4 text-base font-medium leading-6 text-ink-secondary shadow-raised transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+        className="flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-main-300 bg-surface px-4 text-base font-medium leading-6 text-ink-secondary shadow-raised transition-colors duration-150 ease-out hover:bg-main-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
       >
         <SlidersHorizontal className="h-5 w-5" />
         <span>Filter</span>
         {activeCount > 0 && (
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-main-600 px-2 text-xs font-medium text-primary">
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-main-600 px-2 text-xs font-medium text-primary dark:text-ink">
             {activeCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 z-30 mt-2 w-72 rounded-2xl border border-main-300 bg-white p-4 shadow-overlay">
+        <div className="absolute right-0 z-30 mt-2 w-72 rounded-2xl border border-main-300 bg-surface p-4 shadow-overlay">
           <div className="mb-3 flex items-center justify-between">
             <h4 className="text-sm font-medium leading-5 text-ink-secondary">Grade</h4>
             {activeCount > 0 && (

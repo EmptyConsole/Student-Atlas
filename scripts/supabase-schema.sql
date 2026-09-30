@@ -69,7 +69,9 @@ CREATE TABLE public.students (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   graduation_year bigint,
   times_taken ARRAY,
+  screen_mode text NOT NULL DEFAULT 'default',
   CONSTRAINT students_pkey PRIMARY KEY (id),
+  CONSTRAINT students_screen_mode_check CHECK (screen_mode = ANY (ARRAY['light', 'dark', 'default'])),
   CONSTRAINT students_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );
 CREATE TABLE public.completed_courses (
