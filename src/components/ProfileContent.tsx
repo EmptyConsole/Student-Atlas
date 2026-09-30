@@ -668,7 +668,7 @@ function ProfileContent({
                 >
                   <div>
                     <span className="mb-2 block text-sm font-medium leading-5 text-ink-secondary">
-                      Courses Taken{" "
+                      Courses Taken{" "}
                       <span className="font-normal text-ink-muted">
                         (not required)
                       </span>
