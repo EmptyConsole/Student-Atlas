@@ -500,6 +500,7 @@ export type Database = {
           id: string
           name: string
           school_id: string
+          screen_mode: string
           times_taken: number[][] | null
         }
         Insert: {
@@ -510,6 +511,7 @@ export type Database = {
           id?: string
           name: string
           school_id: string
+          screen_mode?: string
           times_taken?: number[][] | null
         }
         Update: {
@@ -520,6 +522,7 @@ export type Database = {
           id?: string
           name?: string
           school_id?: string
+          screen_mode?: string
           times_taken?: number[][] | null
         }
         Relationships: [

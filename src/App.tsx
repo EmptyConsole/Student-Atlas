@@ -11,6 +11,7 @@ import { useRefreshOnVisible } from "./hooks/useRefreshOnVisible";
 import { useSchoolGrades } from "./hooks/useSchoolGrades";
 import { useSubjects } from "./hooks/useSubjects";
 import { useTerms } from "./hooks/useTerms";
+import { applyScreenMode, previewScreenMode, readScreenMode } from "./hooks/useTheme";
 import {
   submitProfile,
   loginByEmail,
@@ -29,7 +30,7 @@ import type { AppView } from "./types/app";
 // pushed to Supabase when the student clicks "Save Changes".
 type ProfileSnapshot = Pick<
   UserProfile,
-  "schoolId" | "name" | "email" | "grade" | "completedCourses"
+  "schoolId" | "name" | "email" | "grade" | "screenMode" | "completedCourses"
 >;
 
 function snapshotProfile(profile: UserProfile): ProfileSnapshot {
@@ -38,6 +39,7 @@ function snapshotProfile(profile: UserProfile): ProfileSnapshot {
     name: profile.name,
     email: profile.email,
     grade: profile.grade,
+    screenMode: profile.screenMode,
     completedCourses: { ...profile.completedCourses },
   };
 }
@@ -67,6 +69,7 @@ function profileSnapshotsEqual(a: ProfileSnapshot, b: ProfileSnapshot): boolean 
     a.name === b.name &&
     a.email === b.email &&
     a.grade === b.grade &&
+    a.screenMode === b.screenMode &&
     completedCoursesEqual(a.completedCourses, b.completedCourses)
   );
 }
@@ -147,18 +150,22 @@ function App() {
       signOut();
       setActiveView("profile");
       syncEnabled.current = true;
-      setSavedProfile(snapshotProfile(DEFAULT_PROFILE));
+      setSavedProfile(
+        snapshotProfile({ ...DEFAULT_PROFILE, screenMode: readScreenMode() }),
+      );
       return;
     }
 
-    loadStudentData().then(({ completedCourses, bookmarkIds, courseNotes }) => {
-      updateProfile({ completedCourses, courseNotes });
+    loadStudentData().then(({ completedCourses, bookmarkIds, courseNotes, screenMode }) => {
+      updateProfile({ completedCourses, courseNotes, screenMode });
+      applyScreenMode(screenMode);
       setBookmarks(bookmarkIds);
       setSavedProfile({
         schoolId: profile.schoolId,
         name: profile.name,
         email: profile.email,
         grade: profile.grade,
+        screenMode,
         completedCourses,
       });
       syncEnabled.current = true;
@@ -191,17 +198,20 @@ function App() {
       const { studentId: id, profile: hydratedProfile, bookmarkIds } = result.hydratedData;
       setStudentId(id);
       updateProfile(hydratedProfile);
+      applyScreenMode(hydratedProfile.screenMode);
       setBookmarks(bookmarkIds);
       setSavedProfile({
         schoolId: hydratedProfile.schoolId,
         name: hydratedProfile.name,
         email: hydratedProfile.email,
         grade: hydratedProfile.grade,
+        screenMode: hydratedProfile.screenMode,
         completedCourses: hydratedProfile.completedCourses,
       });
     } else if (result.studentId) {
       // New user — just record the ID (courses were synced inside submitProfile)
       setStudentId(result.studentId);
+      applyScreenMode(profile.screenMode);
       setSavedProfile(snapshotProfile(profile));
     }
 
@@ -229,14 +239,15 @@ function App() {
 
     let cancelled = false;
     loadStudentData().then(
-      ({ completedCourses, bookmarkIds, courseNotes }) => {
+      ({ completedCourses, bookmarkIds, courseNotes, screenMode }) => {
         if (cancelled) return;
-        updateProfile({ completedCourses, courseNotes });
+        updateProfile({ completedCourses, courseNotes, screenMode });
+        applyScreenMode(screenMode);
         setBookmarks(bookmarkIds);
         // The refresh only ran with no unsaved edits, so just advance the
-        // completed-courses part of the saved snapshot.
+        // parts of the saved snapshot this pull refreshed.
         setSavedProfile((prev) =>
-          prev ? { ...prev, completedCourses } : prev,
+          prev ? { ...prev, completedCourses, screenMode } : prev,
         );
       },
     );
@@ -254,12 +265,14 @@ function App() {
       profile.email,
       profile.grade,
       profile.schoolId,
+      profile.screenMode,
     );
     if (profileResult.error) return { error: profileResult.error };
 
     const coursesResult = await syncStudentCourses(profile.completedCourses);
     if (coursesResult.error) return { error: coursesResult.error };
 
+    applyScreenMode(profile.screenMode);
     setSavedProfile(snapshotProfile(profile));
     return {};
   };
@@ -273,12 +286,14 @@ function App() {
       const { studentId: id, profile: hydratedProfile, bookmarkIds } = result.hydratedData;
       setStudentId(id);
       updateProfile(hydratedProfile);
+      applyScreenMode(hydratedProfile.screenMode);
       setBookmarks(bookmarkIds);
       setSavedProfile({
         schoolId: hydratedProfile.schoolId,
         name: hydratedProfile.name,
         email: hydratedProfile.email,
         grade: hydratedProfile.grade,
+        screenMode: hydratedProfile.screenMode,
         completedCourses: hydratedProfile.completedCourses,
       });
       syncEnabled.current = true;
@@ -322,6 +337,20 @@ function App() {
     return {};
   };
 
+  const handleProfileChange = (patch: Partial<UserProfile>) => {
+    updateProfile(patch);
+    if (patch.screenMode) previewScreenMode(patch.screenMode);
+  };
+
+  // Unsaved screen-mode picks are a live preview. Leaving Profile without
+  // saving puts the last saved mode back on the page and in the form.
+  const revertUnsavedScreenMode = () => {
+    const saved = savedProfile?.screenMode;
+    if (!saved || profile.screenMode === saved) return;
+    updateProfile({ screenMode: saved });
+    previewScreenMode(saved);
+  };
+
   const toggleBookmark = (id: string) => {
     setBookmarks((prev) => {
       const next = new Set(prev);
@@ -336,6 +365,9 @@ function App() {
       setPendingNav(view);
       return;
     }
+    if (activeView === "profile" && view !== "profile") {
+      revertUnsavedScreenMode();
+    }
     setActiveView(view);
   };
 
@@ -345,7 +377,7 @@ function App() {
         <Header activeView="profile" onNavigate={setActiveView} locked />
         <ProfilePage
           profile={profile}
-          onChange={updateProfile}
+          onChange={handleProfileChange}
           onSignOut={signOut}
           onboarding
           onSubmit={handleSubmitProfile}
@@ -389,7 +421,7 @@ function App() {
       {activeView === "profile" && (
         <ProfilePage
           profile={profile}
-          onChange={updateProfile}
+          onChange={handleProfileChange}
           onSignOut={handleSignOut}
           onDeleteAccount={handleDeleteAccount}
           hasUnsavedChanges={hasUnsavedChanges}

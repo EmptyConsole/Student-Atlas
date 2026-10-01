@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
 import { GRADE_COLORS } from "../data/courses";
 import { isProfileComplete, type UserProfile } from "../hooks/useProfile";
+import type { ScreenMode } from "../hooks/useTheme";
 import { useSchoolGrades } from "../hooks/useSchoolGrades";
 import { useSchools } from "../hooks/useSchools";
 import { useSchoolPrereqCourses } from "../hooks/useSchoolPrereqCourses";
@@ -91,6 +93,40 @@ function GradeChip({
       }}
     >
       {grade}
+    </button>
+  );
+}
+
+const SCREEN_MODE_OPTIONS: { id: ScreenMode; label: string; Icon: LucideIcon }[] = [
+  { id: "light", label: "Light", Icon: Sun },
+  { id: "dark", label: "Dark", Icon: Moon },
+  { id: "default", label: "Default", Icon: Monitor },
+];
+
+function ScreenModeChip({
+  label,
+  Icon,
+  active,
+  onClick,
+}: {
+  label: string;
+  Icon: LucideIcon;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border px-4 text-sm font-medium leading-5 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${
+        active
+          ? "border-primary bg-main-200 text-primary"
+          : "border-main-300 bg-surface text-ink-muted hover:bg-main-100"
+      }`}
+    >
+      <Icon className="h-4 w-4" />
+      {label}
     </button>
   );
 }
@@ -599,7 +635,39 @@ function ProfileContent({
                       </div>
                     )}
                   </div>
+                </div>
 
+                <div>
+                  <span className="mb-2 block text-sm font-medium leading-5 text-ink-secondary">
+                    Screen Mode
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {SCREEN_MODE_OPTIONS.map(({ id, label, Icon }) => (
+                      <ScreenModeChip
+                        key={id}
+                        label={label}
+                        Icon={Icon}
+                        active={profile.screenMode === id}
+                        onClick={() => onChange({ screenMode: id })}
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-xs font-medium text-ink-muted">
+                    Default follows your device's light or dark setting.
+                    {onboarding
+                      ? " Saved when you create your account."
+                      : " Reverts if you leave without saving."}
+                  </p>
+                </div>
+
+                <div
+                  aria-hidden={!schoolSelected}
+                  className={
+                    schoolSelected
+                      ? undefined
+                      : "pointer-events-none opacity-50 select-none"
+                  }
+                >
                   <div>
                     <span className="mb-2 block text-sm font-medium leading-5 text-ink-secondary">
                       Courses Taken{" "}

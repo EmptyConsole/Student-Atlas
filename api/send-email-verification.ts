@@ -26,8 +26,21 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/**
+ * Standard shape check, minus `*`. PostgREST rewrites every `*` in a `like` /
+ * `ilike` value to `%` before the pattern reaches Postgres, and it does so with
+ * a blind character map — `\*` becomes `\%` — so a literal `*` can only be
+ * refused, never escaped. `%` and `_` are legal in an address, so those are
+ * escaped instead (see `escapeLike`).
+ */
 function isValidEmail(email: string): boolean {
+  if (email.includes("*")) return false;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+/** Escapes `%`, `_`, and `\` so an email can be matched exactly with ILIKE. */
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
 function isPurpose(value: unknown): value is EmailVerificationPurpose {
@@ -120,7 +133,7 @@ export async function POST(request: Request): Promise<Response> {
     const { data: existing, error } = await supabase
       .from("students")
       .select("id")
-      .ilike("email", email)
+      .ilike("email", escapeLike(email))
       .limit(1);
 
     if (error) {
@@ -136,7 +149,7 @@ export async function POST(request: Request): Promise<Response> {
     const { data: taken, error } = await supabase
       .from("students")
       .select("id")
-      .ilike("email", email)
+      .ilike("email", escapeLike(email))
       .limit(1);
 
     if (error) {

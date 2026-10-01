@@ -28,6 +28,7 @@ type Payload = {
   email?: unknown;
   grade?: unknown;
   schoolId?: unknown;
+  screenMode?: unknown;
   completedCourses?: unknown;
   courseIds?: unknown;
   courseNotes?: unknown;
@@ -37,12 +38,15 @@ type Payload = {
   columns?: unknown;
 };
 
+type ScreenMode = "light" | "dark" | "default";
+
 type StudentRow = {
   id: string;
   name: string;
   email: string;
   grade: number | null;
   school_id: string;
+  screen_mode: string | null;
 };
 
 /** Service-role client. Wrapped so `Supabase` below infers a concrete type. */
@@ -159,13 +163,30 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-/** Escapes `%`, `_`, and `\` so an email can be matched exactly with ILIKE. */
+/**
+ * Escapes `%`, `_`, and `\` so an email can be matched exactly with ILIKE.
+ *
+ * `*` is deliberately absent: PostgREST rewrites every `*` in a `like` /
+ * `ilike` value to `%` with a blind character map, so `\*` would arrive as
+ * `\%` and match a literal percent sign instead. It has to be refused rather
+ * than escaped — `hasLikeWildcard` below is that check.
+ */
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
+/** True when an address carries a wildcard `escapeLike` cannot neutralize. */
+function hasLikeWildcard(value: string): boolean {
+  return value.includes("*");
+}
+
 function isGrade(value: unknown): value is number {
   return Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 12;
+}
+
+/** "default" means follow the device's color scheme. */
+function screenMode(value: unknown): ScreenMode {
+  return value === "light" || value === "dark" ? value : "default";
 }
 
 function toMessage(err: unknown, fallback: string): string {
@@ -263,7 +284,7 @@ export async function POST(request: Request): Promise<Response> {
 async function loadStudentRow(supabase: Supabase, studentId: string): Promise<StudentRow | null> {
   const { data, error } = await supabase
     .from("students")
-    .select("id, name, email, grade, school_id")
+    .select("id, name, email, grade, school_id, screen_mode")
     .eq("id", studentId)
     .maybeSingle();
   if (error) throw error;
@@ -271,9 +292,13 @@ async function loadStudentRow(supabase: Supabase, studentId: string): Promise<St
 }
 
 async function findStudentByEmail(supabase: Supabase, email: string): Promise<StudentRow | null> {
+  // Callers reach here with an email from a signed proof, which /api/verify-email-code
+  // already refused a `*` in. Belt and braces: never let one widen the pattern.
+  if (hasLikeWildcard(email)) return null;
+
   const { data, error } = await supabase
     .from("students")
-    .select("id, name, email, grade, school_id")
+    .select("id, name, email, grade, school_id, screen_mode")
     .ilike("email", escapeLike(email))
     .limit(1);
   if (error) throw error;
@@ -335,6 +360,7 @@ async function studentSnapshot(supabase: Supabase, student: StudentRow) {
       name: student.name,
       email: student.email,
       grade: student.grade,
+      screenMode: screenMode(student.screen_mode),
     },
     completedCourses,
     bookmarkIds: (bookmarkedRes.data ?? []).map((r) => r.course_id as string),
@@ -373,19 +399,20 @@ async function createStudent(supabase: Supabase, payload: Payload): Promise<Resp
 
   let student = await findStudentByEmail(supabase, email);
   const existing = student !== null;
+  const mode = screenMode(payload.screenMode);
 
   if (student) {
     const { error } = await supabase
       .from("students")
-      .update({ name, grade: payload.grade, school_id: schoolId })
+      .update({ name, grade: payload.grade, school_id: schoolId, screen_mode: mode })
       .eq("id", student.id);
     if (error) throw error;
-    student = { ...student, name, grade: payload.grade, school_id: schoolId };
+    student = { ...student, name, grade: payload.grade, school_id: schoolId, screen_mode: mode };
   } else {
     const { data, error } = await supabase
       .from("students")
-      .insert({ name, email, grade: payload.grade, school_id: schoolId })
-      .select("id, name, email, grade, school_id")
+      .insert({ name, email, grade: payload.grade, school_id: schoolId, screen_mode: mode })
+      .select("id, name, email, grade, school_id, screen_mode")
       .single();
     if (error) throw error;
     student = data as StudentRow;
@@ -405,7 +432,8 @@ async function createStudent(supabase: Supabase, payload: Payload): Promise<Resp
   );
 }
 
-/** Name, grade, and school. A new email also needs a verified email proof. */
+/** Name, grade, school, and screen mode. A new email also needs a verified
+ * email proof. */
 async function saveProfile(
   supabase: Supabase,
   student: StudentRow,
@@ -418,7 +446,12 @@ async function saveProfile(
     return json({ error: "Please select a school and fill in your name, email, and grade." }, 400);
   }
 
-  const update: Record<string, unknown> = { name, grade: payload.grade, school_id: schoolId };
+  const update: Record<string, unknown> = {
+    name,
+    grade: payload.grade,
+    school_id: schoolId,
+    screen_mode: screenMode(payload.screenMode),
+  };
 
   if (email !== normalizeEmail(student.email)) {
     if (emailFromProof(payload.emailProof, "email_change") !== email) {
