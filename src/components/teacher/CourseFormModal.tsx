@@ -91,15 +91,16 @@ function classTimeToDraft(t: ClassTime): TimeDraft {
   };
 }
 
-function emptyTimeDraft(): TimeDraft {
-  return {
-    key: nextDraftKey(),
-    day: "1",
-    start: "",
-    end: "",
-    original: null,
-  };
-}
+// Class time editing is temporarily disabled in the teacher course form.
+// function emptyTimeDraft(): TimeDraft {
+//   return {
+//     key: nextDraftKey(),
+//     day: "1",
+//     start: "",
+//     end: "",
+//     original: null,
+//   };
+// }
 
 function initialOfferings(
   editingItem: DisplayCourse | null | undefined,
@@ -486,18 +487,19 @@ function CourseFormModal({
   const removeOffering = (index: number) =>
     setOfferings((prev) => prev.filter((_, i) => i !== index));
 
-  const addTime = () => setClassTimes((prev) => [...prev, emptyTimeDraft()]);
-
-  const removeTime = (timeKey: string) =>
-    setClassTimes((prev) => prev.filter((t) => t.key !== timeKey));
-
-  const updateTime = (
-    timeKey: string,
-    patch: Partial<Pick<TimeDraft, "day" | "start" | "end">>,
-  ) =>
-    setClassTimes((prev) =>
-      prev.map((t) => (t.key === timeKey ? { ...t, ...patch } : t)),
-    );
+  // Class time editing is temporarily disabled in the teacher course form.
+  // const addTime = () => setClassTimes((prev) => [...prev, emptyTimeDraft()]);
+  //
+  // const removeTime = (timeKey: string) =>
+  //   setClassTimes((prev) => prev.filter((t) => t.key !== timeKey));
+  //
+  // const updateTime = (
+  //   timeKey: string,
+  //   patch: Partial<Pick<TimeDraft, "day" | "start" | "end">>,
+  // ) =>
+  //   setClassTimes((prev) =>
+  //     prev.map((t) => (t.key === timeKey ? { ...t, ...patch } : t)),
+  //   );
 
   const hasValidOffering = offerings.some((o) => o.terms.length > 0);
   const canSave =
@@ -839,6 +841,7 @@ function CourseFormModal({
             )}
           </div>
 
+          {/* Class time editing is temporarily disabled in the teacher course form.
           <div>
             <span className={labelClass}>Class times</span>
             <p className="mb-2 text-xs text-ink-muted">
@@ -905,6 +908,7 @@ function CourseFormModal({
               Add time
             </button>
           </div>
+          */}
 
           <RequirementBuilder
             label="Prerequisites"

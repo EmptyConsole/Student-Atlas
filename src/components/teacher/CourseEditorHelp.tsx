@@ -59,6 +59,7 @@ function CourseEditorHelp({ onClose }: CourseEditorHelpProps) {
             </p>
           </section>
 
+          {/* Class time editing is temporarily disabled in the teacher course form.
           <section>
             <h3 className="mb-1 font-semibold text-ink">Class times</h3>
             <p>
@@ -66,6 +67,7 @@ function CourseEditorHelp({ onClose }: CourseEditorHelpProps) {
               shown in AM/PM.
             </p>
           </section>
+          */}
 
           <section>
             <h3 className="mb-1 font-semibold text-ink">
