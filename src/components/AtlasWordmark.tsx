@@ -5,9 +5,10 @@ type AtlasWordmarkProps = {
 function AtlasWordmark({ className = "" }: AtlasWordmarkProps) {
   return (
     <span
-      className={`font-[Plus_Jakarta_Sans] text-5xl leading-none font-semibold text-primary ${className}`}
+      aria-label="Atlas"
+      className={`relative -top-[2.5px] font-sans text-5xl leading-none font-semibold text-primary ${className}`}
     >
-      Atlas
+      tlas
     </span>
   );
 }

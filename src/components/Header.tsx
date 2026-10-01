@@ -20,10 +20,10 @@ function Header({ activeView, onNavigate, locked = false }: HeaderProps) {
 
   return (
     <header className="flex h-16 w-full items-center justify-between bg-main-200 px-4 sm:px-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1">
         <img
-          src="/BetterEmptyConsoleLogo copy.png"
-          alt="Student Atlas logo"
+          src="/newLogoAtlas.png"
+          alt=""
           className="h-10 w-10 rounded-lg"
         />
         <AtlasWordmark />
