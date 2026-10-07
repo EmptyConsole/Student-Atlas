@@ -194,7 +194,7 @@ function SchoolFormModal({
   const [stateField, setStateField] = useState(initial?.state ?? "");
   // Blank when editing means "keep the current password".
   const [password, setPassword] = useState("");
-  const [googleDomains, setGoogleDomains] = useState(
+  const [googleDomains /* , setGoogleDomains */] = useState(
     (initial?.googleDomains ?? []).join(", "),
   );
   const [gradeRows, setGradeRows] = useState<GradeDraft[]>(() =>
@@ -465,6 +465,7 @@ function SchoolFormModal({
           </p>
         </div>
 
+        {/* Google sign-in hidden for now.
         <div>
           <label htmlFor="school-google-domains" className={labelClass}>
             Google sign-in domains
@@ -492,6 +493,7 @@ function SchoolFormModal({
             </p>
           )}
         </div>
+        */}
 
         <div>
           <span className={labelClass}>Courses by grade</span>

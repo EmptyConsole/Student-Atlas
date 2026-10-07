@@ -8,11 +8,11 @@ import { useSchools } from "../hooks/useSchools";
 import { useSchoolPrereqCourses } from "../hooks/useSchoolPrereqCourses";
 import {
   sendEmailVerification,
-  signInWithGoogle,
+  // signInWithGoogle,
   verifyEmailCode,
   type EmailVerificationPurpose,
 } from "../lib/students";
-import GoogleSignInButton from "./GoogleSignInButton";
+// import GoogleSignInButton from "./GoogleSignInButton";
 import type { ProfileSection } from "./ProfileSidebar";
 import SchoolPicker from "./SchoolPicker";
 
@@ -178,8 +178,8 @@ function ProfileContent({
   );
 
   const schoolSelected = profile.schoolId !== null;
-  const schoolAllowsGoogle =
-    (schools.find((s) => s.id === profile.schoolId)?.googleDomains.length ?? 0) > 0;
+  // const schoolAllowsGoogle =
+  //   (schools.find((s) => s.id === profile.schoolId)?.googleDomains.length ?? 0) > 0;
 
   const [mode, setMode] = useState<"create" | "login">("create");
   const [loginEmail, setLoginEmail] = useState("");
@@ -187,7 +187,7 @@ function ProfileContent({
   const [loginError, setLoginError] = useState<string | null>(null);
   /** Email Google verified for signup; its proof is already pending. */
   const [googleEmail, setGoogleEmail] = useState<string | null>(null);
-  const [googleError, setGoogleError] = useState<string | null>(null);
+  // const [googleError, setGoogleError] = useState<string | null>(null);
 
   const [pendingVerification, setPendingVerification] =
     useState<PendingVerification | null>(null);
@@ -291,6 +291,7 @@ function ProfileContent({
     }
   };
 
+  /* Google sign-in hidden for now.
   const handleGoogleLogin = async (credential: string) => {
     if (!onLoginByEmail || loggingIn) return;
     setLoggingIn(true);
@@ -320,10 +321,11 @@ function ProfileContent({
       name: profile.name.trim() ? profile.name : (result.name ?? ""),
     });
   };
+  */
 
   const clearGoogleSignup = () => {
     setGoogleEmail(null);
-    setGoogleError(null);
+    // setGoogleError(null);
   };
 
   const handleSelectSchool = (schoolId: string) => {
@@ -577,11 +579,13 @@ function ProfileContent({
 
             {onboarding && mode === "login" ? (
               <div className="flex w-full max-w-[400px] flex-col gap-4">
+                {/* Google sign-in hidden for now.
                 <GoogleSignInButton
                   text="signin_with"
                   divider
                   onCredential={(credential) => void handleGoogleLogin(credential)}
                 />
+                */}
                 <div>
                   <label
                     htmlFor="login-email"
@@ -646,6 +650,7 @@ function ProfileContent({
                       : "pointer-events-none flex flex-col gap-5 opacity-50 select-none"
                   }
                 >
+                  {/* Google sign-in hidden for now.
                   {onboarding && schoolSelected && schoolAllowsGoogle && !googleEmail && (
                     <div>
                       <GoogleSignInButton
@@ -658,6 +663,7 @@ function ProfileContent({
                       )}
                     </div>
                   )}
+                  */}
 
                   <div>
                     <RequiredFieldLabel htmlFor="profile-name">Name</RequiredFieldLabel>

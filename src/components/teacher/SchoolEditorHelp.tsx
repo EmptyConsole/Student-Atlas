@@ -1,12 +1,13 @@
-import { useState } from "react";
+// import { useState } from "react";
 import ModalShell from "./ModalShell";
 import { primaryButtonClass } from "./formStyles";
-
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 
 type SchoolEditorHelpProps = {
   onClose: () => void;
 };
+
+/* Google sign-in hidden for now.
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 
 function CopyClientId({ clientId }: { clientId: string }) {
   const [copied, setCopied] = useState(false);
@@ -34,6 +35,7 @@ function CopyClientId({ clientId }: { clientId: string }) {
     </span>
   );
 }
+*/
 
 /**
  * Nested help dialog for the school editor.
@@ -72,6 +74,7 @@ function SchoolEditorHelp({ onClose }: SchoolEditorHelpProps) {
             </p>
           </section>
 
+          {/* Google sign-in hidden for now.
           <section>
             <h3 className="mb-1 font-semibold text-ink">Google sign-in domains</h3>
             <p>
@@ -151,6 +154,7 @@ function SchoolEditorHelp({ onClose }: SchoolEditorHelpProps) {
               consent rules before turning this on for students.
             </p>
           </section>
+          */}
 
           <section>
             <h3 className="mb-1 font-semibold text-ink">Courses by grade</h3>
