@@ -98,6 +98,15 @@ function domainsOf(row: { google_domains?: unknown } | null | undefined): string
   return Array.isArray(row?.google_domains) ? (row.google_domains as string[]) : [];
 }
 
+function emailDomainMatches(hostedDomain: string, allowedDomains: string[]): boolean {
+  if (allowedDomains.length === 0) return false;
+  const hd = hostedDomain.toLowerCase().trim();
+  return allowedDomains.some((d) => {
+    const norm = d.toLowerCase().replace(/^@/, "").trim();
+    return norm.length > 0 && (hd === norm || hd.endsWith("." + norm));
+  });
+}
+
 export async function POST(request: Request): Promise<Response> {
   const missing: string[] = [];
   if (!process.env.VITE_SUPABASE_URL) missing.push("VITE_SUPABASE_URL");
@@ -185,7 +194,7 @@ export async function POST(request: Request): Promise<Response> {
       console.error("google login school error:", schoolError);
       return json({ error: "Something went wrong. Please try again." }, 500);
     }
-    if (!domainsOf(school).includes(hostedDomain)) return notAllowed;
+    if (!emailDomainMatches(hostedDomain, domainsOf(school))) return notAllowed;
 
     const expiresAt = Date.now() + SESSION_TTL_MS;
     return json(
@@ -209,7 +218,7 @@ export async function POST(request: Request): Promise<Response> {
     return json({ error: "Something went wrong. Please try again." }, 500);
   }
   if (!school) return json({ error: "That school no longer exists." }, 400);
-  if (!domainsOf(school).includes(hostedDomain)) return notAllowed;
+  if (!emailDomainMatches(hostedDomain, domainsOf(school))) return notAllowed;
 
   const proof = signPayload({
     typ: "proof",

@@ -194,7 +194,7 @@ function SchoolFormModal({
   const [stateField, setStateField] = useState(initial?.state ?? "");
   // Blank when editing means "keep the current password".
   const [password, setPassword] = useState("");
-  const [googleDomains /* , setGoogleDomains */] = useState(
+  const [googleDomains, setGoogleDomains] = useState(
     (initial?.googleDomains ?? []).join(", "),
   );
   const [gradeRows, setGradeRows] = useState<GradeDraft[]>(() =>
@@ -465,10 +465,9 @@ function SchoolFormModal({
           </p>
         </div>
 
-        {/* Google sign-in hidden for now.
         <div>
           <label htmlFor="school-google-domains" className={labelClass}>
-            Google sign-in domains
+            Allowed student email domains
           </label>
           <input
             id="school-google-domains"
@@ -486,14 +485,12 @@ function SchoolFormModal({
             </p>
           ) : (
             <p className="mt-1.5 text-xs text-ink-muted">
-              Students at these Google Workspace domains can sign in with
-              Google. Separate with commas. Leave blank to turn Google sign-in
-              off. Your Google admin must also approve Student Atlas; the steps
-              are under the ? help button.
+              Only students with emails at these domains can create an account at
+              this school. Separate multiple domains with commas. Leave blank to
+              allow any email domain.
             </p>
           )}
         </div>
-        */}
 
         <div>
           <span className={labelClass}>Courses by grade</span>

@@ -74,16 +74,18 @@ function SchoolEditorHelp({ onClose }: SchoolEditorHelpProps) {
             </p>
           </section>
 
-          {/* Google sign-in hidden for now.
           <section>
-            <h3 className="mb-1 font-semibold text-ink">Google sign-in domains</h3>
+            <h3 className="mb-1 font-semibold text-ink">
+              Allowed student email domains
+            </h3>
             <p>
-              The Google Workspace domains your students sign in with, such as
-              myschool.org (the part after the @ in their school email). Students
-              with those accounts see a Sign in with Google button. Leave blank
-              to turn it off.
+              The email domains students must use to sign up for this school,
+              such as myschool.org or students.myschool.org. Leave blank to allow
+              students to sign up with any email domain.
             </p>
           </section>
+
+          {/* Google sign-in approval steps hidden for now.
 
           <section>
             <h3 className="mb-1 font-semibold text-ink">

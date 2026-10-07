@@ -18,6 +18,7 @@ const ops = vi.hoisted(() => [] as string[]);
 const filters = vi.hoisted(() => [] as string[]);
 /** Every `.ilike(column, pattern)` filter, as `table.column~pattern`. */
 const likes = vi.hoisted(() => [] as string[]);
+let mockSchoolRow: { id: string; google_domains?: string[] } | null = null;
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
@@ -71,7 +72,7 @@ function rowsFor(table: string, verb: string, single: boolean) {
   if (table === "students" && single) {
     return { id: STUDENT_A, name: "Ada", email: "ada@example.com", grade: 10, school_id: SCHOOL };
   }
-  if (table === "schools" && single) return { id: SCHOOL };
+  if (table === "schools" && single) return mockSchoolRow ?? { id: SCHOOL };
   if (table === "courses") return [{ id: COURSE, title: "Biology" }];
   return single ? null : [];
 }
@@ -109,6 +110,7 @@ beforeEach(() => {
   ops.length = 0;
   filters.length = 0;
   likes.length = 0;
+  mockSchoolRow = null;
 });
 
 describe("student session", () => {
@@ -260,5 +262,19 @@ describe("createStudent", () => {
     const res = await post({ ...signup, proof: proof("signup", "*@example.com") });
     expect(res.status).toBe(200);
     expect(likes).toHaveLength(0);
+  });
+
+  it("refuses a signup proof whose email domain does not match the school's configured domains", async () => {
+    mockSchoolRow = { id: SCHOOL, google_domains: ["myschool.org"] };
+    const res = await post({ ...signup, proof: proof("signup", "ada@gmail.com") });
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toContain("This school only allows student emails ending in: @myschool.org");
+  });
+
+  it("allows a signup proof whose email domain matches the school's configured domains", async () => {
+    mockSchoolRow = { id: SCHOOL, google_domains: ["myschool.org"] };
+    const res = await post({ ...signup, proof: proof("signup", "ada@myschool.org") });
+    expect(res.status).toBe(200);
   });
 });

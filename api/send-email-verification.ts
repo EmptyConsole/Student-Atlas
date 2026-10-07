@@ -13,6 +13,7 @@ type EmailVerificationPurpose = "signup" | "login" | "email_change";
 type Payload = {
   email?: string;
   purpose?: string;
+  schoolId?: string;
 };
 
 function json(body: unknown, status: number): Response {
@@ -45,6 +46,28 @@ function escapeLike(value: string): string {
 
 function isPurpose(value: unknown): value is EmailVerificationPurpose {
   return value === "signup" || value === "login" || value === "email_change";
+}
+
+function isUuid(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+  );
+}
+
+function domainsOf(school: { google_domains?: unknown } | null | undefined): string[] {
+  const d = school?.google_domains;
+  return Array.isArray(d) ? d.filter((x): x is string => typeof x === "string") : [];
+}
+
+function emailDomainMatches(email: string, allowedDomains: string[]): boolean {
+  if (allowedDomains.length === 0) return true;
+  const emailDomain = email.trim().toLowerCase().split("@")[1];
+  if (!emailDomain) return false;
+  return allowedDomains.some((d) => {
+    const norm = d.toLowerCase().replace(/^@/, "").trim();
+    return norm.length > 0 && (emailDomain === norm || emailDomain.endsWith("." + norm));
+  });
 }
 
 function missingEnv(): string[] {
@@ -158,6 +181,30 @@ export async function POST(request: Request): Promise<Response> {
     }
     if (taken && taken.length > 0) {
       return json({ error: "That email is already in use." }, 409);
+    }
+  }
+
+  if ((purpose === "signup" || purpose === "email_change") && isUuid(payload.schoolId)) {
+    const { data: school, error: schoolError } = await supabase
+      .from("schools")
+      .select("google_domains")
+      .eq("id", payload.schoolId)
+      .maybeSingle();
+
+    if (schoolError) {
+      console.error("schools lookup error:", schoolError);
+      return json({ error: "Something went wrong. Please try again." }, 500);
+    }
+    if (school) {
+      const domains = domainsOf(school);
+      if (!emailDomainMatches(email, domains)) {
+        return json(
+          {
+            error: `This school only allows student emails ending in: ${domains.map((d) => "@" + d).join(", ")}`,
+          },
+          403,
+        );
+      }
     }
   }
 

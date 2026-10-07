@@ -39,6 +39,16 @@ type PendingVerification = {
   onVerified: () => Promise<{ error?: string }>;
 };
 
+function emailMatchesSchoolDomains(email: string, allowedDomains: string[]): boolean {
+  if (allowedDomains.length === 0) return true;
+  const domain = email.trim().toLowerCase().split("@")[1];
+  if (!domain) return false;
+  return allowedDomains.some((d) => {
+    const norm = d.toLowerCase().replace(/^@/, "").trim();
+    return norm.length > 0 && (domain === norm || domain.endsWith("." + norm));
+  });
+}
+
 function RequiredFieldLabel({
   children,
   htmlFor,
@@ -178,6 +188,8 @@ function ProfileContent({
   );
 
   const schoolSelected = profile.schoolId !== null;
+  const selectedSchool = schools.find((s) => s.id === profile.schoolId);
+  const allowedEmailDomains = selectedSchool?.googleDomains ?? [];
   // const schoolAllowsGoogle =
   //   (schools.find((s) => s.id === profile.schoolId)?.googleDomains.length ?? 0) > 0;
 
@@ -210,10 +222,12 @@ function ProfileContent({
     purpose: EmailVerificationPurpose,
     email: string,
     onVerified: () => Promise<{ error?: string }>,
+    schoolId?: string | null,
   ): Promise<{ error?: string }> => {
     setSendingCode(true);
     setVerifyError(null);
-    const result = await sendEmailVerification(email, purpose);
+    const targetSchoolId = schoolId ?? profile.schoolId;
+    const result = await sendEmailVerification(email, purpose, targetSchoolId);
     setSendingCode(false);
     if (result.error) return { error: result.error };
 
@@ -267,6 +281,7 @@ function ProfileContent({
     const result = await sendEmailVerification(
       pendingVerification.email,
       pendingVerification.purpose,
+      profile.schoolId,
     );
     setSendingCode(false);
     if (result.error) {
@@ -356,6 +371,17 @@ function ProfileContent({
     setSubmitting(true);
     setSubmitError(null);
 
+    if (
+      allowedEmailDomains.length > 0 &&
+      !emailMatchesSchoolDomains(profile.email, allowedEmailDomains)
+    ) {
+      setSubmitError(
+        `This school requires an email ending in: ${allowedEmailDomains.map((d) => "@" + d).join(", ")}`,
+      );
+      setSubmitting(false);
+      return;
+    }
+
     if (googleEmail && profile.email.trim().toLowerCase() === googleEmail) {
       const created = await onSubmit();
       if (created.error) {
@@ -367,8 +393,11 @@ function ProfileContent({
       return;
     }
 
-    const result = await startVerification("signup", profile.email.trim(), () =>
-      onSubmit(),
+    const result = await startVerification(
+      "signup",
+      profile.email.trim(),
+      () => onSubmit(),
+      profile.schoolId,
     );
     if (result.error) {
       setSubmitError(result.error);
@@ -382,13 +411,27 @@ function ProfileContent({
     setSaveError(null);
 
     const nextEmail = profile.email.trim();
+    if (
+      allowedEmailDomains.length > 0 &&
+      !emailMatchesSchoolDomains(nextEmail, allowedEmailDomains)
+    ) {
+      setSaveError(
+        `This school requires an email ending in: ${allowedEmailDomains.map((d) => "@" + d).join(", ")}`,
+      );
+      setSaving(false);
+      return;
+    }
+
     const emailChanged =
       savedEmail != null &&
       nextEmail.toLowerCase() !== savedEmail.trim().toLowerCase();
 
     if (emailChanged) {
-      const result = await startVerification("email_change", nextEmail, () =>
-        onSaveChanges(),
+      const result = await startVerification(
+        "email_change",
+        nextEmail,
+        () => onSaveChanges(),
+        profile.schoolId,
       );
       if (result.error) {
         setSaveError(result.error);
@@ -690,6 +733,11 @@ function ProfileContent({
                       placeholder="you@school.edu"
                       className={`${inputClass} ${googleEmail ? "bg-surface-muted" : ""}`}
                     />
+                    {allowedEmailDomains.length > 0 && !googleEmail && (
+                      <p className="mt-1.5 text-xs font-medium text-ink-muted">
+                        Must end in {allowedEmailDomains.map((d) => `@${d}`).join(" or ")}
+                      </p>
+                    )}
                     {googleEmail && (
                       <p className="mt-1.5 text-xs font-medium text-ink-muted">
                         Verified with Google.{" "}
