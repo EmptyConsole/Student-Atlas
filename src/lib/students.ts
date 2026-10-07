@@ -429,6 +429,52 @@ export async function verifyEmailCode(
 }
 
 // ---------------------------------------------------------------------------
+// Sign in with Google — the Google ID token stands in for an email code
+// ---------------------------------------------------------------------------
+
+export type GoogleSignInResult = { error?: string; email?: string; name?: string };
+
+/**
+ * Login starts a session; signup leaves an email proof for `createStudent`,
+ * just as a verified email code does. `schoolId` is required for signup.
+ */
+export async function signInWithGoogle(
+  credential: string,
+  purpose: "login" | "signup",
+  schoolId?: string,
+): Promise<GoogleSignInResult> {
+  try {
+    const { status, body } = await postJson("/api/google-sign-in", {
+      credential,
+      purpose,
+      schoolId,
+    });
+    if (status >= 400) {
+      return { error: body.error ?? "Google sign-in failed. Please try again." };
+    }
+    if (typeof body.email !== "string") {
+      return { error: "Google sign-in failed. Please try again." };
+    }
+
+    if (purpose === "login") {
+      if (typeof body.token !== "string") {
+        return { error: "Google sign-in failed. Please try again." };
+      }
+      storeSession(body.token, body.expiresAt as number);
+      return { email: body.email };
+    }
+
+    if (typeof body.proof !== "string") {
+      return { error: "Google sign-in failed. Please try again." };
+    }
+    pendingProofs.set("signup", { email: body.email.toLowerCase(), proof: body.proof });
+    return { email: body.email, name: typeof body.name === "string" ? body.name : "" };
+  } catch {
+    return { error: "Google sign-in failed. Please try again." };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Log in by email — hydrate the account the verified login code signed into
 // ---------------------------------------------------------------------------
 

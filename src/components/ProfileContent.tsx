@@ -8,9 +8,11 @@ import { useSchools } from "../hooks/useSchools";
 import { useSchoolPrereqCourses } from "../hooks/useSchoolPrereqCourses";
 import {
   sendEmailVerification,
+  signInWithGoogle,
   verifyEmailCode,
   type EmailVerificationPurpose,
 } from "../lib/students";
+import GoogleSignInButton from "./GoogleSignInButton";
 import type { ProfileSection } from "./ProfileSidebar";
 import SchoolPicker from "./SchoolPicker";
 
@@ -176,11 +178,16 @@ function ProfileContent({
   );
 
   const schoolSelected = profile.schoolId !== null;
+  const schoolAllowsGoogle =
+    (schools.find((s) => s.id === profile.schoolId)?.googleDomains.length ?? 0) > 0;
 
   const [mode, setMode] = useState<"create" | "login">("create");
   const [loginEmail, setLoginEmail] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  /** Email Google verified for signup; its proof is already pending. */
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
+  const [googleError, setGoogleError] = useState<string | null>(null);
 
   const [pendingVerification, setPendingVerification] =
     useState<PendingVerification | null>(null);
@@ -284,8 +291,44 @@ function ProfileContent({
     }
   };
 
+  const handleGoogleLogin = async (credential: string) => {
+    if (!onLoginByEmail || loggingIn) return;
+    setLoggingIn(true);
+    setLoginError(null);
+    const result = await signInWithGoogle(credential, "login");
+    if (result.error || !result.email) {
+      setLoginError(result.error ?? "Google sign-in failed. Please try again.");
+      setLoggingIn(false);
+      return;
+    }
+    const loaded = await onLoginByEmail(result.email);
+    if (loaded.error) setLoginError(loaded.error);
+    setLoggingIn(false);
+  };
+
+  const handleGoogleSignup = async (credential: string) => {
+    if (!profile.schoolId) return;
+    setGoogleError(null);
+    const result = await signInWithGoogle(credential, "signup", profile.schoolId);
+    if (result.error || !result.email) {
+      setGoogleError(result.error ?? "Google sign-in failed. Please try again.");
+      return;
+    }
+    setGoogleEmail(result.email.toLowerCase());
+    onChange({
+      email: result.email,
+      name: profile.name.trim() ? profile.name : (result.name ?? ""),
+    });
+  };
+
+  const clearGoogleSignup = () => {
+    setGoogleEmail(null);
+    setGoogleError(null);
+  };
+
   const handleSelectSchool = (schoolId: string) => {
     if (schoolId === profile.schoolId) return;
+    clearGoogleSignup();
     // Completed courses belong to the previous school's catalog, so reset them.
     onChange({ schoolId, completedCourses: {}, grade: null });
   };
@@ -310,6 +353,18 @@ function ProfileContent({
     if (!onSubmit || !canSubmit || submitting) return;
     setSubmitting(true);
     setSubmitError(null);
+
+    if (googleEmail && profile.email.trim().toLowerCase() === googleEmail) {
+      const created = await onSubmit();
+      if (created.error) {
+        // Most likely the Google proof expired; fall back to the email code.
+        setGoogleEmail(null);
+        setSubmitError(created.error);
+      }
+      setSubmitting(false);
+      return;
+    }
+
     const result = await startVerification("signup", profile.email.trim(), () =>
       onSubmit(),
     );
@@ -511,6 +566,7 @@ function ProfileContent({
                     setLoginError(null);
                     setLoginEmail("");
                     clearVerification();
+                    clearGoogleSignup();
                   }}
                   className="inline-flex h-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 ease-out hover:bg-primary-pressed focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                 >
@@ -520,7 +576,12 @@ function ProfileContent({
             )}
 
             {onboarding && mode === "login" ? (
-              <div className="flex flex-col gap-4">
+              <div className="flex w-full max-w-[400px] flex-col gap-4">
+                <GoogleSignInButton
+                  text="signin_with"
+                  divider
+                  onCredential={(credential) => void handleGoogleLogin(credential)}
+                />
                 <div>
                   <label
                     htmlFor="login-email"
@@ -552,7 +613,7 @@ function ProfileContent({
                         : "cursor-not-allowed bg-primary opacity-60"
                     }`}
                   >
-                    {loggingIn || sendingCode ? "Sending code..." : "Log In"}
+                    {sendingCode ? "Sending code..." : loggingIn ? "Logging in..." : "Log In"}
                   </button>
                   {loginError && (
                     <p className="text-sm font-medium text-red-600">{loginError}</p>
@@ -585,6 +646,19 @@ function ProfileContent({
                       : "pointer-events-none flex flex-col gap-5 opacity-50 select-none"
                   }
                 >
+                  {onboarding && schoolSelected && schoolAllowsGoogle && !googleEmail && (
+                    <div>
+                      <GoogleSignInButton
+                        text="signup_with"
+                        divider
+                        onCredential={(credential) => void handleGoogleSignup(credential)}
+                      />
+                      {googleError && (
+                        <p className="mt-2 text-sm font-medium text-red-600">{googleError}</p>
+                      )}
+                    </div>
+                  )}
+
                   <div>
                     <RequiredFieldLabel htmlFor="profile-name">Name</RequiredFieldLabel>
                     <input
@@ -605,10 +679,23 @@ function ProfileContent({
                       type="email"
                       value={profile.email}
                       disabled={!schoolSelected}
+                      readOnly={googleEmail !== null}
                       onChange={(e) => onChange({ email: e.target.value })}
                       placeholder="you@school.edu"
-                      className={inputClass}
+                      className={`${inputClass} ${googleEmail ? "bg-surface-muted" : ""}`}
                     />
+                    {googleEmail && (
+                      <p className="mt-1.5 text-xs font-medium text-ink-muted">
+                        Verified with Google.{" "}
+                        <button
+                          type="button"
+                          onClick={clearGoogleSignup}
+                          className="cursor-pointer font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        >
+                          Use a different email
+                        </button>
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -711,9 +798,11 @@ function ProfileContent({
                           : "cursor-not-allowed bg-primary opacity-60"
                       }`}
                     >
-                      {submitting || sendingCode
-                        ? "Sending code..."
-                        : "Create Account"}
+                      {submitting && googleEmail
+                        ? "Creating account..."
+                        : submitting || sendingCode
+                          ? "Sending code..."
+                          : "Create Account"}
                     </button>
                     {submitError && (
                       <p className="text-sm font-medium text-red-600">

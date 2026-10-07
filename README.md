@@ -68,6 +68,10 @@ The browser only ever holds the Supabase anon key. Privileged work happens in
 - **Student identity** is email verification via one-time code. Codes are stored
   SHA-256 hashed in `email_verification_codes` with a 10-minute TTL and a 5-attempt
   cap, and verification gates signup, login, and email changes.
+- **Sign in with Google** is a second way to prove a student's email.
+  `/api/google-sign-in` verifies Google's ID token and only accepts accounts
+  whose Workspace domain (`hd`) is in the school's `google_domains`, then issues
+  the same student session or signup proof an email code would.
 
 One caveat worth stating plainly: student tables (`students`, `bookmarked_courses`,
 `submitted_courses`, `course_notes`, and friends) are still written from the browser
@@ -123,6 +127,7 @@ work there.
 | ------------------------------- | --------------------- | ---------------------------------------------------------------- |
 | `VITE_SUPABASE_URL`             | browser, api, scripts | Supabase project URL                                             |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | browser, api, scripts | Anon key for client reads                                        |
+| `VITE_GOOGLE_CLIENT_ID`         | browser, api          | Google OAuth Web client id for student sign-in; unset hides it   |
 | `SUPABASE_SERVICE_ROLE_KEY`     | api only              | Bypasses RLS for catalog writes, password RPCs, and OTP storage  |
 | `TEACHER_SESSION_SECRET`        | api only              | Signs teacher session tokens; falls back to the service-role key |
 | `STUDENT_SESSION_SECRET`        | api only              | Signs student session tokens; falls back to the service-role key |
@@ -152,6 +157,7 @@ that function to exist:
 | `class-time-maintenance.sql`                            | `add/edit/remove_class_time` and `cleanup_class_times`                                                                                                                                         |
 | `elective-assignment-apply.sql`                         | `apply_elective_assignments` RPC the sort writes through                                                                                                                                       |
 | `school-grade-settings.sql`                             | Adds `schools.grade`                                                                                                                                                                           |
+| `school-google-domains.sql`                             | Adds `schools.google_domains`, the Workspace domains allowed for student Sign in with Google                                                                                                   |
 | `student-delete-cascade.sql`                            | Cascading FKs so deleting a student cleans up child rows                                                                                                                                       |
 | `wipe-sort-assignments.sql`                             | Clears assignment results                                                                                                                                                                      |
 | `drop-terms-season-year.sql`, `drop-skipped-emails.sql` | Legacy cleanups                                                                                                                                                                                |

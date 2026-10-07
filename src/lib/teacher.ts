@@ -31,6 +31,8 @@ export type SchoolInput = {
   /** School-wide fallback for grades absent from `gradeSettings`. */
   rankings: number;
   gradeSettings: GradeSettings;
+  /** Google Workspace domains whose students may sign in with Google. */
+  googleDomains: string[];
 };
 
 /** One term row the school form submits; `id` absent means "create it". */
@@ -160,6 +162,7 @@ function schoolPayload(input: SchoolInput) {
     password: input.password,
     rankings: input.rankings,
     grade: serializeGradeSettings(input.gradeSettings),
+    googleDomains: input.googleDomains,
   };
 }
 

@@ -28,6 +28,7 @@ export type SchoolFormInitial = {
   rankings: number;
   electivesAssigned: number;
   gradeSettings: GradeSettings;
+  googleDomains: string[];
 };
 
 /** An editable term row in the form. `id` present means it exists in Supabase. */
@@ -161,6 +162,17 @@ function gradeSnapshot(rows: GradeDraft[]): string[] {
   return rows.map((r) => `${r.grade}:${r.rankings}:${r.assigned}`);
 }
 
+const DOMAIN_PATTERN = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/;
+
+/** Comma- or space-separated domains, lowercased with any leading "@" removed. */
+function parseDomains(value: string): string[] {
+  const domains = value
+    .split(/[\s,]+/)
+    .map((d) => d.trim().toLowerCase().replace(/^@/, ""))
+    .filter((d) => d.length > 0);
+  return [...new Set(domains)];
+}
+
 function isCount(value: string, min: number): boolean {
   const parsed = Number.parseInt(value, 10);
   return (
@@ -182,6 +194,9 @@ function SchoolFormModal({
   const [stateField, setStateField] = useState(initial?.state ?? "");
   // Blank when editing means "keep the current password".
   const [password, setPassword] = useState("");
+  const [googleDomains, setGoogleDomains] = useState(
+    (initial?.googleDomains ?? []).join(", "),
+  );
   const [gradeRows, setGradeRows] = useState<GradeDraft[]>(() =>
     toGradeDrafts(
       initial?.gradeSettings,
@@ -202,6 +217,7 @@ function SchoolFormModal({
     city: initial?.city ?? "",
     state: initial?.state ?? "",
     password: "",
+    googleDomains: initial?.googleDomains ?? [],
     grades: gradeSnapshot(gradeRows),
     terms: (initialTerms ?? []).map((t) => ({ id: t.id, name: t.name })),
   });
@@ -216,11 +232,12 @@ function SchoolFormModal({
       city,
       state: stateField,
       password,
+      googleDomains: parseDomains(googleDomains),
       grades: gradeSnapshot(gradeRows),
       terms: currentTerms,
     };
     return JSON.stringify(current) !== JSON.stringify(initialSnapshot.current);
-  }, [name, website, city, stateField, password, gradeRows, terms]);
+  }, [name, website, city, stateField, password, googleDomains, gradeRows, terms]);
 
   const { requestClose, discardOpen, cancelDiscard, confirmDiscard } =
     useGuardedClose(onClose, isDirty, saving || helpOpen);
@@ -247,10 +264,14 @@ function SchoolFormModal({
         Number.parseInt(row.assigned, 10) <= Number.parseInt(row.rankings, 10),
     );
 
+  const parsedDomains = parseDomains(googleDomains);
+  const invalidDomain = parsedDomains.find((d) => !DOMAIN_PATTERN.test(d));
+
   const trimmedTerms = terms.filter((t) => t.name.trim().length > 0);
   const canSave =
     name.trim().length > 0 &&
     (mode === "edit" || password.trim().length > 0) &&
+    !invalidDomain &&
     gradesValid &&
     trimmedTerms.length > 0;
 
@@ -316,6 +337,7 @@ function SchoolFormModal({
         rankings:
           gradeSettings.get(lowestGrade)?.rankings ?? DEFAULT_REQUIRED_RANKINGS,
         gradeSettings,
+        googleDomains: parsedDomains,
       },
       trimmedTerms.map((t) => ({ ...t, name: t.name.trim() })),
     );
@@ -441,6 +463,34 @@ function SchoolFormModal({
               ? "Teachers must enter this to edit the school. Keep it away from students."
               : "The current password is stored hashed and cannot be shown. Type a new one only if you want to change it."}
           </p>
+        </div>
+
+        <div>
+          <label htmlFor="school-google-domains" className={labelClass}>
+            Google sign-in domains
+          </label>
+          <input
+            id="school-google-domains"
+            type="text"
+            autoComplete="off"
+            spellCheck={false}
+            value={googleDomains}
+            onChange={(e) => setGoogleDomains(e.target.value)}
+            placeholder="e.g. myschool.org, students.myschool.org"
+            className={`${inputClass} ${invalidDomain ? "border-red-400" : ""}`}
+          />
+          {invalidDomain ? (
+            <p className="mt-1.5 text-xs font-medium text-red-600">
+              "{invalidDomain}" is not a valid domain.
+            </p>
+          ) : (
+            <p className="mt-1.5 text-xs text-ink-muted">
+              Students at these Google Workspace domains can sign in with
+              Google. Separate with commas. Leave blank to turn Google sign-in
+              off. Your Google admin must also approve Student Atlas; the steps
+              are under the ? help button.
+            </p>
+          )}
         </div>
 
         <div>

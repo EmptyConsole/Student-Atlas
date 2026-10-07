@@ -20,6 +20,8 @@ type SchoolPayload = {
   rankings?: number;
   /** Already serialized `schools.grade` object. */
   grade?: unknown;
+  /** Google Workspace domains for student sign-in. */
+  googleDomains?: unknown;
 };
 
 type Payload = {
@@ -93,6 +95,29 @@ function toMessage(err: unknown, fallback: string): string {
     if (typeof message === "string") return message;
   }
   return err instanceof Error ? err.message : fallback;
+}
+
+const MAX_GOOGLE_DOMAINS = 10;
+
+/**
+ * Lowercased, "@"-stripped, de-duplicated domains for `schools.google_domains`,
+ * or a message naming the first invalid one. Kept in sync with api/teacher-mutate.ts.
+ */
+function normalizeDomains(value: unknown): { domains: string[] } | { error: string } {
+  if (!Array.isArray(value)) return { error: "Google sign-in domains must be a list." };
+  const domains: string[] = [];
+  for (const raw of value) {
+    const domain = text(raw).toLowerCase().replace(/^@/, "");
+    if (!domain) continue;
+    if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) {
+      return { error: `"${domain}" is not a valid domain.` };
+    }
+    if (!domains.includes(domain)) domains.push(domain);
+  }
+  if (domains.length > MAX_GOOGLE_DOMAINS) {
+    return { error: `List at most ${MAX_GOOGLE_DOMAINS} Google sign-in domains.` };
+  }
+  return { domains };
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -171,6 +196,9 @@ async function createSchool(
     return json({ error: "A teacher password is required." }, 400);
   }
 
+  const normalized = normalizeDomains(input.googleDomains ?? []);
+  if ("error" in normalized) return json({ error: normalized.error }, 400);
+
   const termNames = Array.isArray(payload.terms)
     ? payload.terms.map(text).filter((n) => n.length > 0)
     : [];
@@ -185,6 +213,7 @@ async function createSchool(
         state: text(input.state),
         rankings: typeof input.rankings === "number" ? input.rankings : 8,
         grade: input.grade ?? {},
+        google_domains: normalized.domains,
       })
       .select("id, name")
       .single();

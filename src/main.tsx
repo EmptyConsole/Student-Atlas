@@ -17,14 +17,3 @@ createRoot(document.getElementById("root")!).render(
     <Analytics />
   </StrictMode>,
 );
-
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/teacher" element={<TeacherPage />} />
-        <Route path="/*" element={<App />} />
-      </Routes>
-    </BrowserRouter>
-  </StrictMode>,
-);

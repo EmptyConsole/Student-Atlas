@@ -365,6 +365,7 @@ function TeacherCatalog({
       rankings: row?.rankings ?? DEFAULT_REQUIRED_RANKINGS,
       electivesAssigned: row?.electives_assigned ?? 0,
       gradeSettings: parseGradeSettings(row?.grade),
+      googleDomains: row?.google_domains ?? [],
     });
   };
 

@@ -6,6 +6,16 @@ export type School = {
   name: string;
   city: string;
   state: string;
+  /** Google Workspace domains allowed for student Google sign-in. */
+  googleDomains: string[];
+};
+
+type SchoolRow = {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  google_domains?: string[] | null;
 };
 
 /**
@@ -26,15 +36,31 @@ export function useSchools() {
         setLoading(true);
         setError(null);
 
-        const { data, error: schoolError } = await supabase
+        const withDomains = await supabase
           .from("schools")
-          .select("id, name, city, state")
+          .select("id, name, city, state, google_domains")
           .order("name", { ascending: true });
+        // Databases without scripts/school-google-domains.sql lack the column;
+        // keep the picker working and leave Google sign-in off.
+        const result = withDomains.error
+          ? await supabase
+              .from("schools")
+              .select("id, name, city, state")
+              .order("name", { ascending: true })
+          : withDomains;
 
-        if (schoolError) throw schoolError;
+        if (result.error) throw result.error;
 
         if (isMounted) {
-          setSchools(data ?? []);
+          setSchools(
+            ((result.data ?? []) as SchoolRow[]).map((row) => ({
+              id: row.id,
+              name: row.name,
+              city: row.city,
+              state: row.state,
+              googleDomains: row.google_domains ?? [],
+            })),
+          );
           setError(null);
         }
       } catch (err) {

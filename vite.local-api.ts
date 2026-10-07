@@ -8,6 +8,7 @@ const API_HANDLERS: Record<string, () => Promise<ApiHandler>> = {
     (await import("./api/send-email-verification")).POST,
   "/api/verify-email-code": async () =>
     (await import("./api/verify-email-code")).POST,
+  "/api/google-sign-in": async () => (await import("./api/google-sign-in")).POST,
   "/api/student": async () => (await import("./api/student")).POST,
   "/api/teacher-login": async () => (await import("./api/teacher-login")).POST,
   "/api/teacher-mutate": async () => (await import("./api/teacher-mutate")).POST,

@@ -428,6 +428,7 @@ export type Database = {
           city: string
           created_at: string
           electives_assigned: number
+          google_domains: string[]
           grade: Json | null
           id: string
           name: string
@@ -439,6 +440,7 @@ export type Database = {
           city: string
           created_at?: string
           electives_assigned?: number
+          google_domains?: string[]
           grade?: Json | null
           id?: string
           name: string
@@ -450,6 +452,7 @@ export type Database = {
           city?: string
           created_at?: string
           electives_assigned?: number
+          google_domains?: string[]
           grade?: Json | null
           id?: string
           name?: string

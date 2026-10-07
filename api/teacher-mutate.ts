@@ -32,6 +32,8 @@ type SchoolPayload = {
   rankings?: number;
   /** Already serialized `schools.grade` object. */
   grade?: unknown;
+  /** Google Workspace domains for student sign-in; absent keeps the current list. */
+  googleDomains?: unknown;
 };
 
 type TermDraftPayload = { id?: string | null; name?: string };
@@ -146,6 +148,29 @@ function toMessage(err: unknown, fallback: string): string {
     if (typeof message === "string") return message;
   }
   return err instanceof Error ? err.message : fallback;
+}
+
+const MAX_GOOGLE_DOMAINS = 10;
+
+/**
+ * Lowercased, "@"-stripped, de-duplicated domains for `schools.google_domains`,
+ * or a message naming the first invalid one. Kept in sync with api/teacher-login.ts.
+ */
+export function normalizeDomains(value: unknown): { domains: string[] } | { error: string } {
+  if (!Array.isArray(value)) return { error: "Google sign-in domains must be a list." };
+  const domains: string[] = [];
+  for (const raw of value) {
+    const domain = text(raw).toLowerCase().replace(/^@/, "");
+    if (!domain) continue;
+    if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) {
+      return { error: `"${domain}" is not a valid domain.` };
+    }
+    if (!domains.includes(domain)) domains.push(domain);
+  }
+  if (domains.length > MAX_GOOGLE_DOMAINS) {
+    return { error: `List at most ${MAX_GOOGLE_DOMAINS} Google sign-in domains.` };
+  }
+  return { domains };
 }
 
 /** Stable key matching the SQL helper `class_time_key`. */
@@ -292,6 +317,13 @@ async function updateSchool(
   const name = text(input.name);
   if (!name) return json({ error: "School name is required." }, 400);
 
+  let googleDomains: string[] | undefined;
+  if (input.googleDomains !== undefined) {
+    const normalized = normalizeDomains(input.googleDomains);
+    if ("error" in normalized) return json({ error: normalized.error }, 400);
+    googleDomains = normalized.domains;
+  }
+
   const { error } = await supabase
     .from("schools")
     .update({
@@ -301,6 +333,7 @@ async function updateSchool(
       state: text(input.state),
       rankings: typeof input.rankings === "number" ? input.rankings : 8,
       grade: input.grade ?? {},
+      ...(googleDomains ? { google_domains: googleDomains } : {}),
     })
     .eq("id", schoolId);
   if (error) throw error;
