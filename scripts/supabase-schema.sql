@@ -10,25 +10,8 @@ CREATE TABLE public.schools (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   rankings smallint NOT NULL DEFAULT '8'::smallint,
   electives_assigned integer NOT NULL DEFAULT 0,
-  -- Per-grade overrides for the two columns above, keyed by grade number with
-  -- string-valued counts:
-  --   {"9": {"rankings": "8", "assigned": "2"}, "12": {"rankings": "12", "assigned": "6"}}
-  -- "rankings" = courses the grade must rank per term (overrides `rankings`).
-  -- "assigned" = elective seats the sort gives per term (overrides
-  -- `electives_assigned`). A grade absent here falls back to those columns.
   grade jsonb,
   CONSTRAINT schools_pkey PRIMARY KEY (id)
-);
--- Bcrypt hash of each school's teacher password. Never readable by anon; only
--- verify_school_password / set_school_password (service role) touch it.
-CREATE TABLE public.school_secrets (
-  school_id uuid NOT NULL,
-  password_hash text NOT NULL,
-  failed_attempts integer NOT NULL DEFAULT 0,
-  locked_until timestamp with time zone,
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT school_secrets_pkey PRIMARY KEY (school_id),
-  CONSTRAINT school_secrets_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id) ON DELETE CASCADE
 );
 CREATE TABLE public.courses (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -69,9 +52,8 @@ CREATE TABLE public.students (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   graduation_year bigint,
   times_taken ARRAY,
-  screen_mode text NOT NULL DEFAULT 'default',
+  screen_mode text NOT NULL DEFAULT 'default'::text CHECK (screen_mode = ANY (ARRAY['light'::text, 'dark'::text, 'default'::text])),
   CONSTRAINT students_pkey PRIMARY KEY (id),
-  CONSTRAINT students_screen_mode_check CHECK (screen_mode = ANY (ARRAY['light', 'dark', 'default'])),
   CONSTRAINT students_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );
 CREATE TABLE public.completed_courses (
@@ -81,7 +63,7 @@ CREATE TABLE public.completed_courses (
   student_id uuid NOT NULL,
   CONSTRAINT completed_courses_pkey PRIMARY KEY (id),
   CONSTRAINT completed_courses_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id),
-  CONSTRAINT completed_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE CASCADE
+  CONSTRAINT completed_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
 );
 CREATE TABLE public.enrolled_courses (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -90,7 +72,7 @@ CREATE TABLE public.enrolled_courses (
   student_id uuid NOT NULL,
   CONSTRAINT enrolled_courses_pkey PRIMARY KEY (id),
   CONSTRAINT enrolled_courses_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id),
-  CONSTRAINT enrolled_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE CASCADE
+  CONSTRAINT enrolled_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
 );
 CREATE TABLE public.bookmarked_courses (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -99,7 +81,7 @@ CREATE TABLE public.bookmarked_courses (
   student_id uuid NOT NULL,
   CONSTRAINT bookmarked_courses_pkey PRIMARY KEY (id),
   CONSTRAINT bookmarked_courses_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id),
-  CONSTRAINT bookmarked_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE CASCADE
+  CONSTRAINT bookmarked_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
 );
 CREATE TABLE public.course_notes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -109,7 +91,7 @@ CREATE TABLE public.course_notes (
   note text NOT NULL,
   CONSTRAINT course_notes_pkey PRIMARY KEY (id),
   CONSTRAINT course_notes_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id),
-  CONSTRAINT course_notes_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE CASCADE
+  CONSTRAINT course_notes_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
 );
 CREATE TABLE public.graduation_requirements (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -183,7 +165,7 @@ CREATE TABLE public.submitted_courses (
   submitted boolean,
   CONSTRAINT submitted_courses_pkey PRIMARY KEY (id),
   CONSTRAINT submitted_courses_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id),
-  CONSTRAINT submitted_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE CASCADE
+  CONSTRAINT submitted_courses_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
 );
 CREATE TABLE public.submitted_notes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -191,7 +173,7 @@ CREATE TABLE public.submitted_notes (
   student_id uuid,
   note text,
   CONSTRAINT submitted_notes_pkey PRIMARY KEY (id),
-  CONSTRAINT submitted_notes_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id) ON DELETE CASCADE
+  CONSTRAINT submitted_notes_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
 );
 CREATE TABLE public.email_verification_codes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -203,4 +185,13 @@ CREATE TABLE public.email_verification_codes (
   consumed_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT email_verification_codes_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.school_secrets (
+  school_id uuid NOT NULL,
+  password_hash text NOT NULL,
+  failed_attempts integer NOT NULL DEFAULT 0,
+  locked_until timestamp with time zone,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT school_secrets_pkey PRIMARY KEY (school_id),
+  CONSTRAINT school_secrets_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );
