@@ -329,10 +329,16 @@ function TeacherCatalog({
   // --- Departments ------------------------------------------------------------
   const handleSaveDepartment = async (
     input: DepartmentInput,
+    confirmPassword?: string,
   ): Promise<{ error?: string }> => {
     const result =
       departmentModal?.mode === "edit" && departmentModal.department
-        ? await updateDepartment(school.token, departmentModal.department.id, input)
+        ? await updateDepartment(
+            school.token,
+            departmentModal.department.id,
+            input,
+            confirmPassword ?? "",
+          )
         : await createDepartment(school.token, input);
     if (!result.error) reload();
     return handleResult(result);
@@ -372,9 +378,10 @@ function TeacherCatalog({
   const handleSaveSchool = async (
     input: SchoolInput,
     terms: TermDraft[],
+    confirmPassword?: string,
   ): Promise<{ error?: string }> => {
     // The server reconciles the term drafts in the same request.
-    const result = await updateSchool(school.token, input, terms);
+    const result = await updateSchool(school.token, input, terms, confirmPassword ?? "");
     if (result.error || result.expired) return handleResult(result);
 
     onSchoolRenamed(input.name.trim());

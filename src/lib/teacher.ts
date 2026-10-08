@@ -234,11 +234,15 @@ export async function fetchSchool(schoolId: string): Promise<SchoolRow | null> {
   return data ?? null;
 }
 
-/** Saves school settings and reconciles its terms in one request. */
+/**
+ * Saves school settings and reconciles its terms in one request. `password`
+ * is the current school password, re-checked server-side before any write.
+ */
 export async function updateSchool(
   token: string,
   input: SchoolInput,
   terms: TermInput[],
+  password: string,
 ): Promise<Result> {
   return mutate(
     token,
@@ -246,6 +250,7 @@ export async function updateSchool(
       action: "updateSchool",
       school: schoolPayload(input),
       terms: terms.map((t) => ({ id: t.id ?? null, name: t.name })),
+      password,
     },
     "Failed to update school",
   );
@@ -310,14 +315,16 @@ export async function createDepartment(
   );
 }
 
+/** Saves department edits. Re-checks the school password. */
 export async function updateDepartment(
   token: string,
   departmentId: string,
   input: DepartmentInput,
+  password: string,
 ): Promise<Result> {
   return mutate(
     token,
-    { action: "updateDepartment", departmentId, department: input },
+    { action: "updateDepartment", departmentId, department: input, password },
     "Failed to update department",
   );
 }

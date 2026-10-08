@@ -317,6 +317,10 @@ async function updateSchool(
   const name = text(input.name);
   if (!name) return json({ error: "School name is required." }, 400);
 
+  // Checked before any write, so changing the password needs the old one.
+  const denied = await requirePassword(supabase, schoolId, payload.password);
+  if (denied) return json({ error: denied }, 403);
+
   let googleDomains: string[] | undefined;
   if (input.googleDomains !== undefined) {
     const normalized = normalizeDomains(input.googleDomains);
@@ -524,6 +528,9 @@ async function updateDepartment(
   const fields = departmentFields(payload.department ?? {});
   if (!departmentId) return json({ error: "Missing department." }, 400);
   if (!fields.name) return json({ error: "Department name is required." }, 400);
+
+  const denied = await requirePassword(supabase, schoolId, payload.password);
+  if (denied) return json({ error: denied }, 403);
 
   const { data: existing, error: existingError } = await supabase
     .from("departments")

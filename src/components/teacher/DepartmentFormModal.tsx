@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { HelpCircle } from "lucide-react";
 import type { DepartmentInput, DepartmentRow } from "../../lib/teacher";
+import ConfirmSaveDialog from "./ConfirmSaveDialog";
 import DepartmentEditorHelp from "./DepartmentEditorHelp";
 import ModalShell from "./ModalShell";
 import UnsavedChangesDialog from "./UnsavedChangesDialog";
@@ -17,7 +18,11 @@ type DepartmentFormModalProps = {
   mode: "add" | "edit";
   editingDepartment?: DepartmentRow | null;
   onClose: () => void;
-  onSave: (input: DepartmentInput) => Promise<{ error?: string }>;
+  /** `confirmPassword` is the current school password, sent for edits. */
+  onSave: (
+    input: DepartmentInput,
+    confirmPassword?: string,
+  ) => Promise<{ error?: string }>;
 };
 
 function DepartmentFormModal({
@@ -34,6 +39,8 @@ function DepartmentFormModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   const initialSnapshot = useRef({
     name: editingDepartment?.name ?? "",
@@ -50,18 +57,37 @@ function DepartmentFormModal({
   );
 
   const { requestClose, discardOpen, cancelDiscard, confirmDiscard } =
-    useGuardedClose(onClose, isDirty, saving || helpOpen);
+    useGuardedClose(onClose, isDirty, saving || helpOpen || confirmOpen);
 
   const canSave = name.trim().length > 0;
 
-  const handleSave = async () => {
+  const handleSave = () => {
+    if (!canSave || saving) return;
+    if (mode === "edit") {
+      setConfirmError(null);
+      setConfirmOpen(true);
+      return;
+    }
+    void save();
+  };
+
+  const save = async (confirmPassword?: string) => {
     if (!canSave || saving) return;
     setSaving(true);
     setError(null);
-    const result = await onSave({ name, subtitle, graduationRequirement });
+    setConfirmError(null);
+    const result = await onSave(
+      { name, subtitle, graduationRequirement },
+      confirmPassword,
+    );
     setSaving(false);
-    if (result.error) setError(result.error);
-    else onClose();
+    if (result.error) {
+      if (confirmPassword !== undefined) setConfirmError(result.error);
+      else setError(result.error);
+    } else {
+      setConfirmOpen(false);
+      onClose();
+    }
   };
 
   return (
@@ -160,6 +186,18 @@ function DepartmentFormModal({
         />
       )}
       {helpOpen && <DepartmentEditorHelp onClose={() => setHelpOpen(false)} />}
+      {confirmOpen && (
+        <ConfirmSaveDialog
+          kind="department"
+          nameToMatch={editingDepartment?.name ?? name}
+          busy={saving}
+          error={confirmError}
+          onCancel={() => {
+            if (!saving) setConfirmOpen(false);
+          }}
+          onConfirm={(confirmPassword) => void save(confirmPassword)}
+        />
+      )}
     </>
   );
 }

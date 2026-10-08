@@ -4,6 +4,7 @@ import type { SchoolInput } from "../../lib/teacher";
 import { GRADES, type Term } from "../../data/courses";
 import { DEFAULT_REQUIRED_RANKINGS } from "../../utils/courseRanking";
 import type { GradeSettings } from "../../utils/gradeSettings";
+import ConfirmSaveDialog from "./ConfirmSaveDialog";
 import ModalShell from "./ModalShell";
 import SchoolEditorHelp from "./SchoolEditorHelp";
 import UnsavedChangesDialog from "./UnsavedChangesDialog";
@@ -49,7 +50,12 @@ type SchoolFormModalProps = {
   /** Term ids referenced by at least one course; those terms cannot be deleted. */
   usedTermIds?: Set<string>;
   onClose: () => void;
-  onSave: (input: SchoolInput, terms: TermDraft[]) => Promise<{ error?: string }>;
+  /** `confirmPassword` is the current school password, sent for edits. */
+  onSave: (
+    input: SchoolInput,
+    terms: TermDraft[],
+    confirmPassword?: string,
+  ) => Promise<{ error?: string }>;
 };
 
 let draftCounter = 0;
@@ -210,6 +216,8 @@ function SchoolFormModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   const initialSnapshot = useRef({
     name: initial?.name ?? "",
@@ -240,7 +248,7 @@ function SchoolFormModal({
   }, [name, website, city, stateField, password, googleDomains, gradeRows, terms]);
 
   const { requestClose, discardOpen, cancelDiscard, confirmDiscard } =
-    useGuardedClose(onClose, isDirty, saving || helpOpen);
+    useGuardedClose(onClose, isDirty, saving || helpOpen || confirmOpen);
 
   const duplicateGrades = useMemo(() => {
     const seen = new Set<string>();
@@ -320,10 +328,21 @@ function SchoolFormModal({
       return next;
     });
 
-  const handleSave = async () => {
+  const handleSave = () => {
+    if (!canSave || saving) return;
+    if (mode === "edit") {
+      setConfirmError(null);
+      setConfirmOpen(true);
+      return;
+    }
+    void save();
+  };
+
+  const save = async (confirmPassword?: string) => {
     if (!canSave || saving) return;
     setSaving(true);
     setError(null);
+    setConfirmError(null);
     const gradeSettings = toGradeSettings(gradeRows);
     // Lowest grade doubles as the school-wide fallback for unlisted grades.
     const lowestGrade = Math.min(...gradeSettings.keys());
@@ -340,10 +359,16 @@ function SchoolFormModal({
         googleDomains: parsedDomains,
       },
       trimmedTerms.map((t) => ({ ...t, name: t.name.trim() })),
+      confirmPassword,
     );
     setSaving(false);
-    if (result.error) setError(result.error);
-    else onClose();
+    if (result.error) {
+      if (confirmPassword !== undefined) setConfirmError(result.error);
+      else setError(result.error);
+    } else {
+      setConfirmOpen(false);
+      onClose();
+    }
   };
 
   return (
@@ -647,6 +672,19 @@ function SchoolFormModal({
         />
       )}
       {helpOpen && <SchoolEditorHelp onClose={() => setHelpOpen(false)} />}
+      {confirmOpen && (
+        <ConfirmSaveDialog
+          kind="school"
+          nameToMatch={initial?.name ?? name}
+          passwordChanged={password.trim().length > 0}
+          busy={saving}
+          error={confirmError}
+          onCancel={() => {
+            if (!saving) setConfirmOpen(false);
+          }}
+          onConfirm={(confirmPassword) => void save(confirmPassword)}
+        />
+      )}
     </>
   );
 }
