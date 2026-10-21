@@ -218,7 +218,7 @@ function App() {
     // Enable sync after login so subsequent changes propagate.
     syncEnabled.current = true;
     markOnboarded();
-    setActiveView("profile");
+    setActiveView("courses");
     return {};
   };
 
@@ -298,7 +298,7 @@ function App() {
       });
       syncEnabled.current = true;
       markOnboarded();
-      setActiveView("profile");
+      setActiveView("courses");
     }
 
     return {};
