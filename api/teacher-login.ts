@@ -8,15 +8,6 @@
 
 import { createHmac } from "crypto";
 import { createClient } from "@supabase/supabase-js";
-import {
-  isUuid,
-  MAX_TERMS,
-  normalizeDomains,
-  sanitizeGradeSettings,
-  sanitizeRankings,
-  sanitizeWebsite,
-  text,
-} from "./sanitize";
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -87,12 +78,46 @@ function signSession(schoolId: string): { token: string; expiresAt: number } {
   return { token: `${body}.${signature}`, expiresAt };
 }
 
+function isUuid(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+  );
+}
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function toMessage(err: unknown, fallback: string): string {
   if (err && typeof err === "object" && "message" in err) {
     const message = (err as { message?: unknown }).message;
     if (typeof message === "string") return message;
   }
   return err instanceof Error ? err.message : fallback;
+}
+
+const MAX_GOOGLE_DOMAINS = 10;
+
+/**
+ * Lowercased, "@"-stripped, de-duplicated domains for `schools.google_domains`,
+ * or a message naming the first invalid one. Kept in sync with api/teacher-mutate.ts.
+ */
+function normalizeDomains(value: unknown): { domains: string[] } | { error: string } {
+  if (!Array.isArray(value)) return { error: "Google sign-in domains must be a list." };
+  const domains: string[] = [];
+  for (const raw of value) {
+    const domain = text(raw).toLowerCase().replace(/^@/, "");
+    if (!domain) continue;
+    if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) {
+      return { error: `"${domain}" is not a valid domain.` };
+    }
+    if (!domains.includes(domain)) domains.push(domain);
+  }
+  if (domains.length > MAX_GOOGLE_DOMAINS) {
+    return { error: `List at most ${MAX_GOOGLE_DOMAINS} Google sign-in domains.` };
+  }
+  return { domains };
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -171,14 +196,11 @@ async function createSchool(
     return json({ error: "A teacher password is required." }, 400);
   }
 
-  const site = sanitizeWebsite(input.website);
-  if ("error" in site) return json({ error: site.error }, 400);
-
   const normalized = normalizeDomains(input.googleDomains ?? []);
   if ("error" in normalized) return json({ error: normalized.error }, 400);
 
   const termNames = Array.isArray(payload.terms)
-    ? payload.terms.map((t) => text(t)).filter((n) => n.length > 0).slice(0, MAX_TERMS)
+    ? payload.terms.map(text).filter((n) => n.length > 0)
     : [];
 
   try {
@@ -186,11 +208,11 @@ async function createSchool(
       .from("schools")
       .insert({
         name,
-        website: site.website,
+        website: text(input.website),
         city: text(input.city),
-        state: text(input.state, 100),
-        rankings: sanitizeRankings(input.rankings),
-        grade: sanitizeGradeSettings(input.grade),
+        state: text(input.state),
+        rankings: typeof input.rankings === "number" ? input.rankings : 8,
+        grade: input.grade ?? {},
         google_domains: normalized.domains,
       })
       .select("id, name")

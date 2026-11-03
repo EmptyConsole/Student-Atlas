@@ -4,7 +4,6 @@
 import { createHash, randomInt } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
-import { isUuid, isValidEmail, normalizeEmail } from "./sanitize";
 
 const FROM_ADDRESS = "Student Atlas <noreply@emptyconsole.com>";
 const CODE_TTL_MS = 10 * 60 * 1000;
@@ -24,6 +23,22 @@ function json(body: unknown, status: number): Response {
   });
 }
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+/**
+ * Standard shape check, minus `*`. PostgREST rewrites every `*` in a `like` /
+ * `ilike` value to `%` before the pattern reaches Postgres, and it does so with
+ * a blind character map — `\*` becomes `\%` — so a literal `*` can only be
+ * refused, never escaped. `%` and `_` are legal in an address, so those are
+ * escaped instead (see `escapeLike`).
+ */
+function isValidEmail(email: string): boolean {
+  if (email.includes("*")) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 /** Escapes `%`, `_`, and `\` so an email can be matched exactly with ILIKE. */
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (c) => `\\${c}`);
@@ -31,6 +46,13 @@ function escapeLike(value: string): string {
 
 function isPurpose(value: unknown): value is EmailVerificationPurpose {
   return value === "signup" || value === "login" || value === "email_change";
+}
+
+function isUuid(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+  );
 }
 
 function domainsOf(school: { google_domains?: unknown } | null | undefined): string[] {
@@ -125,7 +147,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   const purpose = payload.purpose;
 
-  const email = normalizeEmail(payload.email);
+  const email = normalizeEmail(payload.email ?? "");
   if (!email || !isValidEmail(email)) {
     return json({ error: "Please enter a valid email." }, 400);
   }

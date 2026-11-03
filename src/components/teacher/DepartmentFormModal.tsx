@@ -144,7 +144,6 @@ function DepartmentFormModal({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Computer Science"
               className={inputClass}
-              maxLength={200}
               autoFocus
             />
           </div>
@@ -160,7 +159,6 @@ function DepartmentFormModal({
               onChange={(e) => setSubtitle(e.target.value)}
               placeholder="Short tagline shown in the sidebar"
               className={inputClass}
-              maxLength={300}
             />
           </div>
 
@@ -175,7 +173,6 @@ function DepartmentFormModal({
               rows={3}
               placeholder="e.g. Two years required to graduate."
               className={textareaClass}
-              maxLength={500}
             />
           </div>
 

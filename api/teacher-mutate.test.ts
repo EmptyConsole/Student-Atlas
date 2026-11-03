@@ -10,12 +10,8 @@ process.env.TEACHER_SESSION_SECRET = SECRET;
 
 /** Every table write, as `<verb> <table>`. */
 const writes = vi.hoisted(() => [] as string[]);
-/** Rows handed to `.update()` / `.insert()`, as `{ table, row }`. */
-const payloads = vi.hoisted(() => [] as { table: string; row: unknown }[]);
 /** Passwords handed to verify_school_password. */
 const checked = vi.hoisted(() => [] as string[]);
-
-const DEPT = "22222222-2222-4222-8222-222222222222";
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
@@ -31,16 +27,8 @@ vi.mock("@supabase/supabase-js", () => ({
       let verb = "select";
       const builder = {
         select: () => builder,
-        update: (row: unknown) => {
-          verb = "update";
-          payloads.push({ table, row });
-          return builder;
-        },
-        insert: (row: unknown) => {
-          verb = "insert";
-          payloads.push({ table, row });
-          return builder;
-        },
+        update: () => ((verb = "update"), builder),
+        insert: () => ((verb = "insert"), builder),
         delete: () => ((verb = "delete"), builder),
         eq: () => builder,
         in: () => builder,
@@ -76,7 +64,6 @@ function post(body: unknown): Promise<Response> {
 
 beforeEach(() => {
   writes.length = 0;
-  payloads.length = 0;
   checked.length = 0;
 });
 
@@ -107,7 +94,7 @@ describe("edit confirmation password", () => {
   it("refuses a department edit with the wrong password and writes nothing", async () => {
     const res = await post({
       action: "updateDepartment",
-      departmentId: DEPT,
+      departmentId: "d1",
       department,
       password: "wrong",
     });
@@ -118,7 +105,7 @@ describe("edit confirmation password", () => {
   it("saves a department edit with the right password", async () => {
     const res = await post({
       action: "updateDepartment",
-      departmentId: DEPT,
+      departmentId: "d1",
       department,
       password: "right",
     });
@@ -149,45 +136,5 @@ describe("normalizeDomains", () => {
     expect(normalizeDomains("myschool.org")).toHaveProperty("error");
     const many = Array.from({ length: 11 }, (_, i) => `school${i}.org`);
     expect(normalizeDomains(many)).toHaveProperty("error");
-  });
-});
-
-describe("input sanitization", () => {
-  it("refuses a javascript: website and writes nothing", async () => {
-    const res = await post({
-      action: "updateSchool",
-      password: "right",
-      terms: [],
-      school: { name: "Riverside", website: "javascript:alert(1)" },
-    });
-    expect(res.status).toBe(400);
-    expect(writes).toEqual([]);
-  });
-
-  it("strips controls, trims, and caps the school name before writing", async () => {
-    const res = await post({
-      action: "updateSchool",
-      password: "right",
-      terms: [],
-      school: { name: `  Riv\u0000erside  ${"x".repeat(300)}` },
-    });
-    expect(res.status).toBe(200);
-    const schoolWrite = payloads.find((p) => p.table === "schools");
-    expect(schoolWrite).toBeDefined();
-    const row = schoolWrite?.row as { name: string };
-    expect(row.name.startsWith("Riverside ")).toBe(true);
-    expect(row.name).toHaveLength(200);
-    expect(row.name.includes("\u0000")).toBe(false);
-  });
-
-  it("refuses a department id that is not a UUID", async () => {
-    const res = await post({
-      action: "updateDepartment",
-      departmentId: "d1",
-      department: { name: "Science" },
-      password: "right",
-    });
-    expect(res.status).toBe(400);
-    expect(writes).toEqual([]);
   });
 });

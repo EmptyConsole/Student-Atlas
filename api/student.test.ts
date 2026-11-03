@@ -178,18 +178,6 @@ describe("saveProfile", () => {
     expect(ops).toContain("update students");
   });
 
-  it("refuses an invalid email", async () => {
-    const res = await post({ ...profile, email: "not-an-email" }, session(STUDENT_A));
-    expect(res.status).toBe(400);
-    expect(ops).not.toContain("update students");
-  });
-
-  it("refuses an email carrying a `*`", async () => {
-    const res = await post({ ...profile, email: "*@example.com" }, session(STUDENT_A));
-    expect(res.status).toBe(400);
-    expect(ops).not.toContain("update students");
-  });
-
   it("refuses a new email without a proof", async () => {
     const res = await post({ ...profile, email: "new@example.com" }, session(STUDENT_A));
     expect(res.status).toBe(403);

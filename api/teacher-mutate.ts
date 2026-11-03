@@ -8,29 +8,6 @@
 
 import { createHmac, timingSafeEqual } from "crypto";
 import { createClient } from "@supabase/supabase-js";
-import {
-  isUuid,
-  longText,
-  MAX_LONG_TEXT,
-  MAX_MEDIUM_TEXT,
-  MAX_OFFERINGS,
-  MAX_SHORT_TEXT,
-  MAX_TERMS,
-  MAX_TIMES,
-  normalizeDomains,
-  sanitizeClassTime,
-  sanitizeGradeSettings,
-  sanitizeGrades,
-  sanitizeMaxStudents,
-  sanitizeRankings,
-  sanitizeReqOptions,
-  sanitizeWebsite,
-  text,
-  uuidList,
-  type ClassTime,
-} from "./sanitize";
-
-export { normalizeDomains };
 
 /** Service-role client. Wrapped so `Supabase` below infers a concrete type. */
 function createServiceClient() {
@@ -42,6 +19,7 @@ function createServiceClient() {
 
 type Supabase = ReturnType<typeof createServiceClient>;
 
+type ClassTime = { day: number; start: number; end: number };
 type ClassTimeEdit = { original: ClassTime | null; value: ClassTime };
 
 type SchoolPayload = {
@@ -160,12 +138,39 @@ function schoolIdFromToken(token: string): string | null {
   }
 }
 
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function toMessage(err: unknown, fallback: string): string {
   if (err && typeof err === "object" && "message" in err) {
     const message = (err as { message?: unknown }).message;
     if (typeof message === "string") return message;
   }
   return err instanceof Error ? err.message : fallback;
+}
+
+const MAX_GOOGLE_DOMAINS = 10;
+
+/**
+ * Lowercased, "@"-stripped, de-duplicated domains for `schools.google_domains`,
+ * or a message naming the first invalid one. Kept in sync with api/teacher-login.ts.
+ */
+export function normalizeDomains(value: unknown): { domains: string[] } | { error: string } {
+  if (!Array.isArray(value)) return { error: "Google sign-in domains must be a list." };
+  const domains: string[] = [];
+  for (const raw of value) {
+    const domain = text(raw).toLowerCase().replace(/^@/, "");
+    if (!domain) continue;
+    if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) {
+      return { error: `"${domain}" is not a valid domain.` };
+    }
+    if (!domains.includes(domain)) domains.push(domain);
+  }
+  if (domains.length > MAX_GOOGLE_DOMAINS) {
+    return { error: `List at most ${MAX_GOOGLE_DOMAINS} Google sign-in domains.` };
+  }
+  return { domains };
 }
 
 /** Stable key matching the SQL helper `class_time_key`. */
@@ -312,9 +317,6 @@ async function updateSchool(
   const name = text(input.name);
   if (!name) return json({ error: "School name is required." }, 400);
 
-  const site = sanitizeWebsite(input.website);
-  if ("error" in site) return json({ error: site.error }, 400);
-
   // Checked before any write, so changing the password needs the old one.
   const denied = await requirePassword(supabase, schoolId, payload.password);
   if (denied) return json({ error: denied }, 403);
@@ -330,11 +332,11 @@ async function updateSchool(
     .from("schools")
     .update({
       name,
-      website: site.website,
+      website: text(input.website),
       city: text(input.city),
-      state: text(input.state, 100),
-      rankings: sanitizeRankings(input.rankings),
-      grade: sanitizeGradeSettings(input.grade),
+      state: text(input.state),
+      rankings: typeof input.rankings === "number" ? input.rankings : 8,
+      grade: input.grade ?? {},
       ...(googleDomains ? { google_domains: googleDomains } : {}),
     })
     .eq("id", schoolId);
@@ -411,8 +413,6 @@ async function reconcileTerms(
   schoolId: string,
   drafts: TermDraftPayload[],
 ): Promise<string | null> {
-  drafts = drafts.slice(0, MAX_TERMS);
-
   const { data: existing, error: existingError } = await supabase
     .from("terms")
     .select("id, name, position")
@@ -433,7 +433,9 @@ async function reconcileTerms(
     }
   }
 
-  const keptIds = new Set(drafts.map((d) => d.id).filter(isUuid));
+  const keptIds = new Set(
+    drafts.map((d) => d.id).filter((id): id is string => typeof id === "string"),
+  );
 
   for (const term of existing ?? []) {
     const id = term.id as string;
@@ -455,8 +457,7 @@ async function reconcileTerms(
     const name = text(draft.name);
     if (!name) return "Term name is required.";
 
-    if (draft.id != null && draft.id !== "") {
-      if (!isUuid(draft.id)) return "That term no longer exists. Reopen the school form.";
+    if (typeof draft.id === "string") {
       const prev = (existing ?? []).find((t) => t.id === draft.id);
       if (!prev) return "That term no longer exists. Reopen the school form.";
       if (prev.name !== name) {
@@ -496,8 +497,8 @@ async function reconcileTerms(
 function departmentFields(input: DepartmentPayload) {
   return {
     name: text(input.name),
-    subtitle: text(input.subtitle, MAX_SHORT_TEXT),
-    graduation_requirement: longText(input.graduationRequirement, MAX_MEDIUM_TEXT),
+    subtitle: text(input.subtitle),
+    graduation_requirement: text(input.graduationRequirement),
   };
 }
 
@@ -523,7 +524,7 @@ async function updateDepartment(
   schoolId: string,
   payload: Payload,
 ): Promise<Response> {
-  const departmentId = isUuid(payload.departmentId) ? payload.departmentId : "";
+  const departmentId = text(payload.departmentId);
   const fields = departmentFields(payload.department ?? {});
   if (!departmentId) return json({ error: "Missing department." }, 400);
   if (!fields.name) return json({ error: "Department name is required." }, 400);
@@ -565,7 +566,7 @@ async function deleteDepartment(
   schoolId: string,
   payload: Payload,
 ): Promise<Response> {
-  const departmentId = isUuid(payload.departmentId) ? payload.departmentId : "";
+  const departmentId = text(payload.departmentId);
   if (!departmentId) return json({ error: "Missing department." }, 400);
 
   const denied = await requirePassword(supabase, schoolId, payload.password);
@@ -623,7 +624,7 @@ async function resolveTeacher(
   schoolId: string,
   fullName: string,
 ): Promise<string | null> {
-  const trimmed = text(fullName);
+  const trimmed = fullName.trim().replace(/\s+/g, " ");
   if (!trimmed) return null;
 
   const [firstName, ...rest] = trimmed.split(" ");
@@ -650,48 +651,20 @@ async function resolveTeacher(
   return data.id as string;
 }
 
-function sanitizeTimeEdit(edit: unknown): ClassTimeEdit | null {
-  if (!edit || typeof edit !== "object") return null;
-  const row = edit as { original?: unknown; value?: unknown };
-  const value = sanitizeClassTime(row.value);
-  if (!value) return null;
-  if (row.original == null) return { original: null, value };
-  const original = sanitizeClassTime(row.original);
-  if (!original) return null;
-  return { original, value };
-}
-
-function sanitizeOffering(offering: OfferingPayload): {
-  courseId: string | null;
-  termOptions: string[];
-  times: ClassTimeEdit[];
-} | null {
-  const termOptions = uuidList(offering.termOptions, 20);
-  if (termOptions.length === 0) return null;
-  const times = (offering.times ?? [])
-    .slice(0, MAX_TIMES)
-    .map(sanitizeTimeEdit)
-    .filter((t): t is ClassTimeEdit => t !== null);
-  return {
-    courseId: isUuid(offering.courseId) ? offering.courseId : null,
-    termOptions,
-    times,
-  };
-}
-
 function courseFields(course: CoursePayload, teacherId: string | null) {
   return {
     title: text(course.title),
-    short_description: text(course.shortDescription, MAX_MEDIUM_TEXT),
-    long_description: longText(course.longDescription, MAX_LONG_TEXT),
-    grade: sanitizeGrades(course.grades),
-    subject: text(course.subject),
-    department_id: isUuid(course.departmentId) ? course.departmentId : null,
+    short_description: text(course.shortDescription),
+    long_description: text(course.longDescription),
+    grade: course.grades ?? [],
+    subject: course.subject ?? "",
+    department_id: course.departmentId ?? null,
     teacher_id: teacherId,
-    max_student_count: sanitizeMaxStudents(course.maxStudentCount),
+    max_student_count:
+      typeof course.maxStudentCount === "number" ? course.maxStudentCount : -1,
     retakeable: course.retakeable === true,
-    prereq_options: sanitizeReqOptions(course.prereqOptions),
-    coreq_options: sanitizeReqOptions(course.coreqOptions),
+    prereq_options: course.prereqOptions ?? [],
+    coreq_options: course.coreqOptions ?? [],
   };
 }
 
@@ -765,14 +738,10 @@ async function saveCourseOfferings(
   if (!text(course.title)) {
     return json({ error: "Course title is required." }, 400);
   }
-  if (!isUuid(course.departmentId)) {
-    return json({ error: "Choose a department for this course." }, 400);
-  }
 
-  const offerings = (course.offerings ?? [])
-    .slice(0, MAX_OFFERINGS)
-    .map(sanitizeOffering)
-    .filter((o): o is NonNullable<ReturnType<typeof sanitizeOffering>> => o !== null);
+  const offerings = (course.offerings ?? []).filter(
+    (o) => (o.termOptions ?? []).length > 0,
+  );
   if (offerings.length === 0) {
     return json({ error: "Select at least one term for this course." }, 400);
   }
@@ -780,7 +749,7 @@ async function saveCourseOfferings(
   const ownedCourseIds = await schoolCourseIds(supabase, schoolId);
   const existingRows = (payload.existingRows ?? []).filter(
     (row): row is { courseId: string; schedule?: ClassTime[] } =>
-      isUuid(row.courseId) && ownedCourseIds.has(row.courseId),
+      typeof row.courseId === "string" && ownedCourseIds.has(row.courseId),
   );
   for (const offering of offerings) {
     if (offering.courseId && !ownedCourseIds.has(offering.courseId)) {
@@ -801,7 +770,7 @@ async function saveCourseOfferings(
   const keptIds = new Set<string>();
 
   for (const offering of offerings) {
-    const times = offering.times;
+    const times = offering.times ?? [];
 
     if (offering.courseId) {
       keptIds.add(offering.courseId);
@@ -814,7 +783,7 @@ async function saveCourseOfferings(
 
       const { error } = await supabase
         .from("courses")
-        .update({ ...fields, term_options: offering.termOptions })
+        .update({ ...fields, term_options: offering.termOptions ?? [] })
         .eq("id", offering.courseId)
         .eq("school_id", schoolId);
       if (error) throw error;
@@ -825,7 +794,7 @@ async function saveCourseOfferings(
         // `term` is a legacy NOT NULL column; write an empty string so inserts
         // succeed while term data lives entirely in `term_options`.
         term: "",
-        term_options: offering.termOptions,
+        term_options: offering.termOptions ?? [],
         // Brand-new rows have no roster, so a direct schedule write is safe.
         schedule: toScheduleArray(times.map((t) => t.value)),
       });
@@ -860,7 +829,7 @@ async function deleteCourse(
   schoolId: string,
   payload: Payload,
 ): Promise<Response> {
-  const courseId = isUuid(payload.courseId) ? payload.courseId : "";
+  const courseId = text(payload.courseId);
   if (!courseId) return json({ error: "Missing course." }, 400);
 
   const ownedCourseIds = await schoolCourseIds(supabase, schoolId);

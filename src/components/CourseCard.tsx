@@ -477,7 +477,6 @@ function CourseCard({
                     onChange={(e) => onNoteChange(e.target.value)}
                     placeholder="Add a personal note about this course..."
                     rows={3}
-                    maxLength={5000}
                     className="mt-2 w-full resize-y rounded-xl border bg-surface p-4 text-base leading-6 text-ink-secondary placeholder:text-ink-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                     style={{
                       borderColor: subject.color,
