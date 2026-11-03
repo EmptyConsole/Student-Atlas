@@ -646,6 +646,7 @@ function ProfileContent({
                     }}
                     placeholder="you@school.edu"
                     className={inputClass}
+                    maxLength={254}
                     autoFocus
                   />
                 </div>
@@ -718,6 +719,7 @@ function ProfileContent({
                       onChange={(e) => onChange({ name: e.target.value })}
                       placeholder="Your name"
                       className={inputClass}
+                      maxLength={200}
                     />
                   </div>
 
@@ -732,6 +734,7 @@ function ProfileContent({
                       onChange={(e) => onChange({ email: e.target.value })}
                       placeholder="you@school.edu"
                       className={`${inputClass} ${googleEmail ? "bg-surface-muted" : ""}`}
+                      maxLength={254}
                     />
                     {allowedEmailDomains.length > 0 && !googleEmail && (
                       <p className="mt-1.5 text-xs font-medium text-ink-muted">

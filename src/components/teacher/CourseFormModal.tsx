@@ -695,6 +695,7 @@ function CourseFormModal({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Intro to Programming"
               className={inputClass}
+              maxLength={200}
               autoFocus
             />
           </div>
@@ -729,6 +730,7 @@ function CourseFormModal({
               rows={2}
               placeholder="One-line summary shown on the course card."
               className={textareaClass}
+              maxLength={500}
             />
           </div>
 
@@ -743,6 +745,7 @@ function CourseFormModal({
               rows={4}
               placeholder="Full description shown when the card is expanded."
               className={textareaClass}
+              maxLength={20000}
             />
           </div>
 
@@ -937,6 +940,7 @@ function CourseFormModal({
               onChange={(e) => setTeacherName(e.target.value)}
               placeholder="e.g. Jane Doe (leave blank if unassigned)"
               className={inputClass}
+              maxLength={200}
             />
           </div>
 
@@ -949,6 +953,7 @@ function CourseFormModal({
               id="course-max-students"
               type="number"
               min={0}
+              max={32767}
               value={maxStudentCountInput}
               onChange={(e) => setMaxStudentCountInput(e.target.value)}
               placeholder="Leave blank if unknown"

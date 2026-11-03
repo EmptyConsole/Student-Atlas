@@ -494,6 +494,7 @@ function RegisterPage({
             placeholder="Optional notes for your teachers..."
             disabled={!profileComplete}
             className={inputClass}
+            maxLength={5000}
           />
         </section>
 

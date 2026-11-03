@@ -164,6 +164,7 @@ function RequirementBuilder({
                       }
                     }}
                     placeholder="or free text…"
+                    maxLength={200}
                     className="h-9 min-w-0 flex-1 rounded-lg border border-main-300 bg-surface px-3 text-sm leading-5 text-ink-secondary placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                   />
                   <button

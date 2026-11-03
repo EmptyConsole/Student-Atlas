@@ -12,13 +12,20 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import {
+  isGrade,
+  isUuid,
+  isValidEmail,
+  longText,
+  MAX_LIST_LENGTH,
+  MAX_NAME_LENGTH,
+  MAX_NOTE_LENGTH,
+  normalizeEmail,
+  text,
+} from "./sanitize";
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const FROM_ADDRESS = "Student Atlas <noreply@emptyconsole.com>";
-
-const MAX_NAME_LENGTH = 200;
-const MAX_NOTE_LENGTH = 5000;
-const MAX_LIST_LENGTH = 500;
 
 type Payload = {
   action?: string;
@@ -148,13 +155,6 @@ function emailFromProof(proof: unknown, purpose: string): string | null {
 // Input helpers
 // ---------------------------------------------------------------------------
 
-function isUuid(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
-  );
-}
-
 function domainsOf(school: { google_domains?: unknown } | null | undefined): string[] {
   const d = school?.google_domains;
   return Array.isArray(d) ? d.filter((x): x is string => typeof x === "string") : [];
@@ -168,14 +168,6 @@ function emailDomainMatches(email: string, allowedDomains: string[]): boolean {
     const norm = d.toLowerCase().replace(/^@/, "").trim();
     return norm.length > 0 && (emailDomain === norm || emailDomain.endsWith("." + norm));
   });
-}
-
-function text(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
 }
 
 /**
@@ -193,10 +185,6 @@ function escapeLike(value: string): string {
 /** True when an address carries a wildcard `escapeLike` cannot neutralize. */
 function hasLikeWildcard(value: string): boolean {
   return value.includes("*");
-}
-
-function isGrade(value: unknown): value is number {
-  return Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 12;
 }
 
 /** "default" means follow the device's color scheme. */
@@ -398,7 +386,7 @@ async function createStudent(supabase: Supabase, payload: Payload): Promise<Resp
     return json({ error: "Your email verification expired. Verify your email again." }, 401);
   }
 
-  const name = text(payload.name).slice(0, MAX_NAME_LENGTH);
+  const name = text(payload.name, MAX_NAME_LENGTH);
   const schoolId = payload.schoolId;
   if (!name || !isUuid(schoolId) || !isGrade(payload.grade)) {
     return json({ error: "Please select a school and fill in your name, email, and grade." }, 400);
@@ -464,10 +452,10 @@ async function saveProfile(
   student: StudentRow,
   payload: Payload,
 ): Promise<Response> {
-  const name = text(payload.name).slice(0, MAX_NAME_LENGTH);
-  const email = normalizeEmail(text(payload.email));
+  const name = text(payload.name, MAX_NAME_LENGTH);
+  const email = normalizeEmail(payload.email);
   const schoolId = payload.schoolId;
-  if (!name || !email || !isUuid(schoolId) || !isGrade(payload.grade)) {
+  if (!name || !email || !isValidEmail(email) || !isUuid(schoolId) || !isGrade(payload.grade)) {
     return json({ error: "Please select a school and fill in your name, email, and grade." }, 400);
   }
 
@@ -562,8 +550,10 @@ async function replaceCompletedCourses(
   const coreqTitles: string[] = [];
   if (completedCourses && typeof completedCourses === "object") {
     for (const [title, type] of Object.entries(completedCourses as Record<string, unknown>)) {
-      if (type === "prereq") prereqTitles.push(title);
-      else if (type === "coreq") coreqTitles.push(title);
+      const cleaned = text(title, MAX_NAME_LENGTH);
+      if (!cleaned) continue;
+      if (type === "prereq") prereqTitles.push(cleaned);
+      else if (type === "coreq") coreqTitles.push(cleaned);
     }
   }
 
@@ -639,7 +629,7 @@ async function saveNotes(
       : {};
   const trimmed = new Map<string, string>();
   for (const [courseId, note] of Object.entries(notes)) {
-    const value = text(note).slice(0, MAX_NOTE_LENGTH);
+    const value = longText(note, MAX_NOTE_LENGTH);
     if (value) trimmed.set(courseId, value);
   }
   const ids = await existingCourseIds(supabase, [...trimmed.keys()]);
@@ -753,7 +743,7 @@ async function saveSubmissionNote(
   student: StudentRow,
   payload: Payload,
 ): Promise<Response> {
-  const note = text(payload.note).slice(0, MAX_NOTE_LENGTH) || null;
+  const note = longText(payload.note, MAX_NOTE_LENGTH) || null;
 
   const { error: deleteError } = await supabase
     .from("submitted_notes")
@@ -837,7 +827,7 @@ async function sendConfirmation(
     .map((col) => {
       const c = (col ?? {}) as { termName?: unknown; courseIds?: unknown };
       return {
-        termName: text(c.termName).slice(0, 100) || "Term",
+        termName: text(c.termName, 100) || "Term",
         courseIds: Array.isArray(c.courseIds) ? c.courseIds.filter(isUuid) : [],
       };
     });
@@ -861,7 +851,7 @@ async function sendConfirmation(
         .map((id) => titleById.get(id))
         .filter((t): t is string => Boolean(t)),
     })),
-    text(payload.note).slice(0, MAX_NOTE_LENGTH) || null,
+    longText(payload.note, MAX_NOTE_LENGTH) || null,
   );
 
   const resend = new Resend(resendApiKey);

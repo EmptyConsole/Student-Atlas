@@ -9,6 +9,7 @@
 
 import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { createClient } from "@supabase/supabase-js";
+import { isValidEmail, normalizeEmail } from "./sanitize";
 
 const MAX_ATTEMPTS = 5;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -27,23 +28,6 @@ function json(body: unknown, status: number): Response {
     status,
     headers: { "Content-Type": "application/json" },
   });
-}
-
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
-
-/**
- * Standard shape check, minus `*`. PostgREST rewrites every `*` in a `like` /
- * `ilike` value to `%` before the pattern reaches Postgres, and it does so with
- * a blind character map — `\*` becomes `\%` — so a literal `*` can only be
- * refused, never escaped. Refusing it here also keeps a wildcard out of the
- * email proofs this endpoint mints for /api/student. `%` and `_` are legal in
- * an address, so those are escaped instead (see `escapeLike`).
- */
-function isValidEmail(email: string): boolean {
-  if (email.includes("*")) return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 function isPurpose(value: unknown): value is EmailVerificationPurpose {
@@ -145,7 +129,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   const purpose = payload.purpose;
 
-  const email = normalizeEmail(payload.email ?? "");
+  const email = normalizeEmail(payload.email);
   if (!email || !isValidEmail(email)) {
     return json({ error: "Please enter a valid email." }, 400);
   }

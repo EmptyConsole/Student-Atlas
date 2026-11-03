@@ -10,6 +10,7 @@
 import { createHmac } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { OAuth2Client, type TokenPayload } from "google-auth-library";
+import { isUuid, isValidEmail, normalizeEmail, text } from "./sanitize";
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const PROOF_TTL_MS = 10 * 60 * 1000;
@@ -33,19 +34,6 @@ function json(body: unknown, status: number): Response {
 
 function isPurpose(value: unknown): value is Purpose {
   return value === "login" || value === "signup";
-}
-
-function isUuid(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
-  );
-}
-
-/** Same shape check as api/verify-email-code.ts, which explains the `*` refusal. */
-function isValidEmail(email: string): boolean {
-  if (email.includes("*")) return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 /** Escapes `%`, `_`, and `\` so an email can be matched exactly with ILIKE. */
@@ -151,7 +139,7 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
   const hostedDomain = google.hd.toLowerCase();
-  const email = google.email.trim().toLowerCase();
+  const email = normalizeEmail(google.email);
   if (!isValidEmail(email)) {
     return json({ error: "Google sign-in failed. Please try again." }, 400);
   }
@@ -226,5 +214,5 @@ export async function POST(request: Request): Promise<Response> {
     email,
     exp: Date.now() + PROOF_TTL_MS,
   });
-  return json({ ok: true, proof, email, name: google.name ?? "" }, 200);
+  return json({ ok: true, proof, email, name: text(google.name ?? "") }, 200);
 }

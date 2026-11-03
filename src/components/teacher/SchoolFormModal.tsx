@@ -421,6 +421,7 @@ function SchoolFormModal({
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Riverside High School"
             className={inputClass}
+            maxLength={200}
             autoFocus
           />
         </div>
@@ -436,6 +437,7 @@ function SchoolFormModal({
             onChange={(e) => setWebsite(e.target.value)}
             placeholder="https://…"
             className={inputClass}
+            maxLength={300}
           />
         </div>
 
@@ -450,6 +452,7 @@ function SchoolFormModal({
               value={city}
               onChange={(e) => setCity(e.target.value)}
               className={inputClass}
+              maxLength={200}
             />
           </div>
           <div className="sm:w-32">
@@ -462,6 +465,7 @@ function SchoolFormModal({
               value={stateField}
               onChange={(e) => setStateField(e.target.value)}
               className={inputClass}
+              maxLength={100}
             />
           </div>
         </div>
@@ -503,6 +507,7 @@ function SchoolFormModal({
             onChange={(e) => setGoogleDomains(e.target.value)}
             placeholder="e.g. myschool.org, students.myschool.org"
             className={`${inputClass} ${invalidDomain ? "border-red-400" : ""}`}
+            maxLength={500}
           />
           {invalidDomain ? (
             <p className="mt-1.5 text-xs font-medium text-red-600">
@@ -633,6 +638,7 @@ function SchoolFormModal({
                     onChange={(e) => updateTermName(term.key, e.target.value)}
                     placeholder={`Term ${index + 1}`}
                     className={`${inputClass} flex-1`}
+                    maxLength={200}
                   />
                   <button
                     type="button"
